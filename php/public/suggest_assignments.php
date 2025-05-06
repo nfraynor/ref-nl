@@ -3,6 +3,8 @@ require_once __DIR__ . '/../utils/db.php';
 
 $pdo = Database::getConnection();
 
+$testingMode = true;
+
 // Load referees
 $referees = $pdo->query("SELECT uuid, grade FROM referees ORDER BY grade DESC")->fetchAll(PDO::FETCH_ASSOC);
 
@@ -19,100 +21,133 @@ $matches = $pdo->query("
     ORDER BY m.match_date ASC, m.kickoff_time ASC
 ")->fetchAll(PDO::FETCH_ASSOC);
 
-$existingAssignments = $pdo->query("
-    SELECT uuid AS match_id, referee_id, ar1_id, ar2_id FROM matches 
-    WHERE referee_id IS NOT NULL OR ar1_id IS NOT NULL OR ar2_id IS NOT NULL
-")->fetchAll(PDO::FETCH_ASSOC);
-$existingAssignments =[];
+// Load existing assignments (unless testing)
+if ($testingMode) {
+    $existingAssignments = [];
+} else {
+    $existingAssignments = $pdo->query("
+        SELECT uuid AS match_id, referee_id, ar1_id, ar2_id FROM matches
+    ")->fetchAll(PDO::FETCH_ASSOC);
+}
+
 $assignedReferees = [];
 
 foreach ($existingAssignments as $assignment) {
     foreach (['referee_id', 'ar1_id', 'ar2_id'] as $role) {
-        if (!empty($assignment[$role])) {
-            if (!isset($assignedReferees[$assignment[$role]])) {
-                $assignedReferees[$assignment[$role]] = 0;
-            }
-            $assignedReferees[$assignment[$role]]++;
+        $refId = $assignment[$role];
+        if (!$refId) continue;
+
+        if (!isset($assignedReferees[$refId])) {
+            $assignedReferees[$refId] = 0;
         }
+        $assignedReferees[$refId]++;
     }
 }
 
+function canAssign($refId, $matchId, $matchDate, $kickoffTime, $locationLat, $locationLon, $suggestions, $matches, $currentRole) {
 
-$suggestions = [];
+    $rolesInMatch = ['referee_id', 'ar1_id', 'ar2_id'];
 
-// Helper to check if referee already assigned at this location/date
-function isAvailable($suggestions, $refereeId, $matchDate, $locationLat, $locationLon, $role, $matches) {
+    foreach ($rolesInMatch as $role) {
+        if ($role === $currentRole) continue;
+        if (!empty($suggestions[$matchId][$role]) && $suggestions[$matchId][$role] === $refId) {
+            return false;
+        }
+    }
 
-    foreach ($suggestions as $matchId => $assigned) {
+    foreach ($suggestions as $otherMatchId => $assigned) {
+        foreach ($rolesInMatch as $role) {
+            if (empty($assigned[$role]) || $assigned[$role] !== $refId) continue;
 
-        if ($assigned[$role] !== $refereeId) continue;
+            foreach ($matches as $match) {
+                if ($match['uuid'] !== $otherMatchId) continue;
+                if ($match['match_date'] !== $matchDate) continue;
 
-        // Find match details
-        foreach ($matches as $match) {
-            if ($match['uuid'] !== $matchId) continue;
-
-            // Same day?
-            if ($match['match_date'] === $matchDate) {
-                // Same location → allowed
                 if ($match['location_lat'] == $locationLat && $match['location_lon'] == $locationLon) {
-                    return true;
+                    continue;
                 } else {
-                    return false; // Same day but different location → not allowed
+                    return false;
                 }
             }
         }
     }
 
-    return true; // No conflict
+    return true;
 }
 
-// FIRST PASS → assign REFEREE
+// Group matches by date
+$matchesByDate = [];
+
+foreach ($matches as $match) {
+    $matchesByDate[$match['match_date']][] = $match;
+}
+
+$suggestions = [];
+
 foreach ($matches as $match) {
     $suggestions[$match['uuid']] = [
         'referee_id' => null,
         'ar1_id' => null,
         'ar2_id' => null
     ];
-
-    foreach ($referees as $ref) {
-        $refId = $ref['uuid'];
-        $assignedCount = $assignedReferees[$refId] ?? 0;
-
-        if ($assignedCount > 0) continue; // Priority to referees with no games yet
-
-        if (!isAvailable($suggestions, $refId, $match['match_date'], $match['location_lat'], $match['location_lon'], 'referee_id', $matches)) continue;
-
-        $suggestions[$match['uuid']]['referee_id'] = $refId;
-        $assignedReferees[$refId] = ($assignedReferees[$refId] ?? 0) + 1;
-        break;
-    }
 }
 
-// SECOND PASS → assign AR1 / AR2
-foreach ($matches as $match) {
-    foreach (['ar1_id', 'ar2_id'] as $role) {
+// Process day by day
+foreach ($matchesByDate as $date => $dayMatches) {
+
+    usort($dayMatches, function($a, $b) {
+        return strcmp($a['division'], $b['division']);
+    });
+
+    // REFEREE FIRST
+    foreach ($dayMatches as $match) {
 
         foreach ($referees as $ref) {
             $refId = $ref['uuid'];
+            $assignedCount = $assignedReferees[$refId] ?? 0;
 
-            // ✅ Check if already assigned to REFEREE or AR1 in this match
-            $alreadyAssigned = [];
+            if (!$testingMode && $assignedCount > 0) continue;
 
-            if ($suggestions[$match['uuid']]['referee_id']) {
-                $alreadyAssigned[] = $suggestions[$match['uuid']]['referee_id'];
-            }
-            if ($suggestions[$match['uuid']]['ar1_id'] && $role === 'ar2_id') {
-                $alreadyAssigned[] = $suggestions[$match['uuid']]['ar1_id'];
-            }
+            if (!canAssign($refId, $match['uuid'], $match['match_date'], $match['kickoff_time'], $match['location_lat'], $match['location_lon'], $suggestions, $matches, 'referee_id')) continue;
 
-            if (in_array($refId, $alreadyAssigned)) continue;
+            $suggestions[$match['uuid']]['referee_id'] = $refId;
+            $assignedReferees[$refId] = ($assignedReferees[$refId] ?? 0) + 1;
+            break;
+        }
+    }
 
-            $suggestions[$match['uuid']][$role] = $refId;
+    // AR1 + AR2 TOGETHER per match
+    foreach ($dayMatches as $match) {
+
+        // AR1
+        foreach ($referees as $ref) {
+            $refId = $ref['uuid'];
+            $assignedCount = $assignedReferees[$refId] ?? 0;
+
+            if (!$testingMode && $assignedCount > 0) continue;
+
+            if (!canAssign($refId, $match['uuid'], $match['match_date'], $match['kickoff_time'], $match['location_lat'], $match['location_lon'], $suggestions, $matches, 'ar1_id')) continue;
+
+            $suggestions[$match['uuid']]['ar1_id'] = $refId;
+            $assignedReferees[$refId] = ($assignedReferees[$refId] ?? 0) + 1;
+            break;
+        }
+
+        // AR2
+        foreach ($referees as $ref) {
+            $refId = $ref['uuid'];
+            $assignedCount = $assignedReferees[$refId] ?? 0;
+
+            if (!$testingMode && $assignedCount > 0) continue;
+
+            if (!canAssign($refId, $match['uuid'], $match['match_date'], $match['kickoff_time'], $match['location_lat'], $match['location_lon'], $suggestions, $matches, 'ar2_id')) continue;
+
+            $suggestions[$match['uuid']]['ar2_id'] = $refId;
+            $assignedReferees[$refId] = ($assignedReferees[$refId] ?? 0) + 1;
             break;
         }
     }
 }
 
-
 header('Content-Type: application/json');
-echo json_encode($suggestions);
+echo json_encode($suggestions, JSON_PRETTY_PRINT);

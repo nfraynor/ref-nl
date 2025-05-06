@@ -96,11 +96,20 @@ function getRefName($referees, $uuid) {
 <?php if ($assignMode): ?>
     <a href="matches.php" class="btn btn-sm btn-secondary mb-3">Disable Assign Mode</a>
     <button type="button" id="suggestAssignments" class="btn btn-sm btn-info mb-3">Suggest Assignments</button>
+    <button type="button" id="clearAssignments" class="btn btn-sm btn-danger mb-3">Clear Assignments</button>
 <?php else: ?>
     <a href="matches.php?assign_mode=1" class="btn btn-sm btn-warning mb-3">Enable Assign Mode</a>
 <?php endif; ?>
-
-
+<script>
+    document.getElementById('clearAssignments')?.addEventListener('click', () => {
+        document.querySelectorAll('select').forEach(select => {
+            select.value = "";
+            // Trigger change so conflict coloring resets
+            const event = new Event('change', { bubbles: true });
+            select.dispatchEvent(event);
+        });
+    });
+</script>
 
 <form method="POST" action="bulk_assign.php">
     <?php if ($assignMode): ?>

@@ -63,8 +63,9 @@ This document outlines the smart assignment logic for referee scheduling. These 
 **Summary of Assignment Flow:**
 
 1. Sort referees by grade (high to low).
-2. Assign `REFEREE` roles first across all matches.
+2. Assign `REFEREE` roles first across all matches, with best grade to highest division first. 
 3. Assign `AR1` and `AR2` roles only after all `REFEREE` slots are filled.
-4. Ensure referees get one match before assigning a second.
-5. For same-day matches, only assign a second if location matches.
-6. If no suitable referee exists, leave the slot blank.
+4. Assign ARs for highest division games first, then work down.
+5. Ensure referees get one match before assigning a second.
+6. For same-day matches, only assign a second if location matches.
+7. If no suitable referee exists, leave the slot blank.
