@@ -84,6 +84,24 @@ for ($i = 1; $i <= 20; $i++) {
         $awayTeam = $teams[array_rand($teams)];
     }
 
+    // Generate random Saturday or Sunday within next 3 weeks
+    $startDate = strtotime("next Saturday");
+    $endDate = strtotime("+3 weeks", $startDate);
+    $randomDate = rand($startDate, $endDate);
+
+// Ensure it's Saturday or Sunday
+    $dayOfWeek = date('N', $randomDate); // 6 = Saturday, 7 = Sunday
+    if ($dayOfWeek != 6 && $dayOfWeek != 7) {
+        // Force to Saturday
+        $randomDate = strtotime("last Saturday", $randomDate);
+    }
+
+    $match_date = date('Y-m-d', $randomDate);
+
+// Select random kickoff time
+    $kickoff_times = ['11:30:00', '13:00:00', '14:30:00', '16:00:00', '17:30:00'];
+    $kickoff_time = $kickoff_times[array_rand($kickoff_times)];
+
     $match = [
         'uuid' => uuid(),
         'home_team_id' => $homeTeam['uuid'],
@@ -93,12 +111,13 @@ for ($i = 1; $i <= 20; $i++) {
         'location_address' => 'Random Pitch Location ' . $i,
         'division' => $homeTeam['division'],
         'expected_grade' => $grades[array_rand($grades)],
+        'match_date' => $match_date,
+        'kickoff_time' => $kickoff_time,
     ];
 
-    $matches[] = $match;
+    $stmt = $pdo->prepare("INSERT IGNORE INTO matches (uuid, home_team_id, away_team_id, location_lat, location_lon, location_address, division, expected_grade, match_date, kickoff_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+    $stmt->execute([$match['uuid'], $match['home_team_id'], $match['away_team_id'], $match['location_lat'], $match['location_lon'], $match['location_address'], $match['division'], $match['expected_grade'], $match['match_date'], $match['kickoff_time']]);
 
-    $stmt = $pdo->prepare("INSERT IGNORE INTO matches (uuid, home_team_id, away_team_id, location_lat, location_lon, location_address, division, expected_grade) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
-    $stmt->execute([$match['uuid'], $match['home_team_id'], $match['away_team_id'], $match['location_lat'], $match['location_lon'], $match['location_address'], $match['division'], $match['expected_grade']]);
 }
 
 echo "Matches seeded.\n";

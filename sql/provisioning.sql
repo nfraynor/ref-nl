@@ -31,30 +31,29 @@ CREATE TABLE IF NOT EXISTS referees (
                                         FOREIGN KEY (home_club_id) REFERENCES clubs(uuid)
 );
 -- Matches
-CREATE TABLE IF NOT EXISTS matches (
-                                       uuid CHAR(36) PRIMARY KEY,
-                                       home_team_id CHAR(36),
-                                       away_team_id CHAR(36),
-                                       location_lat DECIMAL(10, 7),
-                                       location_lon DECIMAL(10, 7),
-                                       location_address VARCHAR(255),
-                                       division VARCHAR(100),
-                                       expected_grade VARCHAR(50),
-                                       FOREIGN KEY (home_team_id) REFERENCES teams(uuid),
-                                       FOREIGN KEY (away_team_id) REFERENCES teams(uuid)
+CREATE TABLE matches (
+                         uuid CHAR(36) PRIMARY KEY,
+                         home_team_id CHAR(36),
+                         away_team_id CHAR(36),
+                         location_lat DECIMAL(10, 7),
+                         location_lon DECIMAL(10, 7),
+                         location_address VARCHAR(255),
+                         division VARCHAR(100),
+                         expected_grade VARCHAR(50),
+                         match_date DATE,
+                         kickoff_time TIME,
+                         referee_id CHAR(36),
+                         ar1_id CHAR(36),
+                         ar2_id CHAR(36),
+                         commissioner_id CHAR(36),
+                         FOREIGN KEY (home_team_id) REFERENCES teams(uuid),
+                         FOREIGN KEY (away_team_id) REFERENCES teams(uuid),
+                         FOREIGN KEY (referee_id) REFERENCES referees(uuid),
+                         FOREIGN KEY (ar1_id) REFERENCES referees(uuid),
+                         FOREIGN KEY (ar2_id) REFERENCES referees(uuid),
+                         FOREIGN KEY (commissioner_id) REFERENCES referees(uuid)
 );
 
--- Assignments
-CREATE TABLE IF NOT EXISTS assignments (
-                                           uuid CHAR(36) PRIMARY KEY,
-                                           match_id CHAR(36),
-                                           referee_id CHAR(36),
-                                           role VARCHAR(50),
-                                           proposed BOOLEAN,
-                                           assigned_on DATETIME,
-                                           FOREIGN KEY (match_id) REFERENCES matches(uuid),
-                                           FOREIGN KEY (referee_id) REFERENCES referees(uuid)
-);
 
 -- Referee Travel Log
 CREATE TABLE IF NOT EXISTS referee_travel_log (
