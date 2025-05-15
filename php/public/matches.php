@@ -47,7 +47,7 @@ function checkConflict($matches, $refId, $thisMatchId, $matchDate, $kickoffTime)
         foreach (['referee_id', 'ar1_id', 'ar2_id', 'commissioner_id'] as $role) {
             if ($match[$role] == $refId) {
 
-                // 🟥 Same match: double role
+                // 🟥 Same match: multiple roles
                 if ($sameMatch) {
                     $refCount = 0;
                     foreach (['referee_id', 'ar1_id', 'ar2_id', 'commissioner_id'] as $checkRole) {
@@ -58,25 +58,23 @@ function checkConflict($matches, $refId, $thisMatchId, $matchDate, $kickoffTime)
                 }
 
                 $otherDate = new DateTime($match['match_date']);
-                $intervalDays = (int)$currentDate->diff($otherDate)->format('%r%a');
+                $daysBetween = (int)$currentDate->diff($otherDate)->format('%r%a');
 
-                // 🟥 Same day: check overlap
-                if ($intervalDays === 0) {
+                // 🟥 Same day: check time overlap
+                if ($daysBetween === 0) {
                     $otherStart = strtotime("1970-01-01T" . $match['kickoff_time']);
                     $otherEnd = $otherStart + (90 * 60);
 
                     if ($currentStart < $otherEnd && $otherStart < $currentEnd) {
                         return 'red';
                     } else {
-                        $conflictType = $conflictType !== 'red' ? 'orange' : 'red';
+                        $conflictType = 'orange';
                     }
                 }
 
-                // 🟡 Within 2 days before
-                elseif ($intervalDays > 0 && $intervalDays <= 2) {
-                    if ($conflictType !== 'red' && $conflictType !== 'orange') {
-                        $conflictType = 'yellow';
-                    }
+                // 🟡 Within ±2 days
+                elseif (abs($daysBetween) <= 2) {
+                    if (!$conflictType) $conflictType = 'yellow';
                 }
             }
         }
@@ -84,8 +82,6 @@ function checkConflict($matches, $refId, $thisMatchId, $matchDate, $kickoffTime)
 
     return $conflictType;
 }
-
-
 
 function getRefName($referees, $uuid) {
     foreach ($referees as $ref) {
