@@ -1,7 +1,7 @@
 <?php
-require_once __DIR__ . '/../utils/db.php';
-include 'includes/header.php';
-include 'includes/nav.php';
+require_once __DIR__ . '/../../utils/db.php';
+include '../includes/header.php';
+include '../includes/nav.php';
 
 $pdo = Database::getConnection();
 
@@ -39,8 +39,16 @@ $referees = $pdo->query("
     <tbody>
     <?php foreach ($referees as $ref): ?>
         <tr>
-            <td><?= htmlspecialchars($ref['referee_id']) ?></td>
-            <td><?= htmlspecialchars($ref['first_name'] . ' ' . $ref['last_name']) ?></td>
+            <td>
+                <a href="referee_detail.php?id=<?= urlencode($ref['referee_id']) ?>">
+                    <?= htmlspecialchars($ref['referee_id']) ?>
+                </a>
+            </td>
+            <td>
+                <a href="referee_detail.php?id=<?= urlencode($ref['referee_id']) ?>">
+                    <?= htmlspecialchars($ref['first_name'] . ' ' . $ref['last_name']) ?>
+                </a>
+            </td>
             <td><?= htmlspecialchars($ref['email']) ?></td>
             <td><?= htmlspecialchars($ref['phone']) ?></td>
             <td><?= htmlspecialchars($ref['home_club_name']) ?></td>
@@ -51,4 +59,4 @@ $referees = $pdo->query("
     </tbody>
 </table>
 
-<?php include 'includes/footer.php'; ?>
+<?php include '../includes/footer.php'; ?>
