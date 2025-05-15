@@ -106,29 +106,43 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
-            select.style.backgroundColor = '';
-            select.style.color = '';
+            const $select = $(select);
+            const $container = $select.next('.select2-container').find('.select2-selection');
+
+            $container.css({
+                backgroundColor: '',
+                color: ''
+            });
 
             if (conflict === 'yellow') {
-                select.style.backgroundColor = 'yellow';
-                select.style.color = 'black';
+                $container.css({ backgroundColor: 'yellow', color: 'black' });
             }
             if (conflict === 'orange') {
-                select.style.backgroundColor = 'orange';
-                select.style.color = 'black';
+                $container.css({ backgroundColor: 'orange', color: 'black' });
             }
             if (conflict === 'red') {
-                select.style.backgroundColor = 'red';
-                select.style.color = 'white';
+                $container.css({ backgroundColor: 'red', color: 'white' });
             }
         });
+        console.log("Conflict check finished");
+
     }
 
     // Setup event listeners
     document.querySelectorAll('select').forEach(select => {
-        select.addEventListener('change', refreshConflicts);
+        $('.referee-select').on('change', refreshConflicts);
     });
 
-    // Initial run
-    refreshConflicts();
+    function safeRefreshConflicts(attempts = 10) {
+        if ($('.select2-selection').length > 0) {
+            refreshConflicts();
+        } else if (attempts > 0) {
+            setTimeout(() => safeRefreshConflicts(attempts - 1), 5);
+        }
+    }
+
+// Call it
+    safeRefreshConflicts();
+
+
 });

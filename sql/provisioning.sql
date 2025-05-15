@@ -30,8 +30,34 @@ CREATE TABLE IF NOT EXISTS referees (
                                         grade VARCHAR(50),
                                         FOREIGN KEY (home_club_id) REFERENCES clubs(uuid)
 );
+
+-- Ref Availability
+CREATE TABLE IF NOT EXISTS referee_weekly_availability (
+                                                           uuid CHAR(36) PRIMARY KEY,
+                                                           referee_id CHAR(36) NOT NULL,
+                                                           weekday SMALLINT NOT NULL, -- 0 = Sunday, 6 = Saturday
+                                                           morning_available BOOLEAN DEFAULT FALSE,
+                                                           afternoon_available BOOLEAN DEFAULT FALSE,
+                                                           evening_available BOOLEAN DEFAULT FALSE,
+                                                           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+                                                           FOREIGN KEY (referee_id) REFERENCES referees(uuid)
+);
+
+CREATE TABLE IF NOT EXISTS referee_unavailability (
+                                                      uuid CHAR(36) PRIMARY KEY,
+                                                      referee_id CHAR(36) NOT NULL,
+                                                      start_date DATE NOT NULL,
+                                                      end_date DATE NOT NULL,
+                                                      reason TEXT,
+                                                      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                                                      created_by CHAR(36), -- optionally track who blocked it
+
+                                                      FOREIGN KEY (referee_id) REFERENCES referees(uuid)
+);
+
 -- Matches
-CREATE TABLE matches (
+CREATE TABLE IF NOT EXISTS matches (
                          uuid CHAR(36) PRIMARY KEY,
                          home_team_id CHAR(36),
                          away_team_id CHAR(36),

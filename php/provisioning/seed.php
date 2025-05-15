@@ -45,7 +45,7 @@ foreach ($clubs as $club) {
 echo "Teams seeded.\n";
 
 // ----- Referees -----
-$grades = ['Level 1', 'Level 2', 'Level 3', 'Level 4'];
+$grades = ['A', 'B', 'C', 'D', 'E'];
 
 $referees = [];
 $referee_names = ['Alice', 'Bob', 'Charlie', 'Diana', 'Edward', 'Fiona', 'George', 'Hannah', 'Isaac', 'Julia'];
