@@ -7,6 +7,10 @@ include 'components/referee_dropdown.php';
 $assignMode = isset($_GET['assign_mode']);
 $pdo = Database::getConnection();
 
+function buildQueryString(array $overrides = []): string {
+    return http_build_query(array_merge($_GET, $overrides));
+}
+
 $referees = $pdo->query("
     SELECT 
         uuid, 
@@ -18,7 +22,31 @@ $referees = $pdo->query("
 ")->fetchAll();
 
 // Fetch matches
-$matches = $pdo->query("
+// Build dynamic SQL with optional date filters
+$whereClauses = [];
+$params = [];
+
+if (!empty($_GET['start_date'])) {
+    $whereClauses[] = "m.match_date >= ?";
+    $params[] = $_GET['start_date'];
+}
+
+if (!empty($_GET['end_date'])) {
+    $whereClauses[] = "m.match_date <= ?";
+    $params[] = $_GET['end_date'];
+}
+if (!empty($_GET['division']) && is_array($_GET['division'])) {
+    $placeholders = implode(',', array_fill(0, count($_GET['division']), '?'));
+    $whereClauses[] = "m.division IN ($placeholders)";
+    foreach ($_GET['division'] as $div) {
+        $params[] = $div;
+    }
+}
+
+
+$whereSQL = count($whereClauses) ? 'WHERE ' . implode(' AND ', $whereClauses) : '';
+
+$sql = "
     SELECT 
         m.*,
         hc.club_name AS home_club_name,
@@ -30,8 +58,15 @@ $matches = $pdo->query("
     JOIN clubs hc ON ht.club_id = hc.uuid
     JOIN teams at ON m.away_team_id = at.uuid
     JOIN clubs ac ON at.club_id = ac.uuid
+    $whereSQL
     ORDER BY m.match_date ASC, m.kickoff_time ASC
-")->fetchAll();
+    LIMIT 100
+";
+
+$stmt = $pdo->prepare($sql);
+$stmt->execute($params);
+$matches = $stmt->fetchAll();
+
 
 // Conflict checker
 function checkConflict($matches, $refId, $thisMatchId, $matchDate, $kickoffTime) {
@@ -98,24 +133,13 @@ function getRefName($referees, $uuid) {
 <?php endif; ?>
 
 <?php if ($assignMode): ?>
-    <a href="matches.php" class="btn btn-sm btn-secondary mb-3">Disable Assign Mode</a>
+    <a href="matches.php?<?= buildQueryString(['assign_mode' => null]) ?>" class="btn btn-sm btn-secondary mb-3">Disable Assign Mode</a>
     <button type="button" id="suggestAssignments" class="btn btn-sm btn-info mb-3">Suggest Assignments</button>
     <button type="button" id="clearAssignments" class="btn btn-sm btn-danger mb-3">Clear Assignments</button>
 <?php else: ?>
-    <a href="matches.php?assign_mode=1" class="btn btn-sm btn-warning mb-3">Enable Assign Mode</a>
+    <a href="matches.php?<?= buildQueryString(['assign_mode' => 1]) ?>" class="btn btn-sm btn-warning mb-3">Enable Assign Mode</a>
 <?php endif; ?>
-<script>
-    document.getElementById('clearAssignments')?.addEventListener('click', () => {
-        document.querySelectorAll('select').forEach(select => {
-            select.value = "";
-            // Trigger change so conflict coloring resets
-            const event = new Event('change', { bubbles: true });
-            select.dispatchEvent(event);
-        });
-    });
-</script>
 
-<form method="POST" action="bulk_assign.php">
     <?php if ($assignMode): ?>
         <button type="submit" class="btn btn-success">Save Assignments</button>
     <?php endif; ?>
@@ -123,18 +147,43 @@ function getRefName($referees, $uuid) {
     <table class="table table-bordered">
         <thead>
         <tr>
-            <th>Date</th>
+            <th style="position: relative;">
+                Date
+                <div class="d-flex flex-column mt-1">
+                    <div class="d-flex flex-column gap-1 mt-1">
+                        <input type="date" class="form-control form-control-sm" id="ajaxStartDate" value="<?= htmlspecialchars($_GET['start_date'] ?? '') ?>">
+                        <input type="date" class="form-control form-control-sm" id="ajaxEndDate" value="<?= htmlspecialchars($_GET['end_date'] ?? '') ?>">
+                    </div>
+                </div>
+            </th>
+            <form method="POST" action="bulk_assign.php">
+
             <th>Kickoff</th>
             <th>Home Team</th>
             <th>Away Team</th>
-            <th>Division</th>
+                <th style="position: relative;">
+                    Division
+                    <button type="button" class="btn btn-sm btn-outline-secondary ms-1" id="divisionFilterToggle">
+                        <i class="bi bi-filter"></i>
+                    </button>
+
+                    <div id="divisionFilterBox" style="display: none; position: absolute; background: #fff; padding: 10px; border: 1px solid #ccc; z-index: 1000;" class="shadow rounded">
+                        <div id="divisionFilterOptions" class="d-flex flex-column gap-1" style="max-height: 200px; overflow-y: auto;">
+                            <!-- checkboxes will load here via AJAX -->
+                        </div>
+                        <button type="button" id="clearDivisionFilter" class="btn btn-sm btn-light mt-2">Clear</button>
+                    </div>
+                </th>
+
+                <th>District</th>
+            <th>Poule</th>
             <th>Referee</th>
             <th>AR1</th>
             <th>AR2</th>
             <th>Commissioner</th>
         </tr>
         </thead>
-        <tbody>
+        <tbody id="matchesTableBody">
         <?php foreach ($matches as $match): ?>
             <tr>
                 <td><?= htmlspecialchars($match['match_date']) ?></td>
@@ -142,6 +191,8 @@ function getRefName($referees, $uuid) {
                 <td><?= htmlspecialchars($match['home_club_name'] . " - " . $match['home_team_name']) ?></td>
                 <td><?= htmlspecialchars($match['away_club_name'] . " - " . $match['away_team_name']) ?></td>
                 <td><?= htmlspecialchars($match['division']) ?></td>
+                <td><?= htmlspecialchars($match['district']) ?></td>
+                <td><?= htmlspecialchars($match['poule']) ?></td>
                 <td><?php renderRefereeDropdown("referee_id", $match, $referees, $assignMode, $matches); ?></td>
                 <td><?php renderRefereeDropdown("ar1_id", $match, $referees, $assignMode, $matches); ?></td>
                 <td><?php renderRefereeDropdown("ar2_id", $match, $referees, $assignMode, $matches); ?></td>
@@ -159,29 +210,7 @@ function getRefName($referees, $uuid) {
 <script>
     const existingAssignments = <?= json_encode($matches); ?>;
 </script>
-<script>
-    document.getElementById('suggestAssignments')?.addEventListener('click', () => {
-        fetch('suggest_assignments.php')
-            .then(response => response.json())
-            .then(data => {
-                for (const matchId in data) {
-                    const matchSuggestions = data[matchId];
 
-                    for (const role in matchSuggestions) {
-                        const refId = matchSuggestions[role];
-                        const select = document.querySelector(`select[name="assignments[${matchId}][${role}]"]`);
-
-                        if (select) {
-                            select.value = refId ?? "";
-                            // Trigger change event to refresh conflict colors
-                            const event = new Event('change', { bubbles: true });
-                            select.dispatchEvent(event);
-                        }
-                    }
-                }
-            });
-    });
-</script>
-
+<script src="/js/matches.js"></script>
 <script src="/js/match_conflicts.js"></script>
 <?php include 'includes/footer.php'; ?>

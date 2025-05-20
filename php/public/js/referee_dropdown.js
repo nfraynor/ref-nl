@@ -66,9 +66,10 @@ $(document).ready(function () {
         currentFilters.availability = $('.availability-filter:checked').val();
 
         if (currentSelectEl) {
-            // Close and reopen the current select2 box only
-            $(currentSelectEl).select2('close');
-            $(currentSelectEl).select2('open');
+            const searchInput = $(currentSelectEl).data('select2').dropdown.$search;
+            const term = searchInput.val();
+            searchInput.trigger('input'); // force matcher to re-run
         }
+
     });
 });
