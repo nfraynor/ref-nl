@@ -118,14 +118,22 @@ document.getElementById('clearDivisionFilter')?.addEventListener('click', () => 
     applyDivisionFilter();
 });
 
-// Hide on outside click
 document.addEventListener('click', function (e) {
-    const toggle = document.getElementById('divisionFilterToggle');
-    const box = document.getElementById('divisionFilterBox');
-    if (!box.contains(e.target) && !toggle.contains(e.target)) {
-        box.style.display = 'none';
-    }
+    const filters = [
+        { toggleId: 'divisionFilterToggle', boxId: 'divisionFilterBox' },
+        { toggleId: 'districtFilterToggle', boxId: 'districtFilterBox' },
+        { toggleId: 'pouleFilterToggle', boxId: 'pouleFilterBox' }
+    ];
+
+    filters.forEach(({ toggleId, boxId }) => {
+        const toggle = document.getElementById(toggleId);
+        const box = document.getElementById(boxId);
+        if (box && toggle && !box.contains(e.target) && !toggle.contains(e.target)) {
+            box.style.display = 'none';
+        }
+    });
 });
+
 
 function applyMultiFilter(paramName, checkboxClass) {
     const params = new URLSearchParams(window.location.search);

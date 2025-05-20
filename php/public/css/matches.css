@@ -59,25 +59,61 @@
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
     transition: border 0.2s ease-in-out, box-shadow 0.2s;
 }
+.sticky-assign-button {
+    position: sticky;
+    bottom: 20px;
+    right: 20px;
+    float: right;
+    z-index: 100;
+}
 
 /* Focus effect */
 .select2-container--open .select2-selection--single {
     border-color: #0057ff;
     box-shadow: 0 0 0 3px rgba(0, 87, 255, 0.2);
 }
+.table-responsive-custom {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    max-width: 100%;
+}
 
 .filter-box {
     display: none;
     position: absolute;
-    background: #fff;
-    padding: 10px;
-    border: 1px solid #ccc;
-    z-index: 1000;
-    max-height: 200px;
-    overflow-y: auto;
+    background: #ffffff;
+    padding: 12px;
+    border: 1px solid #bbb;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    border-radius: 8px;
+    z-index: 999;
+    min-width: 180px;
 }
-.filter-options {
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
+
+.filter-options label {
+    font-size: 14px;
+    padding: 4px 6px;
 }
+
+th {
+    vertical-align: top;
+}
+
+/* table stuff */
+table th,
+table td {
+    white-space: nowrap;
+    min-width: 120px;
+}
+
+th:nth-child(1), td:nth-child(1) { min-width: 140px; } /* Date */
+th:nth-child(2), td:nth-child(2) { min-width: 100px; } /* Kickoff */
+th:nth-child(3), td:nth-child(3),
+th:nth-child(4), td:nth-child(4) { min-width: 200px; } /* Teams */
+th:nth-child(5), td:nth-child(5),
+th:nth-child(6), td:nth-child(6),
+th:nth-child(7), td:nth-child(7) { min-width: 160px; } /* Division, District, Poule */
+th:nth-child(8), td:nth-child(8),
+th:nth-child(9), td:nth-child(9),
+th:nth-child(10), td:nth-child(10),
+th:nth-child(11), td:nth-child(11) { min-width: 180px; } /* Ref roles */

@@ -148,8 +148,9 @@ function getRefName($referees, $uuid) {
 <?php endif; ?>
 
     <?php if ($assignMode): ?>
-        <button type="submit" class="btn btn-success">Save Assignments</button>
+        <button type="submit" class="btn btn-success sticky-assign-button">Save Assignments</button>
     <?php endif; ?>
+<div class="table-responsive-custom">
 
     <table class="table table-bordered">
         <thead>
@@ -227,7 +228,7 @@ function getRefName($referees, $uuid) {
         <?php endforeach; ?>
         </tbody>
     </table>
-
+</div>
     <?php if ($assignMode): ?>
         <button type="submit" class="btn btn-success" style="position: fixed; bottom: 20px; right: 20px; z-index: 999;">Save Assignments</button>
     <?php endif; ?>
