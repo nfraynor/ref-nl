@@ -35,18 +35,13 @@ if (!empty($_GET['end_date'])) {
     $whereClauses[] = "m.match_date <= ?";
     $params[] = $_GET['end_date'];
 }
-if (!empty($_GET['division']) && is_array($_GET['division'])) {
-    $placeholders = implode(',', array_fill(0, count($_GET['division']), '?'));
-    $whereClauses[] = "m.division IN ($placeholders)";
-    foreach ($_GET['division'] as $div) {
-        $params[] = $div;
-    }
-}
-if (!empty($_GET['grade']) && is_array($_GET['grade'])) {
-    $placeholders = implode(',', array_fill(0, count($_GET['grade']), '?'));
-    $whereClauses[] = "r.grade IN ($placeholders)";
-    foreach ($_GET['grade'] as $grade) {
-        $params[] = $grade;
+foreach (['division', 'district', 'poule'] as $filter) {
+    if (!empty($_GET[$filter]) && is_array($_GET[$filter])) {
+        $placeholders = implode(',', array_fill(0, count($_GET[$filter]), '?'));
+        $whereClauses[] = "m.$filter IN ($placeholders)";
+        foreach ($_GET[$filter] as $value) {
+            $params[] = $value;
+        }
     }
 }
 

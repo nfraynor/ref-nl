@@ -152,20 +152,23 @@ function applyMultiFilter(paramName, checkboxClass) {
 
 function loadFilterOptions(type, targetBoxId, targetHtmlId, checkboxClass, paramName) {
     const selected = new URLSearchParams(window.location.search).getAll(paramName + '[]');
+
+    const box = document.getElementById(targetBoxId);
+    box.style.display = 'block'; // ✅ always open the box on toggle
+
     fetch(`/ajax/${type}_options.php?${new URLSearchParams({ [paramName + '[]']: selected })}`)
         .then(res => res.text())
         .then(html => {
             document.getElementById(targetHtmlId).innerHTML = html;
+
             document.querySelectorAll('.' + checkboxClass).forEach(cb => {
                 cb.addEventListener('change', () => {
                     applyMultiFilter(paramName, checkboxClass);
                 });
             });
         });
-
-    const box = document.getElementById(targetBoxId);
-    box.style.display = box.style.display === 'block' ? 'none' : 'block';
 }
+
 
 document.getElementById('districtFilterToggle')?.addEventListener('click', () => {
     loadFilterOptions('district', 'districtFilterBox', 'districtFilterOptions', 'district-filter-checkbox', 'district');

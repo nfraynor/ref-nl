@@ -9,7 +9,7 @@ foreach ($districts as $district):
     $safe = htmlspecialchars($district);
     ?>
     <label class="form-check">
-        <input type="checkbox" class="form-check-input district-filter-checkbox" value="<?= $safe ?>" <?= in_array($safe, ($_GET['district'] ?? [])) ? 'checked' : '' ?>>
+        <input type="checkbox" class="form-check-input district-filter-checkbox" value="<?= $safe ?>" <?= in_array($safe, ($_GET['division'] ?? [])) ? 'checked' : '' ?>>
         <?= $safe ?>
     </label>
 <?php endforeach; ?>
