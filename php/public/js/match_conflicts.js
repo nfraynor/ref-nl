@@ -136,6 +136,10 @@ document.addEventListener('DOMContentLoaded', () => {
         refreshConflicts(this);
     });
 
+    window.refreshConflicts = refreshConflicts;
+    window.getLiveAssignments = getLiveAssignments;
+    window.getWeekNumber = getWeekNumber;
+    window.checkConflict = checkConflict;
 
 
     function safeRefreshConflicts(attempts = 10) {

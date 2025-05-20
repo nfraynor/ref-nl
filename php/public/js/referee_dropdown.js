@@ -31,35 +31,49 @@ $(document).ready(function () {
             dropdownParent: $('body'),
             matcher: refereeMatcher
         });
+
+        // Rebind conflict detection
+        $(document).off('change', 'select.referee-select').on('change', 'select.referee-select', function () {
+            const selectedRef = this.value;
+            console.log(`Trigger Conflict check for referee: ${selectedRef}`);
+            refreshConflicts(this);
+        });
+
+        // Rebind select2:open event to inject filters
+        $(document).off('select2:open').on('select2:open', '.referee-select', function () {
+            currentSelectEl = this;
+            const $dropdown = $('.select2-dropdown');
+
+            if ($dropdown.find('.dropdown-filters').length > 0) return;
+
+            const $filterContainer = $(`
+            <div class="dropdown-filters p-2 border-bottom">
+                <label><strong>Grade:</strong></label><br/>
+                <label><input type="checkbox" class="grade-filter" value="A" checked> A</label>
+                <label><input type="checkbox" class="grade-filter" value="B" checked> B</label>
+                <label><input type="checkbox" class="grade-filter" value="C" checked> C</label>
+                <label><input type="checkbox" class="grade-filter" value="D" checked> D</label>
+                <label><input type="checkbox" class="grade-filter" value="E" checked> E</label>
+                <br/>
+                <label><strong>Availability:</strong></label><br/>
+                <label><input type="radio" name="availability" class="availability-filter" value=""> All</label>
+                <label><input type="radio" name="availability" class="availability-filter" value="available" checked> Available</label>
+                <label><input type="radio" name="availability" class="availability-filter" value="unavailable"> Unavailable</label>
+            </div>
+        `);
+
+            $dropdown.prepend($filterContainer);
+        });
+
+        // Optionally refresh conflicts on load for pre-filled refs
+        $('select.referee-select').each(function () {
+            if (this.value) {
+                refreshConflicts(this);
+            }
+        });
     }
 
     window.initializeSelect2AndEvents = initializeSelect2AndEvents;
-
-    // Track which select is open so we inject filters into the right dropdown
-    $('.referee-select').on('select2:open', function () {
-        currentSelectEl = this; // DOM element of the opened select
-        const $dropdown = $('.select2-dropdown');
-
-        if ($dropdown.find('.dropdown-filters').length > 0) return;
-
-        const $filterContainer = $(`
-        <div class="dropdown-filters p-2 border-bottom">
-            <label><strong>Grade:</strong></label><br/>
-            <label><input type="checkbox" class="grade-filter" value="A" checked> A</label>
-            <label><input type="checkbox" class="grade-filter" value="B" checked> B</label>
-            <label><input type="checkbox" class="grade-filter" value="C" checked> C</label>
-            <label><input type="checkbox" class="grade-filter" value="D" checked> D</label>
-            <label><input type="checkbox" class="grade-filter" value="E" checked> E</label>
-            <br/>
-            <label><strong>Availability:</strong></label><br/>
-            <label><input type="radio" name="availability" class="availability-filter" value=""> All</label>
-            <label><input type="radio" name="availability" class="availability-filter" value="available" checked> Available</label>
-            <label><input type="radio" name="availability" class="availability-filter" value="unavailable"> Unavailable</label>
-        </div>
-    `);
-
-        $dropdown.prepend($filterContainer);
-    });
 
     // When filter checkboxes change, update and trigger filtering
     $(document).on('change', '.grade-filter, .availability-filter', function () {

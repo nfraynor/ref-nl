@@ -55,6 +55,7 @@ function fetchMatchesWithDates(startDate, endDate) {
         .then(res => res.text())
         .then(html => {
             document.getElementById('matchesTableBody').innerHTML = html;
+            initializeSelect2AndEvents(); // ← add this here
         });
 }
 
@@ -107,6 +108,7 @@ function applyDivisionFilter() {
         .then(res => res.text())
         .then(html => {
             document.getElementById('matchesTableBody').innerHTML = html;
+            initializeSelect2AndEvents(); // ← add this here
         });
 }
 
@@ -150,8 +152,9 @@ function applyMultiFilter(paramName, checkboxClass) {
         .then(res => res.text())
         .then(html => {
             document.getElementById('matchesTableBody').innerHTML = html;
+            initializeSelect2AndEvents();
+
         });
-    initializeSelect2AndEvents();
 }
 
 function loadFilterOptions(type, targetBoxId, targetHtmlId, checkboxClass, paramName) {

@@ -51,6 +51,7 @@ $stmt->execute($params);
 $matches = $stmt->fetchAll();
 
 $referees = $pdo->query("SELECT uuid, first_name, last_name, grade FROM referees ORDER BY first_name")->fetchAll();
+
 function checkConflict($matches, $refId, $thisMatchId, $matchDate, $kickoffTime) {
     $conflictType = null;
 
