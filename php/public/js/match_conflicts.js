@@ -72,13 +72,19 @@ document.addEventListener('DOMContentLoaded', () => {
         return conflict;
     }
 
-    function refreshConflicts() {
+    function refreshConflicts(changedSelect) {
+        const selectedRef = changedSelect.value;
+        if (!selectedRef) return;
+
         const liveAssignments = getLiveAssignments();
 
-        document.querySelectorAll('select').forEach(select => {
+        // Find all selects with the SAME referee value
+        const matchingSelects = Array.from(document.querySelectorAll('select.referee-select'))
+            .filter(select => select.value === selectedRef);
+
+        matchingSelects.forEach(select => {
             const matchId = select.name.match(/\[(.*?)\]/)[1];
             const role = select.name.match(/\[(.*?)\]\[(.*?)\]/)[2];
-            const selectedRef = select.value;
 
             const matchRow = select.closest('tr');
             const matchDate = matchRow.querySelector('td:nth-child(1)').innerText;
@@ -86,33 +92,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
             let conflict = null;
 
-            if (selectedRef) {
-                // Check saved
-                conflict = checkConflict(matchId, matchDate, kickoffTime, selectedRef, existingAssignments);
+            // Check saved assignments
+            conflict = checkConflict(matchId, matchDate, kickoffTime, selectedRef, existingAssignments);
 
-                // Check live
-                const liveConflict = checkConflict(matchId, matchDate, kickoffTime, selectedRef, liveAssignments);
-                if (liveConflict === 'red' || (liveConflict === 'orange' && conflict !== 'red') || (liveConflict === 'yellow' && !conflict)) {
-                    conflict = liveConflict;
-                }
+            // Check live assignments
+            const liveConflict = checkConflict(matchId, matchDate, kickoffTime, selectedRef, liveAssignments);
+            if (liveConflict === 'red' || (liveConflict === 'orange' && conflict !== 'red') || (liveConflict === 'yellow' && !conflict)) {
+                conflict = liveConflict;
+            }
 
-                // Check SAME MATCH → duplicate referee for different roles
-                const sameMatchRoles = liveAssignments.filter(a => a.matchId === matchId);
-                const refsInThisMatch = sameMatchRoles.map(a => a.refereeId);
-                const duplicates = refsInThisMatch.filter(ref => ref === selectedRef);
-
-                if (duplicates.length > 1) {
-                    conflict = 'red';
-                }
+            // Check for duplicate roles in the same match
+            const sameMatchRoles = liveAssignments.filter(a => a.matchId === matchId);
+            const refsInThisMatch = sameMatchRoles.map(a => a.refereeId);
+            const duplicates = refsInThisMatch.filter(ref => ref === selectedRef);
+            if (duplicates.length > 1) {
+                conflict = 'red';
             }
 
             const $select = $(select);
             const $container = $select.next('.select2-container').find('.select2-selection');
 
-            $container.css({
-                backgroundColor: '',
-                color: ''
-            });
+            $container.css({ backgroundColor: '', color: '' });
 
             if (conflict === 'yellow') {
                 $container.css({ backgroundColor: 'yellow', color: 'black' });
@@ -124,22 +124,35 @@ document.addEventListener('DOMContentLoaded', () => {
                 $container.css({ backgroundColor: 'red', color: 'white' });
             }
         });
-        console.log("Conflict check finished");
 
+        console.log(`Conflict check completed for referee: ${selectedRef}`);
     }
 
+
     // Setup event listeners
-    document.querySelectorAll('select').forEach(select => {
-        $('.referee-select').on('change', refreshConflicts);
+    $(document).on('change', 'select.referee-select', function () {
+        const selectedRef = this.value;
+        console.log(`Trigger Conflict check for referee: ${selectedRef}`);
+        refreshConflicts(this);
     });
+
+
 
     function safeRefreshConflicts(attempts = 10) {
         if ($('.select2-selection').length > 0) {
-            refreshConflicts();
+            const selects = Array.from(document.querySelectorAll('select'))
+                .filter(select => select.value); // Only those with a referee selected
+
+            selects.forEach(select => {
+                refreshConflicts(select); // Reuse the same function!
+            });
+
+            console.log("Initial safe refresh complete");
         } else if (attempts > 0) {
-            setTimeout(() => safeRefreshConflicts(attempts - 1), 5);
+            setTimeout(() => safeRefreshConflicts(attempts - 1), 50); // slightly longer delay
         }
     }
+
 
 // Call it
     safeRefreshConflicts();

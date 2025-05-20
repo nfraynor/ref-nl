@@ -51,7 +51,54 @@ $stmt->execute($params);
 $matches = $stmt->fetchAll();
 
 $referees = $pdo->query("SELECT uuid, first_name, last_name, grade FROM referees ORDER BY first_name")->fetchAll();
+function checkConflict($matches, $refId, $thisMatchId, $matchDate, $kickoffTime) {
+    $conflictType = null;
 
+    $currentDate = new DateTime($matchDate);
+    $currentStart = strtotime("1970-01-01T" . $kickoffTime);
+    $currentEnd = $currentStart + (90 * 60); // 90 min
+
+    foreach ($matches as $match) {
+        $sameMatch = $match['uuid'] === $thisMatchId;
+
+        foreach (['referee_id', 'ar1_id', 'ar2_id', 'commissioner_id'] as $role) {
+            if ($match[$role] == $refId) {
+
+                // 🟥 Same match: multiple roles
+                if ($sameMatch) {
+                    $refCount = 0;
+                    foreach (['referee_id', 'ar1_id', 'ar2_id', 'commissioner_id'] as $checkRole) {
+                        if ($match[$checkRole] === $refId) $refCount++;
+                    }
+                    if ($refCount > 1) return 'red';
+                    continue;
+                }
+
+                $otherDate = new DateTime($match['match_date']);
+                $daysBetween = (int)$currentDate->diff($otherDate)->format('%r%a');
+
+                // 🟥 Same day: check time overlap
+                if ($daysBetween === 0) {
+                    $otherStart = strtotime("1970-01-01T" . $match['kickoff_time']);
+                    $otherEnd = $otherStart + (90 * 60);
+
+                    if ($currentStart < $otherEnd && $otherStart < $currentEnd) {
+                        return 'red';
+                    } else {
+                        $conflictType = 'orange';
+                    }
+                }
+
+                // 🟡 Within ±2 days
+                elseif (abs($daysBetween) <= 2) {
+                    if (!$conflictType) $conflictType = 'yellow';
+                }
+            }
+        }
+    }
+
+    return $conflictType;
+}
 foreach ($matches as $match): ?>
     <tr>
         <td><?= htmlspecialchars($match['match_date']) ?></td>

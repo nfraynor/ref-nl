@@ -62,7 +62,7 @@ $sql = "
     JOIN clubs ac ON at.club_id = ac.uuid
     $whereSQL
     ORDER BY m.match_date ASC, m.kickoff_time ASC
-    LIMIT 100
+    LIMIT 20
 ";
 
 $stmt = $pdo->prepare($sql);

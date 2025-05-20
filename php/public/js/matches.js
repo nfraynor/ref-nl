@@ -37,7 +37,9 @@ document.addEventListener('click', function (event) {
     if (toggle?.contains(event.target)) {
         box.style.display = (box.style.display === 'none' || box.style.display === '') ? 'block' : 'none';
     } else if (!box?.contains(event.target)) {
-        box.style.display = 'none';
+        if (box) {
+            box.style.display = (box.style.display === 'none' || box.style.display === '') ? 'block' : 'none';
+        }
     }
 });
 
@@ -60,6 +62,7 @@ document.getElementById('ajaxStartDate')?.addEventListener('change', () => {
     const start = document.getElementById('ajaxStartDate').value;
     const end = document.getElementById('ajaxEndDate').value;
     fetchMatchesWithDates(start, end);
+
 });
 
 document.getElementById('ajaxEndDate')?.addEventListener('change', () => {
@@ -148,6 +151,7 @@ function applyMultiFilter(paramName, checkboxClass) {
         .then(html => {
             document.getElementById('matchesTableBody').innerHTML = html;
         });
+    initializeSelect2AndEvents();
 }
 
 function loadFilterOptions(type, targetBoxId, targetHtmlId, checkboxClass, paramName) {
@@ -168,7 +172,14 @@ function loadFilterOptions(type, targetBoxId, targetHtmlId, checkboxClass, param
             });
         });
 }
-
+function initializeSelect2AndEvents() {
+    $('.referee-select').select2({
+        placeholder: "-- Select Referee --",
+        width: 'resolve',
+        dropdownParent: $('body'),
+        matcher: refereeMatcher
+    });
+}
 
 document.getElementById('districtFilterToggle')?.addEventListener('click', () => {
     loadFilterOptions('district', 'districtFilterBox', 'districtFilterOptions', 'district-filter-checkbox', 'district');

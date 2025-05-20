@@ -24,12 +24,16 @@ $(document).ready(function () {
     }
 
     // Initialize all referee selects
-    $('.referee-select').select2({
-        placeholder: "-- Select Referee --",
-        width: 'resolve',
-        dropdownParent: $('body'),
-        matcher: refereeMatcher
-    });
+    function initializeSelect2AndEvents() {
+        $('.referee-select').select2({
+            placeholder: "-- Select Referee --",
+            width: 'resolve',
+            dropdownParent: $('body'),
+            matcher: refereeMatcher
+        });
+    }
+
+    window.initializeSelect2AndEvents = initializeSelect2AndEvents;
 
     // Track which select is open so we inject filters into the right dropdown
     $('.referee-select').on('select2:open', function () {
@@ -72,4 +76,5 @@ $(document).ready(function () {
         }
 
     });
+    initializeSelect2AndEvents();
 });
