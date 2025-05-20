@@ -127,4 +127,50 @@ document.addEventListener('click', function (e) {
     }
 });
 
+function applyMultiFilter(paramName, checkboxClass) {
+    const params = new URLSearchParams(window.location.search);
+    params.delete(paramName + '[]');
 
+    document.querySelectorAll(`.${checkboxClass}:checked`).forEach(cb => {
+        params.append(paramName + '[]', cb.value);
+    });
+
+    fetch('/ajax/fetch_matches.php?' + params.toString())
+        .then(res => res.text())
+        .then(html => {
+            document.getElementById('matchesTableBody').innerHTML = html;
+        });
+}
+
+function loadFilterOptions(type, targetBoxId, targetHtmlId, checkboxClass, paramName) {
+    const selected = new URLSearchParams(window.location.search).getAll(paramName + '[]');
+    fetch(`/ajax/${type}_options.php?${new URLSearchParams({ [paramName + '[]']: selected })}`)
+        .then(res => res.text())
+        .then(html => {
+            document.getElementById(targetHtmlId).innerHTML = html;
+            document.querySelectorAll('.' + checkboxClass).forEach(cb => {
+                cb.addEventListener('change', () => {
+                    applyMultiFilter(paramName, checkboxClass);
+                });
+            });
+        });
+
+    const box = document.getElementById(targetBoxId);
+    box.style.display = box.style.display === 'block' ? 'none' : 'block';
+}
+
+document.getElementById('districtFilterToggle')?.addEventListener('click', () => {
+    loadFilterOptions('district', 'districtFilterBox', 'districtFilterOptions', 'district-filter-checkbox', 'district');
+});
+document.getElementById('clearDistrictFilter')?.addEventListener('click', () => {
+    document.querySelectorAll('.district-filter-checkbox').forEach(cb => cb.checked = false);
+    applyMultiFilter('district', 'district-filter-checkbox');
+});
+
+document.getElementById('pouleFilterToggle')?.addEventListener('click', () => {
+    loadFilterOptions('poule', 'pouleFilterBox', 'pouleFilterOptions', 'poule-filter-checkbox', 'poule');
+});
+document.getElementById('clearPouleFilter')?.addEventListener('click', () => {
+    document.querySelectorAll('.poule-filter-checkbox').forEach(cb => cb.checked = false);
+    applyMultiFilter('poule', 'poule-filter-checkbox');
+});

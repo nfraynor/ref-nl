@@ -42,6 +42,13 @@ if (!empty($_GET['division']) && is_array($_GET['division'])) {
         $params[] = $div;
     }
 }
+if (!empty($_GET['grade']) && is_array($_GET['grade'])) {
+    $placeholders = implode(',', array_fill(0, count($_GET['grade']), '?'));
+    $whereClauses[] = "r.grade IN ($placeholders)";
+    foreach ($_GET['grade'] as $grade) {
+        $params[] = $grade;
+    }
+}
 
 
 $whereSQL = count($whereClauses) ? 'WHERE ' . implode(' AND ', $whereClauses) : '';
@@ -161,22 +168,41 @@ function getRefName($referees, $uuid) {
             <th>Kickoff</th>
             <th>Home Team</th>
             <th>Away Team</th>
-                <th style="position: relative;">
-                    Division
-                    <button type="button" class="btn btn-sm btn-outline-secondary ms-1" id="divisionFilterToggle">
-                        <i class="bi bi-filter"></i>
-                    </button>
+            <th style="position: relative;">
+                Division
+                <button type="button" class="btn btn-sm btn-outline-secondary ms-1" id="divisionFilterToggle">
+                    <i class="bi bi-filter"></i>
+                </button>
 
-                    <div id="divisionFilterBox" style="display: none; position: absolute; background: #fff; padding: 10px; border: 1px solid #ccc; z-index: 1000;" class="shadow rounded">
-                        <div id="divisionFilterOptions" class="d-flex flex-column gap-1" style="max-height: 200px; overflow-y: auto;">
-                            <!-- checkboxes will load here via AJAX -->
-                        </div>
-                        <button type="button" id="clearDivisionFilter" class="btn btn-sm btn-light mt-2">Clear</button>
+                <div id="divisionFilterBox" style="display: none; position: absolute; background: #fff; padding: 10px; border: 1px solid #ccc; z-index: 1000;" class="shadow rounded">
+                    <div id="divisionFilterOptions" class="d-flex flex-column gap-1" style="max-height: 200px; overflow-y: auto;">
+                        <!-- checkboxes will load here via AJAX -->
                     </div>
-                </th>
+                    <button type="button" id="clearDivisionFilter" class="btn btn-sm btn-light mt-2">Clear</button>
+                </div>
+            </th>
 
-                <th>District</th>
-            <th>Poule</th>
+            <th style="position: relative;">
+                District
+                <button type="button" class="btn btn-sm btn-outline-secondary ms-1" id="districtFilterToggle">
+                    <i class="bi bi-filter"></i>
+                </button>
+                <div id="districtFilterBox" class="filter-box">
+                    <div id="districtFilterOptions" class="filter-options"></div>
+                    <button type="button" id="clearDistrictFilter" class="btn btn-sm btn-light mt-2">Clear</button>
+                </div>
+            </th>
+
+            <th style="position: relative;">
+                Poule
+                <button type="button" class="btn btn-sm btn-outline-secondary ms-1" id="pouleFilterToggle">
+                    <i class="bi bi-filter"></i>
+                </button>
+                <div id="pouleFilterBox" class="filter-box">
+                    <div id="pouleFilterOptions" class="filter-options"></div>
+                    <button type="button" id="clearPouleFilter" class="btn btn-sm btn-light mt-2">Clear</button>
+                </div>
+            </th>
             <th>Referee</th>
             <th>AR1</th>
             <th>AR2</th>
