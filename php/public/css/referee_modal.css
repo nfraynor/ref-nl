@@ -166,7 +166,9 @@
 }
 
 /* Styles for the Select2 dropdown when it's parented by the main modal overlay */
-#refereeFilterModal > .select2-dropdown {
+/* Increased specificity to override conflicting styles */
+html body #refereeFilterModal > .select2-dropdown.select2-dropdown--below,
+html body #refereeFilterModal > .select2-dropdown.select2-dropdown--above {
     width: 410px !important; /* Match the calculated width of the input area within the dialog */
     /* (Dialog width 450px - 20px padding-left - 20px padding-right of .modal-search-container) */
     z-index: 10060; /* Ensure it's above the modal dialog (whose overlay is 10050) */
@@ -175,8 +177,16 @@
     border-radius: 4px; /* Optional: match other Select2 styling or modal styling */
 }
 
+/* Fallback for the dropdown if state classes (--above/--below) are not present for some reason */
+/* Or for styles that don't need to be in the hyper-specific rule */
+html body #refereeFilterModal > .select2-dropdown {
+    z-index: 10060; /* Ensure z-index is always applied */
+    /* Other general appearance if not covered above, though the above selector is preferred for consistency */
+}
+
+
 /* Adjust result option styling if necessary to match modal fonts, etc. */
-#refereeFilterModal > .select2-dropdown .select2-results__option {
+html body #refereeFilterModal > .select2-dropdown .select2-results__option {
     font-family: inherit; /* Ensure font consistency with the modal */
     /* Add any other overrides for padding, hover effects if needed */
 }
