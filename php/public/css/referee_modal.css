@@ -1,0 +1,148 @@
+/* Referee Filter Modal Styles */
+#refereeFilterModal {
+    display: none; /* Hidden by default, shown by JS */
+    position: fixed;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 400px;
+    max-width: 90%; /* Ensure it's responsive on smaller screens */
+    background-color: #fff;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    z-index: 10050; /* Ensure it's above Select2 dropdowns (often 10051+) and other content */
+    /* max-height: 80vh; -- This should be on the content box, not the overlay */
+    /* display: flex; -- Not needed for the overlay */
+    /* flex-direction: column; -- Not needed for the overlay */
+}
+
+/* This is the actual modal dialog box, the direct child of the overlay */
+#refereeFilterModal > div {
+    background-color: #fff; /* Already set in JS inline, but good for consistency */
+    padding: 0; /* JS adds padding, but we manage it here for title/content separation */
+    border-radius: 8px; /* JS adds 5px, CSS makes it consistent with modal border */
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); /* Good to have shadow on the dialog too */
+    width: 400px; /* Width of the dialog box */
+    max-width: 90%;
+    position: absolute; /* These are set by JS, but good to mirror for clarity */
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    display: flex;
+    flex-direction: column;
+    max-height: 80vh; /* Max height for the dialog content area */
+}
+
+/* Content area within the dialog, below title, should scroll */
+#refereeFilterModal > div > .modal-filters,
+#refereeFilterModal > div > .modal-search-container {
+    padding-left: 20px;
+    padding-right: 20px;
+}
+#refereeFilterModal > div > .modal-filters {
+    padding-top: 10px; /* Space below title */
+}
+#refereeFilterModal > div > .modal-search-container{
+    padding-bottom: 20px; /* Space at the bottom */
+}
+
+/* This combined area should be scrollable if content overflows */
+/* We can create a wrapper for modal-filters and modal-search-container if needed,
+   or apply overflow to the main dialog div and let flexbox handle title/button */
+/* For now, let's make the main dialog div scrollable for its content.
+   The title is part of this flex column. */
+#refereeFilterModal > div {
+    overflow-y: auto; /* Allow the dialog itself to scroll if content exceeds max-height */
+}
+
+
+#refereeModalTitle {
+    padding: 15px 20px;
+    margin: 0;
+    font-size: 1.25em;
+    font-weight: bold;
+    background-color: #f7f7f7;
+    border-bottom: 1px solid #ddd;
+    border-top-left-radius: 8px; /* Matches the dialog's border radius */
+    border-top-right-radius: 8px; /* Matches the dialog's border radius */
+    /* Title should not scroll, so it's a direct child of the flex container */
+}
+
+#closeRefereeModal {
+    position: absolute; /* Relative to the dialog div */
+    top: 15px; /* Adjusted to align better with padding of title */
+    right: 20px; /* Adjusted to align better with padding of title */
+    font-size: 1.5em;
+    font-weight: bold;
+    color: #aaa;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 5px;
+    line-height: 1;
+}
+
+#closeRefereeModal:hover {
+    color: #000;
+}
+
+.modal-filters {
+    margin-bottom: 15px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid #eee;
+}
+
+.modal-filters label {
+    display: inline-block; /* Changed from block for better horizontal layout */
+    margin-right: 10px; /* Spacing between labels */
+    margin-bottom: 5px;
+    font-weight: normal;
+}
+
+.modal-filters strong {
+    display: block; /* Make "Grade:" and "Availability:" take full width */
+    margin-bottom: 5px;
+}
+
+.modal-filters input[type="checkbox"],
+.modal-filters input[type="radio"] {
+    margin-right: 5px;
+    vertical-align: middle;
+}
+
+.modal-search-container {
+    padding-top: 10px;
+}
+
+/* Styling for Select2 within the modal */
+#refereeFilterModal .select2-container {
+    width: 100% !important; /* Ensure Select2 takes full width of its container */
+}
+
+/* Ensure the Select2 dropdown (results list) is correctly positioned and sized within the modal */
+/* This is important if the dropdownParent is set to a part of the modal */
+.select2-dropdown {
+    z-index: 10060; /* Should be higher than the modal itself if attached to body or modal parts */
+}
+
+/* When Select2 is attached to the modal, it might need specific styling if it overflows */
+#refereeFilterModal .select2-dropdown {
+    /* If dropdownParent is the modal itself or an element within,
+       these styles help contain it. */
+    border-top: 1px solid #aaa; /* Example: visual separation if needed */
+}
+
+/* Adjustments for filter groups for better spacing */
+.modal-filters > div { /* Assuming grades and availability are wrapped in divs */
+    margin-bottom: 10px;
+}
+.modal-filters > label > strong { /* If "Grade:" is a label itself */
+    display: block;
+    margin-bottom: 8px;
+}
+
+/* Make sure the search input inside select2 is easily clickable */
+#refereeFilterModal .select2-search__field {
+    min-height: 30px; /* Ensure it's not too small */
+}
