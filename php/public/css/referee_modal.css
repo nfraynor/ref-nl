@@ -164,3 +164,19 @@
 #refereeFilterModal .select2-search__field {
     min-height: 30px; /* Ensure it's not too small */
 }
+
+/* Styles for the Select2 dropdown when it's parented by the main modal overlay */
+#refereeFilterModal > .select2-dropdown {
+    width: 410px !important; /* Match the calculated width of the input area within the dialog */
+    /* (Dialog width 450px - 20px padding-left - 20px padding-right of .modal-search-container) */
+    z-index: 10060; /* Ensure it's above the modal dialog (whose overlay is 10050) */
+    border: 1px solid #ccc;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.15);
+    border-radius: 4px; /* Optional: match other Select2 styling or modal styling */
+}
+
+/* Adjust result option styling if necessary to match modal fonts, etc. */
+#refereeFilterModal > .select2-dropdown .select2-results__option {
+    font-family: inherit; /* Ensure font consistency with the modal */
+    /* Add any other overrides for padding, hover effects if needed */
+}
