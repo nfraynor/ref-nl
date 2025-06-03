@@ -1,62 +1,51 @@
 /* Referee Filter Modal Styles */
+
+/* The main overlay for the modal */
 #refereeFilterModal {
     display: none; /* Hidden by default, shown by JS */
-    position: fixed;
-    left: 50%;
-    top: 50%;
-    transform: translate(-50%, -50%);
-    width: 400px;
-    max-width: 90%; /* Ensure it's responsive on smaller screens */
-    background-color: #fff;
-    border: 1px solid #ccc;
-    border-radius: 8px;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-    z-index: 10050; /* Ensure it's above Select2 dropdowns (often 10051+) and other content */
-    /* max-height: 80vh; -- This should be on the content box, not the overlay */
-    /* display: flex; -- Not needed for the overlay */
-    /* flex-direction: column; -- Not needed for the overlay */
+    position: fixed; /* Cover the entire screen */
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5); /* Semi-transparent background */
+    z-index: 10050; /* Ensure it's above most other content */
+    /* JS also sets inline styles for position, dimensions, bg-color, z-index.
+       CSS here ensures values like z-index and bg-color are as intended. */
 }
 
-/* This is the actual modal dialog box, the direct child of the overlay */
+/*
+  The actual modal dialog box (the direct child div of #refereeFilterModal).
+  JavaScript applies critical inline styles for positioning this div:
+  style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+         background-color: white; padding: 20px; border-radius: 5px; min-width: 300px;"
+  CSS rules below should define appearance and internal layout, complementing the JS.
+*/
 #refereeFilterModal > div {
-    background-color: #fff; /* Already set in JS inline, but good for consistency */
-    padding: 0; /* JS adds padding, but we manage it here for title/content separation */
-    border-radius: 8px; /* JS adds 5px, CSS makes it consistent with modal border */
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); /* Good to have shadow on the dialog too */
-    width: 400px; /* Width of the dialog box */
-    max-width: 90%;
-    position: absolute; /* These are set by JS, but good to mirror for clarity */
-    left: 50%;
-    top: 50%;
-    transform: translate(-50%, -50%);
+    /* Core appearance and dimensions */
+    background-color: #fff; /* JS sets this, CSS confirms. */
+    width: 450px;           /* Desired width. JS sets min-width: 300px. */
+    max-width: 90%;         /* Responsive. */
+    border-radius: 8px;     /* Overrides JS inline border-radius: 5px for a softer look. */
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+
+    /* Internal layout and scrolling */
     display: flex;
     flex-direction: column;
-    max-height: 80vh; /* Max height for the dialog content area */
+    max-height: 85vh;       /* Max height for the dialog. */
+    overflow-y: auto;       /* Allow dialog to scroll if content exceeds max-height. */
+
+    /*
+      Padding: JS sets padding: 20px inline.
+      To manage padding sectionally (title, content), we override it.
+    */
+    padding: 0; /* Override JS inline padding to use sectional padding below. */
+
+    /* Positioning: JS handles this with inline 'position: absolute', 'top', 'left', 'transform'.
+       So, no 'position', 'top', 'left', 'transform' properties here in CSS for this element. */
 }
 
-/* Content area within the dialog, below title, should scroll */
-#refereeFilterModal > div > .modal-filters,
-#refereeFilterModal > div > .modal-search-container {
-    padding-left: 20px;
-    padding-right: 20px;
-}
-#refereeFilterModal > div > .modal-filters {
-    padding-top: 10px; /* Space below title */
-}
-#refereeFilterModal > div > .modal-search-container{
-    padding-bottom: 20px; /* Space at the bottom */
-}
-
-/* This combined area should be scrollable if content overflows */
-/* We can create a wrapper for modal-filters and modal-search-container if needed,
-   or apply overflow to the main dialog div and let flexbox handle title/button */
-/* For now, let's make the main dialog div scrollable for its content.
-   The title is part of this flex column. */
-#refereeFilterModal > div {
-    overflow-y: auto; /* Allow the dialog itself to scroll if content exceeds max-height */
-}
-
-
+/* Modal Title Area */
 #refereeModalTitle {
     padding: 15px 20px;
     margin: 0;
@@ -64,15 +53,34 @@
     font-weight: bold;
     background-color: #f7f7f7;
     border-bottom: 1px solid #ddd;
-    border-top-left-radius: 8px; /* Matches the dialog's border radius */
-    border-top-right-radius: 8px; /* Matches the dialog's border radius */
-    /* Title should not scroll, so it's a direct child of the flex container */
+    border-top-left-radius: 8px;  /* Match dialog's radius */
+    border-top-right-radius: 8px; /* Match dialog's radius */
+    flex-shrink: 0; /* Prevent title from shrinking if content is too large */
 }
 
+/* Scrollable content area (filters and search) */
+/* This new class would ideally be added in JS to a wrapper around .modal-filters and .modal-search-container */
+/* For now, applying padding directly to the sections if no wrapper exists */
+#refereeFilterModal > div > .modal-filters,
+#refereeFilterModal > div > .modal-search-container {
+    padding-left: 20px;
+    padding-right: 20px;
+    flex-grow: 1; /* Allow content to take available space */
+}
+#refereeFilterModal > div > .modal-filters {
+    padding-top: 15px;
+    padding-bottom: 15px; /* Add some space below filters */
+}
+#refereeFilterModal > div > .modal-search-container {
+    padding-bottom: 20px; /* Space at the bottom of the modal */
+}
+
+/* Close button styling */
 #closeRefereeModal {
-    position: absolute; /* Relative to the dialog div */
-    top: 15px; /* Adjusted to align better with padding of title */
-    right: 20px; /* Adjusted to align better with padding of title */
+    position: absolute;
+    /* Related to #refereeFilterModal > div, which has position:absolute (from JS) */
+    top: 15px;
+    right: 20px;
     font-size: 1.5em;
     font-weight: bold;
     color: #aaa;
