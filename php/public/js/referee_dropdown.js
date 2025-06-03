@@ -83,7 +83,7 @@ $(document).ready(function () {
         modalRefSelect2 = $('#modalRefereeSearchInput').select2({
             placeholder: "-- Search Referee --",
             width: 'resolve',
-            dropdownParent: $('#refereeFilterModal div'), // Attach dropdown to modal
+            dropdownParent: $('#refereeFilterModal'), // Attach dropdown to the main modal overlay
             matcher: refereeMatcher,
             // Allow clear must be false if there's no placeholder option
             // allowClear: true

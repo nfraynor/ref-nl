@@ -1,5 +1,10 @@
 /* Referee Filter Modal Styles */
 
+/* Apply box-sizing to all elements within the modal and the modal dialog itself */
+#refereeFilterModal, #refereeFilterModal * {
+    box-sizing: border-box;
+}
+
 /* The main overlay for the modal */
 #refereeFilterModal {
     display: none; /* Hidden by default, shown by JS */
@@ -26,6 +31,7 @@
     background-color: #fff; /* JS sets this, CSS confirms. */
     width: 450px;           /* Desired width. JS sets min-width: 300px. */
     max-width: 90%;         /* Responsive. */
+    min-height: 350px;      /* Minimum height to avoid initial scrollbar due to content loading/reflow */
     border-radius: 8px;     /* Overrides JS inline border-radius: 5px for a softer look. */
     box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
 
@@ -69,9 +75,12 @@
 }
 #refereeFilterModal > div > .modal-filters {
     padding-top: 15px;
-    padding-bottom: 15px; /* Add some space below filters */
+    /* padding-bottom: 15px; -- This is handled by the class rule below or can be consolidated */
+    border-bottom: 1px solid #eee; /* Add separator line */
+    margin-bottom: 15px; /* Space below the filters section */
 }
 #refereeFilterModal > div > .modal-search-container {
+    padding-top: 10px; /* Add some space above search if filters are not present or to separate */
     padding-bottom: 20px; /* Space at the bottom of the modal */
 }
 
@@ -95,10 +104,11 @@
     color: #000;
 }
 
+/* General class for .modal-filters if used elsewhere, but specific padding is handled above for direct children */
 .modal-filters {
-    margin-bottom: 15px;
-    padding-bottom: 15px;
-    border-bottom: 1px solid #eee;
+    /* margin-bottom: 15px; -- Handled by parent selector */
+    /* padding-bottom: 15px; -- Handled by parent selector */
+    /* border-bottom: 1px solid #eee; -- Handled by parent selector */
 }
 
 .modal-filters label {
@@ -120,7 +130,7 @@
 }
 
 .modal-search-container {
-    padding-top: 10px;
+    padding-top: 10px; /* This was on .modal-search-container, seems more general for any container */
 }
 
 /* Styling for Select2 within the modal */
