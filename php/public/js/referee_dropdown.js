@@ -89,6 +89,10 @@ $(document).ready(function () {
             // allowClear: true
         });
 
+        // Explicitly set the width of the Select2 container to override 'resolve' if it causes issues.
+        // The width 410px is derived from modal dialog width (450px) minus horizontal padding (20px + 20px) of the search container.
+        $('#modalRefereeSearchInput').next('.select2-container').css('width', '410px');
+
         // Focus the search input
         // setTimeout to allow modal to render, then open and focus select2
         setTimeout(function() {

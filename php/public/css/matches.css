@@ -1,5 +1,5 @@
 .select2-container--default .select2-dropdown {
-    width: 500px;
+    width: 500px !important;
     background: #ffffff;
     border: 2px solid #222;
     border-radius: 12px;
