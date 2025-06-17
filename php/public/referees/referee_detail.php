@@ -36,23 +36,45 @@ $unavailability->execute([$referee['uuid']]);
 $unavailabilityList = $unavailability->fetchAll();
 ?>
 
-<h1>Referee Details: <?= htmlspecialchars($referee['first_name'] . ' ' . $referee['last_name']) ?></h1>
+<div class="container mt-4">
+    <section class="mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h1>Referee Details: <?= htmlspecialchars($referee['first_name'] . ' ' . $referee['last_name']) ?></h1>
+            </div>
+            <div class="card-body">
+                <dl class="row">
+                    <dt class="col-sm-3">Email</dt>
+                    <dd class="col-sm-9"><?= htmlspecialchars($referee['email']) ?></dd>
 
-<ul>
-    <li>Email: <?= htmlspecialchars($referee['email']) ?></li>
-    <li>Phone: <?= htmlspecialchars($referee['phone']) ?></li>
-    <li>Club: <?= htmlspecialchars($referee['club_name']) ?></li>
-    <li>City: <?= htmlspecialchars($referee['home_location_city']) ?></li>
-    <li>Grade: <?= htmlspecialchars($referee['grade']) ?></li>
-</ul>
+                    <dt class="col-sm-3">Phone</dt>
+                    <dd class="col-sm-9"><?= htmlspecialchars($referee['phone']) ?></dd>
 
-<h2>Unavailability</h2>
+                    <dt class="col-sm-3">Club</dt>
+                    <dd class="col-sm-9"><?= htmlspecialchars($referee['club_name']) ?></dd>
 
-<table class="table table-bordered">
-    <thead>
-    <tr><th>From</th><th>To</th><th>Reason</th></tr>
+                    <dt class="col-sm-3">City</dt>
+                    <dd class="col-sm-9"><?= htmlspecialchars($referee['home_location_city']) ?></dd>
+
+                    <dt class="col-sm-3">Grade</dt>
+                    <dd class="col-sm-9"><?= htmlspecialchars($referee['grade']) ?></dd>
+                </dl>
+            </div>
+        </div>
+    </section>
+
+    <section class="mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h2>Unavailability</h2>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-bordered table-striped">
+                        <thead>
+                        <tr><th>From</th><th>To</th><th>Reason</th></tr>
     </thead>
-    <tbody>
+    <tbody id="unavailabilityListBody">
     <?php foreach ($unavailabilityList as $ua): ?>
         <tr>
             <td><?= htmlspecialchars($ua['start_date']) ?></td>
@@ -60,58 +82,162 @@ $unavailabilityList = $unavailability->fetchAll();
             <td><?= nl2br(htmlspecialchars($ua['reason'])) ?></td>
         </tr>
     <?php endforeach; ?>
-    </tbody>
-</table>
-<h2>Weekly Availability</h2>
-<form method="post" action="update_weekly_availability.php">
-    <input type="hidden" name="referee_id" value="<?= htmlspecialchars($referee['uuid']) ?>">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </section>
 
-    <table class="table table-bordered">
-        <thead>
-        <tr>
-            <th>Day</th>
-            <th>Morning</th>
-            <th>Afternoon</th>
-            <th>Evening</th>
-        </tr>
-        </thead>
-        <tbody>
-        <?php
-        $days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+    <section class="mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h2>Weekly Availability</h2>
+            </div>
+            <div class="card-body">
+                <form method="post" action="update_weekly_availability.php">
+                    <input type="hidden" name="referee_id" value="<?= htmlspecialchars($referee['uuid']) ?>">
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-striped">
+                            <thead>
+                            <tr>
+                                <th>Day</th>
+                                <th>Morning</th>
+                                <th>Afternoon</th>
+                                <th>Evening</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            <?php
+                            $days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 
-        // Fetch current weekly availability
-        $stmt = $pdo->prepare("SELECT * FROM referee_weekly_availability WHERE referee_id = ?");
-        $stmt->execute([$referee['uuid']]);
-        $weeklyData = [];
-        foreach ($stmt->fetchAll() as $row) {
-            $weeklyData[$row['weekday']] = $row;
-        }
+                            // Fetch current weekly availability
+                            $stmt = $pdo->prepare("SELECT * FROM referee_weekly_availability WHERE referee_id = ?");
+                            $stmt->execute([$referee['uuid']]);
+                            $weeklyData = [];
+                            foreach ($stmt->fetchAll() as $row) {
+                                $weeklyData[$row['weekday']] = $row;
+                            }
 
-        for ($i = 0; $i < 7; $i++):
-            $row = $weeklyData[$i] ?? ['morning_available' => false, 'afternoon_available' => false, 'evening_available' => false];
-            ?>
-            <tr>
-                <td><?= $days[$i] ?></td>
-                <td><input type="checkbox" name="availability[<?= $i ?>][morning]" <?= $row['morning_available'] ? 'checked' : '' ?>></td>
-                <td><input type="checkbox" name="availability[<?= $i ?>][afternoon]" <?= $row['afternoon_available'] ? 'checked' : '' ?>></td>
-                <td><input type="checkbox" name="availability[<?= $i ?>][evening]" <?= $row['evening_available'] ? 'checked' : '' ?>></td>
-            </tr>
-        <?php endfor; ?>
-        </tbody>
-    </table>
+                            for ($i = 0; $i < 7; $i++):
+                                $row = $weeklyData[$i] ?? ['morning_available' => false, 'afternoon_available' => false, 'evening_available' => false];
+                                ?>
+                                <tr>
+                                    <td><?= $days[$i] ?></td>
+                                    <td><input type="checkbox" class="form-check-input" name="availability[<?= $i ?>][morning]" <?= $row['morning_available'] ? 'checked' : '' ?>></td>
+                                    <td><input type="checkbox" class="form-check-input" name="availability[<?= $i ?>][afternoon]" <?= $row['afternoon_available'] ? 'checked' : '' ?>></td>
+                                    <td><input type="checkbox" class="form-check-input" name="availability[<?= $i ?>][evening]" <?= $row['evening_available'] ? 'checked' : '' ?>></td>
+                                </tr>
+                            <?php endfor; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                    <button type="submit" class="btn btn-primary mt-3">Save Weekly Availability</button>
+                </form>
+            </div>
+        </div>
+    </section>
 
-    <button type="submit" class="btn btn-primary">Save Weekly Availability</button>
-</form>
+    <section class="mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h2>Add Unavailability</h2>
+            </div>
+            <div class="card-body">
+                <div id="formFeedback" class="mt-3"></div>
+                <form id="addUnavailabilityForm" method="post" action="add_unavailability.php">
+                    <input type="hidden" name="referee_id" value="<?= htmlspecialchars($referee['uuid']) ?>">
+                    <div class="form-group mb-3">
+                        <label for="unavailability_start_date">Start Date:</label>
+                        <input type="text" class="form-control" id="unavailability_start_date" name="start_date" required>
+                    </div>
+                    <div class="form-group mb-3">
+                        <label for="unavailability_end_date">End Date:</label>
+                        <input type="text" class="form-control" id="unavailability_end_date" name="end_date" required>
+                    </div>
+                    <div class="form-group mb-3">
+                        <label for="reason">Reason:</label>
+                        <textarea class="form-control" id="reason" name="reason" rows="4"></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-success">Add Unavailability</button>
+                </form>
+            </div>
+        </div>
+    </section>
+</div>
 
-<h2>Add Unavailability</h2>
-<form method="post" action="add_unavailability.php">
-    <input type="hidden" name="referee_id" value="<?= htmlspecialchars($referee['uuid']) ?>">
-    <label>Start Date: <input type="date" name="start_date" required></label><br>
-    <label>End Date: <input type="date" name="end_date" required></label><br>
-    <label>Reason:<br>
-        <textarea name="reason" rows="4" cols="40"></textarea>
-    </label><br>
-    <button type="submit">Add</button>
-</form>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    flatpickr("#unavailability_start_date", {
+        dateFormat: "Y-m-d",
+        altInput: true,
+        altFormat: "F j, Y",
+    });
+    flatpickr("#unavailability_end_date", {
+        dateFormat: "Y-m-d",
+        altInput: true,
+        altFormat: "F j, Y",
+    });
 
-<?php include 'includes/footer.php'; ?>
+    const addUnavailabilityForm = document.getElementById('addUnavailabilityForm');
+    const unavailabilityListBody = document.getElementById('unavailabilityListBody');
+    const formFeedback = document.getElementById('formFeedback');
+    // Get Flatpickr instances to clear them later
+    const startDatePicker = document.querySelector("#unavailability_start_date")._flatpickr;
+    const endDatePicker = document.querySelector("#unavailability_end_date")._flatpickr;
+
+
+    if (addUnavailabilityForm) {
+        addUnavailabilityForm.addEventListener('submit', function (event) {
+            event.preventDefault();
+            formFeedback.innerHTML = ''; // Clear previous feedback
+
+            const formData = new FormData(addUnavailabilityForm);
+
+            // Log FormData content for debugging
+            // for (var pair of formData.entries()) {
+            //     console.log(pair[0]+ ', ' + pair[1]);
+            // }
+
+            fetch('add_unavailability.php', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    // Clear form fields
+                    addUnavailabilityForm.reset();
+                    // Clear Flatpickr fields
+                    if(startDatePicker) startDatePicker.clear();
+                    if(endDatePicker) endDatePicker.clear();
+
+
+                    // Add new row to the table
+                    const newRow = unavailabilityListBody.insertRow(0); // Insert at the top like current list
+                    const cell1 = newRow.insertCell(0);
+                    const cell2 = newRow.insertCell(1);
+                    const cell3 = newRow.insertCell(2);
+
+                    cell1.textContent = data.data.start_date;
+                    cell2.textContent = data.data.end_date;
+                    // For reason, handle potential null and nl2br equivalent
+                    let reasonText = data.data.reason || "";
+                    cell3.innerHTML = reasonText.replace(/\r\n|\r|\n/g, '<br>');
+
+
+                    formFeedback.innerHTML = '<div class="alert alert-success">Unavailability added successfully.</div>';
+                } else {
+                    formFeedback.innerHTML = `<div class="alert alert-danger">Error: ${data.message || 'Could not add unavailability.'}</div>`;
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                formFeedback.innerHTML = '<div class="alert alert-danger">An unexpected error occurred. Please try again.</div>';
+            });
+        });
+    }
+});
+</script>
+
+<?php include '../includes/footer.php'; ?>
