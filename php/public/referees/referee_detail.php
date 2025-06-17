@@ -66,6 +66,35 @@ $unavailabilityList = $unavailability->fetchAll();
     <section class="mb-4">
         <div class="card">
             <div class="card-header">
+                <h2>Add Unavailability</h2>
+            </div>
+            <div class="card-body">
+                <div id="formFeedback" class="mt-3"></div>
+                <form id="addUnavailabilityForm" method="post" action="add_unavailability.php">
+                    <input type="hidden" name="referee_id" value="<?= htmlspecialchars($referee['uuid']) ?>">
+                    <div class="row">
+                        <div class="col-md-6 form-group mb-3">
+                            <label for="unavailability_start_date">Start Date:</label>
+                            <input type="text" class="form-control" id="unavailability_start_date" name="start_date" required>
+                        </div>
+                        <div class="col-md-6 form-group mb-3">
+                            <label for="unavailability_end_date">End Date:</label>
+                            <input type="text" class="form-control" id="unavailability_end_date" name="end_date" required>
+                        </div>
+                    </div>
+                    <div class="form-group mb-3">
+                        <label for="reason">Reason:</label>
+                        <textarea class="form-control" id="reason" name="reason" rows="4"></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-success">Add Unavailability</button>
+                </form>
+            </div>
+        </div>
+    </section>
+
+    <section class="mb-4">
+        <div class="card">
+            <div class="card-header">
                 <h2>Unavailability</h2>
             </div>
             <div class="card-body">
@@ -138,32 +167,6 @@ $unavailabilityList = $unavailability->fetchAll();
         </div>
     </section>
 
-    <section class="mb-4">
-        <div class="card">
-            <div class="card-header">
-                <h2>Add Unavailability</h2>
-            </div>
-            <div class="card-body">
-                <div id="formFeedback" class="mt-3"></div>
-                <form id="addUnavailabilityForm" method="post" action="add_unavailability.php">
-                    <input type="hidden" name="referee_id" value="<?= htmlspecialchars($referee['uuid']) ?>">
-                    <div class="form-group mb-3">
-                        <label for="unavailability_start_date">Start Date:</label>
-                        <input type="text" class="form-control" id="unavailability_start_date" name="start_date" required>
-                    </div>
-                    <div class="form-group mb-3">
-                        <label for="unavailability_end_date">End Date:</label>
-                        <input type="text" class="form-control" id="unavailability_end_date" name="end_date" required>
-                    </div>
-                    <div class="form-group mb-3">
-                        <label for="reason">Reason:</label>
-                        <textarea class="form-control" id="reason" name="reason" rows="4"></textarea>
-                    </div>
-                    <button type="submit" class="btn btn-success">Add Unavailability</button>
-                </form>
-            </div>
-        </div>
-    </section>
 </div>
 
 <script>
