@@ -48,9 +48,9 @@ if ($referee && isset($referee['uuid'])) {
             at.team_name AS away_team_name,
             (SELECT c.club_name FROM clubs c WHERE c.uuid = ht.club_id) AS home_club_name,
             (SELECT c.club_name FROM clubs c WHERE c.uuid = at.club_id) AS away_club_name,
-            (main_ref.first_name || ' ' || main_ref.last_name) AS main_ref_name,
-            (ar1_ref.first_name || ' ' || ar1_ref.last_name) AS ar1_ref_name,
-            (ar2_ref.first_name || ' ' || ar2_ref.last_name) AS ar2_ref_name,
+            CONCAT(main_ref.first_name, ' ', main_ref.last_name) AS main_ref_name,
+            CONCAT(ar1_ref.first_name, ' ', ar1_ref.last_name) AS ar1_ref_name,
+            CONCAT(ar2_ref.first_name, ' ', ar2_ref.last_name) AS ar2_ref_name,
             rtl.distance_km AS travel_distance_for_current_referee
         FROM
             matches m
