@@ -27,7 +27,7 @@ $(document).ready(function () {
     function initializeSelect2AndEvents() {
         $('.referee-select').select2({
             placeholder: "-- Select Referee --",
-            width: 'resolve',
+            width: 'style',
             dropdownParent: $('body'),
             matcher: refereeMatcher
         });
