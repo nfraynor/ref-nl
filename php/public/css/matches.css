@@ -117,3 +117,7 @@ th:nth-child(8), td:nth-child(8),
 th:nth-child(9), td:nth-child(9),
 th:nth-child(10), td:nth-child(10),
 th:nth-child(11), td:nth-child(11) { min-width: 180px; } /* Ref roles */
+
+.select2-container {
+    width: 350px !important;
+}
