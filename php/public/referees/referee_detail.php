@@ -84,6 +84,55 @@ if ($referee && isset($referee['uuid'])) {
         // For now, $assignedMatches will remain an empty array if an error occurs.
     }
 }
+
+// Fetch Previous Matches
+$previousMatches = []; // Initialize
+if ($referee && isset($referee['uuid'])) { // Ensure $currentRefereeUuid is available
+    // $currentRefereeUuid is already defined from fetching assigned matches
+    try {
+        $sqlPreviousMatches = "
+            SELECT
+                m.uuid AS match_uuid,
+                m.match_date,
+                m.kickoff_time,
+                ht.team_name AS home_team_name,
+                at.team_name AS away_team_name,
+                (SELECT c.club_name FROM clubs c WHERE c.uuid = ht.club_id) AS home_club_name,
+                (SELECT c.club_name FROM clubs c WHERE c.uuid = at.club_id) AS away_club_name,
+                CONCAT(main_ref.first_name, ' ', main_ref.last_name) AS main_ref_name,
+                CONCAT(ar1_ref.first_name, ' ', ar1_ref.last_name) AS ar1_ref_name,
+                CONCAT(ar2_ref.first_name, ' ', ar2_ref.last_name) AS ar2_ref_name,
+                rtl.distance_km AS travel_distance_for_current_referee
+            FROM
+                matches m
+            JOIN
+                teams ht ON m.home_team_id = ht.uuid
+            JOIN
+                teams at ON m.away_team_id = at.uuid
+            LEFT JOIN
+                referees main_ref ON m.referee_id = main_ref.uuid
+            LEFT JOIN
+                referees ar1_ref ON m.ar1_id = ar1_ref.uuid
+            LEFT JOIN
+                referees ar2_ref ON m.ar2_id = ar2_ref.uuid
+            LEFT JOIN
+                referee_travel_log rtl ON m.uuid = rtl.match_id AND rtl.referee_id = :current_referee_uuid
+            WHERE
+                (m.referee_id = :current_referee_uuid OR
+                 m.ar1_id = :current_referee_uuid OR
+                 m.ar2_id = :current_referee_uuid) AND
+                m.match_date < CURRENT_DATE
+            ORDER BY
+                m.match_date DESC, m.kickoff_time DESC;
+        ";
+        $stmtPreviousMatches = $pdo->prepare($sqlPreviousMatches);
+        $stmtPreviousMatches->execute([':current_referee_uuid' => $currentRefereeUuid]);
+        $previousMatches = $stmtPreviousMatches->fetchAll(PDO::FETCH_ASSOC);
+    } catch (PDOException $e) {
+        error_log("Error fetching previous matches: " . $e->getMessage());
+        // $previousMatches will remain an empty array
+    }
+}
 ?>
 
 <div class="container mt-4">
@@ -262,6 +311,65 @@ if ($referee && isset($referee['uuid'])) {
                                                 } else {
                                                     echo 'N/A';
                                                 }
+                                            ?>
+                                        </td>
+                                        <td><?= htmlspecialchars($match['travel_distance_for_current_referee'] ?? 'N/A') ?></td>
+                                        <td><?= htmlspecialchars($match['main_ref_name'] ?? 'N/A') ?></td>
+                                        <td><?= htmlspecialchars($match['ar1_ref_name'] ?? 'N/A') ?></td>
+                                        <td><?= htmlspecialchars($match['ar2_ref_name'] ?? 'N/A') ?></td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                <?php endif; ?>
+            </div>
+        </div>
+    </section>
+
+    <section class="mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h3>Previous Matches</h3>
+            </div>
+            <div class="card-body">
+                <?php if (empty($previousMatches)): ?>
+                    <p>No previous matches found for this referee.</p>
+                <?php else: ?>
+                    <div class="table-responsive">
+                        <table class="table table-striped table-bordered">
+                            <thead>
+                                <tr>
+                                    <th>Match Date</th>
+                                    <th>Kick-off</th>
+                                    <th>Home Team</th>
+                                    <th>Away Team</th>
+                                    <th>Your Role</th>
+                                    <th>Your Travel (km)</th>
+                                    <th>Main Referee</th>
+                                    <th>AR1</th>
+                                    <th>AR2</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($previousMatches as $match): ?>
+                                    <tr>
+                                        <td><?= htmlspecialchars($match['match_date'] ?? 'N/A') ?></td>
+                                        <td><?= htmlspecialchars(isset($match['kickoff_time']) ? substr($match['kickoff_time'], 0, 5) : 'N/A') ?></td>
+                                        <td><?= htmlspecialchars(($match['home_club_name'] ? $match['home_club_name'] . ' - ' : '') . ($match['home_team_name'] ?? 'N/A')) ?></td>
+                                        <td><?= htmlspecialchars(($match['away_club_name'] ? $match['away_club_name'] . ' - ' : '') . ($match['away_team_name'] ?? 'N/A')) ?></td>
+                                        <td>
+                                            <?php
+                                            $currentRefereeFullName = $referee['first_name'] . ' ' . $referee['last_name'];
+                                            $role = 'N/A';
+                                            if (isset($match['main_ref_name']) && $match['main_ref_name'] == $currentRefereeFullName) {
+                                                $role = 'Referee';
+                                            } elseif (isset($match['ar1_ref_name']) && $match['ar1_ref_name'] == $currentRefereeFullName) {
+                                                $role = 'AR1';
+                                            } elseif (isset($match['ar2_ref_name']) && $match['ar2_ref_name'] == $currentRefereeFullName) {
+                                                $role = 'AR2';
+                                            }
+                                            echo htmlspecialchars($role);
                                             ?>
                                         </td>
                                         <td><?= htmlspecialchars($match['travel_distance_for_current_referee'] ?? 'N/A') ?></td>
