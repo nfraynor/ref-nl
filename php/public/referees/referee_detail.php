@@ -34,6 +34,56 @@ $unavailability = $pdo->prepare("
 ");
 $unavailability->execute([$referee['uuid']]);
 $unavailabilityList = $unavailability->fetchAll();
+
+// Fetch assigned matches
+$assignedMatches = []; // Initialize as empty array
+if ($referee && isset($referee['uuid'])) {
+    $currentRefereeUuid = $referee['uuid'];
+    $sqlAssignedMatches = "
+        SELECT
+            m.uuid AS match_uuid,
+            m.match_date,
+            m.kickoff_time,
+            ht.team_name AS home_team_name,
+            at.team_name AS away_team_name,
+            (SELECT c.club_name FROM clubs c WHERE c.uuid = ht.club_id) AS home_club_name,
+            (SELECT c.club_name FROM clubs c WHERE c.uuid = at.club_id) AS away_club_name,
+            (main_ref.first_name || ' ' || main_ref.last_name) AS main_ref_name,
+            (ar1_ref.first_name || ' ' || ar1_ref.last_name) AS ar1_ref_name,
+            (ar2_ref.first_name || ' ' || ar2_ref.last_name) AS ar2_ref_name,
+            rtl.distance_km AS travel_distance_for_current_referee
+        FROM
+            matches m
+        JOIN
+            teams ht ON m.home_team_id = ht.uuid
+        JOIN
+            teams at ON m.away_team_id = at.uuid
+        LEFT JOIN
+            referees main_ref ON m.referee_id = main_ref.uuid
+        LEFT JOIN
+            referees ar1_ref ON m.ar1_id = ar1_ref.uuid
+        LEFT JOIN
+            referees ar2_ref ON m.ar2_id = ar2_ref.uuid
+        LEFT JOIN
+            referee_travel_log rtl ON m.uuid = rtl.match_id AND rtl.referee_id = :current_referee_uuid
+        WHERE
+            m.referee_id = :current_referee_uuid OR
+            m.ar1_id = :current_referee_uuid OR
+            m.ar2_id = :current_referee_uuid
+        ORDER BY
+            m.match_date DESC, m.kickoff_time DESC;
+    ";
+    try {
+        $stmtAssignedMatches = $pdo->prepare($sqlAssignedMatches);
+        $stmtAssignedMatches->execute([':current_referee_uuid' => $currentRefereeUuid]);
+        $assignedMatches = $stmtAssignedMatches->fetchAll(PDO::FETCH_ASSOC);
+    } catch (PDOException $e) {
+        // Handle or log the error appropriately
+        error_log("Error fetching assigned matches: " . $e->getMessage());
+        // Optionally, set a flag or message to display to the user
+        // For now, $assignedMatches will remain an empty array if an error occurs.
+    }
+}
 ?>
 
 <div class="container mt-4">
@@ -170,6 +220,63 @@ $unavailabilityList = $unavailability->fetchAll();
         </div>
     </section>
 
+    <section class="mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h3>Assigned Matches</h3>
+            </div>
+            <div class="card-body">
+                <?php if (empty($assignedMatches)): ?>
+                    <p>This referee has no upcoming assigned matches.</p>
+                <?php else: ?>
+                    <div class="table-responsive">
+                        <table class="table table-striped table-bordered">
+                            <thead>
+                                <tr>
+                                    <th>Match Date</th>
+                                    <th>Kick-off</th>
+                                    <th>Home Team</th>
+                                    <th>Away Team</th>
+                                    <th>Your Role</th>
+                                    <th>Your Travel (km)</th>
+                                    <th>Main Referee</th>
+                                    <th>AR1</th>
+                                    <th>AR2</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($assignedMatches as $match): ?>
+                                    <tr>
+                                        <td><?= htmlspecialchars($match['match_date'] ?? 'N/A') ?></td>
+                                        <td><?= htmlspecialchars(substr($match['kickoff_time'], 0, 5) ?? 'N/A') ?></td>
+                                        <td><?= htmlspecialchars(($match['home_club_name'] ? $match['home_club_name'] . ' - ' : '') . ($match['home_team_name'] ?? 'N/A')) ?></td>
+                                        <td><?= htmlspecialchars(($match['away_club_name'] ? $match['away_club_name'] . ' - ' : '') . ($match['away_team_name'] ?? 'N/A')) ?></td>
+                                        <td>
+                                            <?php
+                                                if ($match['main_ref_name'] && strpos($match['main_ref_name'], $referee['first_name']) !== false && strpos($match['main_ref_name'], $referee['last_name']) !== false) {
+                                                    echo 'Referee';
+                                                } elseif ($match['ar1_ref_name'] && strpos($match['ar1_ref_name'], $referee['first_name']) !== false && strpos($match['ar1_ref_name'], $referee['last_name']) !== false) {
+                                                    echo 'AR1';
+                                                } elseif ($match['ar2_ref_name'] && strpos($match['ar2_ref_name'], $referee['first_name']) !== false && strpos($match['ar2_ref_name'], $referee['last_name']) !== false) {
+                                                    echo 'AR2';
+                                                } else {
+                                                    echo 'N/A';
+                                                }
+                                            ?>
+                                        </td>
+                                        <td><?= htmlspecialchars($match['travel_distance_for_current_referee'] ?? 'N/A') ?></td>
+                                        <td><?= htmlspecialchars($match['main_ref_name'] ?? 'N/A') ?></td>
+                                        <td><?= htmlspecialchars($match['ar1_ref_name'] ?? 'N/A') ?></td>
+                                        <td><?= htmlspecialchars($match['ar2_ref_name'] ?? 'N/A') ?></td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                <?php endif; ?>
+            </div>
+        </div>
+    </section>
 </div>
 
 <script>
