@@ -39,6 +39,8 @@ $unavailabilityList = $unavailability->fetchAll();
 $assignedMatches = []; // Initialize as empty array
 if ($referee && isset($referee['uuid'])) {
     $currentRefereeUuid = $referee['uuid'];
+    // Note: $currentRefereeUuid is defined here and used by both queries if this block executes.
+    error_log("ASSIGNED_MATCHES: Current referee UUID: " . $currentRefereeUuid);
     $sqlAssignedMatches = "
         SELECT
             m.uuid AS match_uuid,
@@ -75,9 +77,11 @@ if ($referee && isset($referee['uuid'])) {
             m.match_date ASC, m.kickoff_time ASC;
     ";
     try {
+        error_log("ASSIGNED_MATCHES: SQL: " . $sqlAssignedMatches);
         $stmtAssignedMatches = $pdo->prepare($sqlAssignedMatches);
         $stmtAssignedMatches->execute([':current_referee_uuid' => $currentRefereeUuid]);
         $assignedMatches = $stmtAssignedMatches->fetchAll(PDO::FETCH_ASSOC);
+        error_log("ASSIGNED_MATCHES: Data: " . print_r($assignedMatches, true));
     } catch (PDOException $e) {
         // Handle or log the error appropriately
         error_log("Error fetching assigned matches: " . $e->getMessage());
@@ -91,6 +95,7 @@ $previousMatches = []; // Initialize
 if ($referee && isset($referee['uuid'])) { // Ensure $currentRefereeUuid is available
     // $currentRefereeUuid is already defined from fetching assigned matches
     try {
+        error_log("PREVIOUS_MATCHES: Current referee UUID: " . $currentRefereeUuid);
         $sqlPreviousMatches = "
             SELECT
                 m.uuid AS match_uuid,
@@ -126,9 +131,11 @@ if ($referee && isset($referee['uuid'])) { // Ensure $currentRefereeUuid is avai
             ORDER BY
                 m.match_date DESC, m.kickoff_time DESC;
         ";
+        error_log("PREVIOUS_MATCHES: SQL: " . $sqlPreviousMatches);
         $stmtPreviousMatches = $pdo->prepare($sqlPreviousMatches);
         $stmtPreviousMatches->execute([':current_referee_uuid' => $currentRefereeUuid]);
         $previousMatches = $stmtPreviousMatches->fetchAll(PDO::FETCH_ASSOC);
+        error_log("PREVIOUS_MATCHES: Data: " . print_r($previousMatches, true));
     } catch (PDOException $e) {
         error_log("Error fetching previous matches: " . $e->getMessage());
         // $previousMatches will remain an empty array
