@@ -67,11 +67,12 @@ if ($referee && isset($referee['uuid'])) {
         LEFT JOIN
             referee_travel_log rtl ON m.uuid = rtl.match_id AND rtl.referee_id = :current_referee_uuid
         WHERE
-            m.referee_id = :current_referee_uuid OR
-            m.ar1_id = :current_referee_uuid OR
-            m.ar2_id = :current_referee_uuid
+            (m.referee_id = :current_referee_uuid OR
+             m.ar1_id = :current_referee_uuid OR
+             m.ar2_id = :current_referee_uuid) AND
+            m.match_date >= DATE('now')
         ORDER BY
-            m.match_date DESC, m.kickoff_time DESC;
+            m.match_date ASC, m.kickoff_time ASC;
     ";
     try {
         $stmtAssignedMatches = $pdo->prepare($sqlAssignedMatches);
@@ -121,7 +122,7 @@ if ($referee && isset($referee['uuid'])) { // Ensure $currentRefereeUuid is avai
                 (m.referee_id = :current_referee_uuid OR
                  m.ar1_id = :current_referee_uuid OR
                  m.ar2_id = :current_referee_uuid) AND
-                m.match_date < CURRENT_DATE
+                m.match_date < DATE('now')
             ORDER BY
                 m.match_date DESC, m.kickoff_time DESC;
         ";
