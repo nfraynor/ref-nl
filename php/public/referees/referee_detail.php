@@ -101,7 +101,7 @@ $unavailabilityList = $unavailability->fetchAll();
                 <div class="table-responsive">
                     <table class="table table-bordered table-striped">
                         <thead>
-                        <tr><th>From</th><th>To</th><th>Reason</th></tr>
+                        <tr><th>From</th><th>To</th><th>Reason</th><th>Actions</th></tr>
     </thead>
     <tbody id="unavailabilityListBody">
     <?php foreach ($unavailabilityList as $ua): ?>
@@ -109,6 +109,9 @@ $unavailabilityList = $unavailability->fetchAll();
             <td><?= htmlspecialchars($ua['start_date']) ?></td>
             <td><?= htmlspecialchars($ua['end_date']) ?></td>
             <td><?= nl2br(htmlspecialchars($ua['reason'])) ?></td>
+            <td>
+                <button class="btn btn-danger btn-sm remove-unavailability-btn" data-unavailability-uuid="<?= htmlspecialchars($ua['uuid']) ?>">Remove</button>
+            </td>
         </tr>
     <?php endforeach; ?>
                         </tbody>
@@ -238,6 +241,53 @@ document.addEventListener('DOMContentLoaded', function () {
                 console.error('Error:', error);
                 formFeedback.innerHTML = '<div class="alert alert-danger">An unexpected error occurred. Please try again.</div>';
             });
+        });
+    }
+
+    // Event listener for removing unavailability
+    if (unavailabilityListBody) {
+        unavailabilityListBody.addEventListener('click', function(event) {
+            if (event.target.classList.contains('remove-unavailability-btn')) {
+                event.preventDefault(); // Prevent any default button action
+                formFeedback.innerHTML = ''; // Clear previous feedback
+
+                const button = event.target;
+                const unavailabilityUuid = button.dataset.unavailabilityUuid;
+
+                if (confirm("Are you sure you want to remove this unavailability period?")) {
+                    const formData = new FormData();
+                    formData.append('unavailability_uuid', unavailabilityUuid);
+
+                    fetch('remove_unavailability.php', {
+                        method: 'POST',
+                        body: formData
+                        // Headers are not strictly necessary for FormData with fetch,
+                        // but good practice for other types or if server requires it.
+                        // headers: { 'Content-Type': 'application/x-www-form-urlencoded' } // Example if not using FormData
+                    })
+                    .then(response => {
+                        // Try to parse JSON regardless of response.ok, as server might send error details in JSON
+                        return response.json().then(data => ({ ok: response.ok, status: response.status, data }));
+                    })
+                    .then(result => {
+                        if (result.ok && result.data.status === 'success') {
+                            button.closest('tr').remove();
+                            formFeedback.innerHTML = `<div class="alert alert-success">${result.data.message || 'Unavailability removed successfully.'}</div>`;
+                        } else {
+                            // Handle HTTP errors (like 404, 500) or application errors ({status: 'error'})
+                            let message = result.data.message || `Error ${result.status}: Could not remove unavailability.`;
+                            if (result.status === 405) message = "Error: Invalid request method."; // From remove_unavailability.php
+                            if (result.status === 400) message = "Error: Missing Unavailability UUID."; // From remove_unavailability.php
+                            formFeedback.innerHTML = `<div class="alert alert-danger">${message}</div>`;
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        // Network error or JSON parsing error from response.json()
+                        formFeedback.innerHTML = '<div class="alert alert-danger">An unexpected error occurred while trying to remove unavailability. Please check console.</div>';
+                    });
+                }
+            }
         });
     }
 });
