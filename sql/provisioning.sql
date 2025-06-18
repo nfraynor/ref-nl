@@ -106,3 +106,13 @@ CREATE TABLE IF NOT EXISTS referee_team_count (
                                                   FOREIGN KEY (team_id) REFERENCES teams(uuid),
                                                   FOREIGN KEY (club_id) REFERENCES clubs(uuid)
 );
+
+-- Users
+CREATE TABLE IF NOT EXISTS users (
+                                     uuid CHAR(36) PRIMARY KEY,
+                                     username VARCHAR(255) UNIQUE NOT NULL,
+                                     password_hash VARCHAR(255) NOT NULL,
+                                     role VARCHAR(50) NOT NULL,
+                                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);

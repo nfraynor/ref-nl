@@ -1,19 +1,30 @@
 <?php
 
-require_once __DIR__ . '/../utils/db.php';
+require_once __DIR__ . '/../utils/db.php'; // Assumes db.php sets up PDO using config/database.php
 
 $pdo = Database::getConnection();
 
-function uuid() {
-    return uniqid();
+// Function to generate a version 4 UUID
+function generate_uuid_v4() {
+    // Generate 16 bytes (128 bits) of random data
+    $data = random_bytes(16);
+
+    // Set version to 0100
+    $data[6] = chr(ord($data[6]) & 0x0f | 0x40);
+    // Set bits 6-7 to 10
+    $data[8] = chr(ord($data[8]) & 0x3f | 0x80);
+
+    // Output the 36 character UUID string
+    return vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split(bin2hex($data), 4));
 }
+
 
 // ----- Clubs -----
 $clubs = [
-    ['uuid' => uuid(), 'club_id' => 'OLDTOWN', 'club_name' => 'Old Town RFC', 'precise_location_lat' => 52.123456, 'precise_location_lon' => 4.654321, 'address_text' => 'Old Town Stadium'],
-    ['uuid' => uuid(), 'club_id' => 'NEWTOWN', 'club_name' => 'New Town RFC', 'precise_location_lat' => 52.987654, 'precise_location_lon' => 4.123456, 'address_text' => 'New Town Park'],
-    ['uuid' => uuid(), 'club_id' => 'RIVERCITY', 'club_name' => 'River City RFC', 'precise_location_lat' => 53.555555, 'precise_location_lon' => 5.555555, 'address_text' => 'River City Ground'],
-    ['uuid' => uuid(), 'club_id' => 'HILLTOP', 'club_name' => 'Hilltop RFC', 'precise_location_lat' => 51.222222, 'precise_location_lon' => 3.222222, 'address_text' => 'Hilltop Field'],
+    ['uuid' => generate_uuid_v4(), 'club_id' => 'OLDTOWN', 'club_name' => 'Old Town RFC', 'precise_location_lat' => 52.123456, 'precise_location_lon' => 4.654321, 'address_text' => 'Old Town Stadium'],
+    ['uuid' => generate_uuid_v4(), 'club_id' => 'NEWTOWN', 'club_name' => 'New Town RFC', 'precise_location_lat' => 52.987654, 'precise_location_lon' => 4.123456, 'address_text' => 'New Town Park'],
+    ['uuid' => generate_uuid_v4(), 'club_id' => 'RIVERCITY', 'club_name' => 'River City RFC', 'precise_location_lat' => 53.555555, 'precise_location_lon' => 5.555555, 'address_text' => 'River City Ground'],
+    ['uuid' => generate_uuid_v4(), 'club_id' => 'HILLTOP', 'club_name' => 'Hilltop RFC', 'precise_location_lat' => 51.222222, 'precise_location_lon' => 3.222222, 'address_text' => 'Hilltop Field'],
 ];
 
 foreach ($clubs as $club) {
@@ -29,13 +40,14 @@ $divisions = ['Division 1', 'Division 2', 'Division 3'];
 
 foreach ($clubs as $club) {
     for ($i = 1; $i <= 3; $i++) {
+        $team_uuid = generate_uuid_v4();
         $team = [
-            'uuid' => uuid(),
+            'uuid' => $team_uuid,
             'team_name' => "{$i}st XV",
             'club_id' => $club['uuid'],
             'division' => $divisions[array_rand($divisions)],
         ];
-        $teams[] = $team;
+        $teams[] = $team; // Add to $teams array for later use if needed
 
         $stmt = $pdo->prepare("INSERT IGNORE INTO teams (uuid, team_name, club_id, division) VALUES (?, ?, ?, ?)");
         $stmt->execute([$team['uuid'], $team['team_name'], $team['club_id'], $team['division']]);
@@ -47,23 +59,24 @@ echo "Teams seeded.\n";
 // ----- Referees -----
 $grades = ['A', 'B', 'C', 'D', 'E'];
 
-$referees = [];
+$referees_data = []; // Store referee data for later use if needed
 $referee_names = ['Alice', 'Bob', 'Charlie', 'Diana', 'Edward', 'Fiona', 'George', 'Hannah', 'Isaac', 'Julia'];
 
 foreach ($referee_names as $index => $name) {
     $club = $clubs[array_rand($clubs)];
+    $ref_uuid = generate_uuid_v4();
     $ref = [
-        'uuid' => uuid(),
+        'uuid' => $ref_uuid,
         'referee_id' => 'REF' . str_pad($index + 1, 3, '0', STR_PAD_LEFT),
         'first_name' => $name,
         'last_name' => 'Referee',
         'email' => strtolower($name) . '@example.com',
         'phone' => '000-000-000' . $index,
         'home_club_id' => $club['uuid'],
-        'home_location_city' => $club['club_name'],
+        'home_location_city' => $club['club_name'], // Assuming city is same as club name for dummy data
         'grade' => $grades[array_rand($grades)],
     ];
-    $referees[] = $ref;
+    $referees_data[] = $ref;
 
     $stmt = $pdo->prepare("INSERT IGNORE INTO referees (uuid, referee_id, first_name, last_name, email, phone, home_club_id, home_location_city, grade) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
     $stmt->execute([$ref['uuid'], $ref['referee_id'], $ref['first_name'], $ref['last_name'], $ref['email'], $ref['phone'], $ref['home_club_id'], $ref['home_location_city'], $ref['grade']]);
@@ -71,7 +84,20 @@ foreach ($referee_names as $index => $name) {
 
 echo "Referees seeded.\n";
 
+
 // ----- Matches -----
+// Ensure $teams is populated correctly for match seeding
+// If $teams was not populated globally before, query them or ensure it is
+if (empty($teams)) {
+    $stmt = $pdo->query("SELECT uuid, division FROM teams");
+    $teams = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    if (empty($teams)) {
+        echo "No teams found to seed matches. Ensure teams are seeded first.\n";
+        exit;
+    }
+}
+
+
 $matches = [];
 $districts = ['Noord', 'Zuid', 'Oost', 'West', 'Midden'];
 $poules = ['Cup', 'Plate', 'Bowl', 'Shield'];
@@ -88,15 +114,16 @@ for ($i = 1; $i <= 250; $i++) {
     // Generate random Saturday or Sunday within the next 6 months
     $startDate = strtotime("next Saturday");
     $endDate = strtotime("+6 months", $startDate);
-    $randomDate = rand($startDate, $endDate);
+    $randomTimestamp = rand($startDate, $endDate); // Use a more descriptive variable name
 
     // Ensure it's Saturday or Sunday
-    $dayOfWeek = date('N', $randomDate); // 6 = Saturday, 7 = Sunday
+    $dayOfWeek = date('N', $randomTimestamp); // 6 = Saturday, 7 = Sunday
     if ($dayOfWeek != 6 && $dayOfWeek != 7) {
-        $randomDate = strtotime("last Saturday", $randomDate);
+        // Go to the previous Saturday
+        $randomTimestamp = strtotime("last Saturday", $randomTimestamp);
     }
 
-    $match_date = date('Y-m-d', $randomDate);
+    $match_date = date('Y-m-d', $randomTimestamp);
 
     // Select random kickoff time
     $kickoff_times = ['11:30:00', '13:00:00', '14:30:00', '16:00:00', '17:30:00'];
@@ -105,21 +132,23 @@ for ($i = 1; $i <= 250; $i++) {
     // Select random district and poule
     $district = $districts[array_rand($districts)];
     $poule = $poules[array_rand($poules)];
+    $match_uuid = generate_uuid_v4();
 
     $match = [
-        'uuid' => uuid(),
+        'uuid' => $match_uuid,
         'home_team_id' => $homeTeam['uuid'],
         'away_team_id' => $awayTeam['uuid'],
-        'location_lat' => rand(50, 55) + (rand(0, 999999) / 1000000),
-        'location_lon' => rand(3, 7) + (rand(0, 999999) / 1000000),
+        'location_lat' => rand(50000000, 55000000) / 1000000, // More precise random lat
+        'location_lon' => rand(3000000, 7000000) / 1000000,   // More precise random lon
         'location_address' => 'Random Pitch Location ' . $i,
-        'division' => $homeTeam['division'],
+        'division' => $homeTeam['division'], // Assuming division is taken from home team
         'expected_grade' => $grades[array_rand($grades)],
         'match_date' => $match_date,
         'kickoff_time' => $kickoff_time,
         'district' => $district,
         'poule' => $poule
     ];
+    // $matches[] = $match; // Add to $matches array if needed for other operations
 
     $stmt = $pdo->prepare("INSERT IGNORE INTO matches (uuid, home_team_id, away_team_id, location_lat, location_lon, location_address, division, expected_grade, match_date, kickoff_time, district, poule) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
     $stmt->execute([
@@ -140,5 +169,39 @@ for ($i = 1; $i <= 250; $i++) {
 
 echo "250 matches seeded with districts and poules.\n";
 
+// ----- Admin User -----
+$adminUsername = 'admin';
+$adminPassword = 'password'; // Securely hash this password
+
+// Hash the password
+$passwordHash = password_hash($adminPassword, PASSWORD_DEFAULT);
+
+// Generate UUID for the admin user
+$adminUuid = generate_uuid_v4();
+$adminRole = 'admin';
+
+try {
+    // Check if admin user already exists
+    $stmt = $pdo->prepare("SELECT uuid FROM users WHERE username = ?");
+    $stmt->execute([$adminUsername]);
+    $existingUser = $stmt->fetch();
+
+    if ($existingUser) {
+        echo "Admin user '{$adminUsername}' already exists.\n";
+    } else {
+        // Insert the admin user
+        $stmt = $pdo->prepare("INSERT INTO users (uuid, username, password_hash, role) VALUES (?, ?, ?, ?)");
+        $stmt->execute([$adminUuid, $adminUsername, $passwordHash, $adminRole]);
+        echo "Admin user '{$adminUsername}' created successfully.\n";
+    }
+} catch (PDOException $e) {
+    // Check if the error is about duplicate entry for username (though IGNORE should handle it, this is more explicit for username)
+    // MySQL error code for duplicate entry is 1062
+    if ($e->getCode() == '23000' || $e->errorInfo[1] == 1062) {
+        echo "Admin user '{$adminUsername}' already exists (caught exception).\n";
+    } else {
+        echo "Error creating admin user '{$adminUsername}': " . $e->getMessage() . "\n";
+    }
+}
 
 ?>
