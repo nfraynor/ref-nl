@@ -10,14 +10,14 @@
     <link rel="stylesheet" href="css/login.css">
 </head>
 <body>
-    <div class="container"> {/* Removed mt-5 to allow flexbox centering to fully work */}
+    <div class="container">
         <div class="row justify-content-center">
             <div class="col-md-6 col-lg-4">
                 <h1 class="text-center mb-4 login-page-title">Referee Assignment System</h1>
                 <div class="card login-card">
                     <div class="card-body p-4">
                         <h5 class="card-title text-center mb-4">Login</h5>
-                        <form> {/* Action and method will be added later */}
+                        <form>
                             <div class="mb-3">
                                 <label for="username" class="form-label">Username</label>
                                 <input type="text" class="form-control" id="username" name="username" required>
