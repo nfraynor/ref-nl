@@ -45,6 +45,9 @@ try {
 
 // Include the header
 require_once 'includes/header.php';
+
+// Include the navigation menu
+require_once 'includes/nav.php';
 ?>
 
 <div class="container">
