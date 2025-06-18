@@ -102,7 +102,7 @@ function checkConflict($matches, $refId, $thisMatchId, $matchDate, $kickoffTime)
 }
 foreach ($matches as $match): ?>
     <tr>
-        <td><?= htmlspecialchars($match['match_date']) ?></td>
+        <td><a href="match_detail.php?uuid=<?= htmlspecialchars($match['uuid']) ?>"><?= htmlspecialchars($match['match_date']) ?></a></td>
         <td><?= htmlspecialchars(substr($match['kickoff_time'], 0, 5)) ?></td>
         <td><?= htmlspecialchars($match['home_club_name'] . " - " . $match['home_team_name']) ?></td>
         <td><?= htmlspecialchars($match['away_club_name'] . " - " . $match['away_team_name']) ?></td>
