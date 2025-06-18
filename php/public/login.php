@@ -1,3 +1,82 @@
+<?php
+// Start the session at the very beginning
+if (session_status() == PHP_SESSION_NONE) {
+    session_start();
+}
+
+$error_message = '';
+
+// Check if the user is already logged in, if so, redirect to index.php
+if (isset($_SESSION['user_id'])) {
+    header("Location: index.php");
+    exit;
+}
+
+if ($_SERVER["REQUEST_METHOD"] == "POST") {
+    // Retrieve username and password from POST request
+    $username = isset($_POST['username']) ? trim($_POST['username']) : '';
+    $password = isset($_POST['password']) ? $_POST['password'] : '';
+
+    if (empty($username) || empty($password)) {
+        $error_message = "Username and password are required.";
+    } else {
+        try {
+            // Include database configuration
+            $config = require __DIR__ . '/../config/database.php';
+
+            // DSN (Data Source Name)
+            $dsn = "mysql:host={$config['host']};dbname={$config['dbname']};charset={$config['charset']}";
+
+            // PDO options
+            $options = [
+                PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                PDO::ATTR_EMULATE_PREPARES   => false,
+            ];
+
+            // Create a new PDO instance
+            $pdo = new PDO($dsn, $config['username'], $config['password'], $options);
+
+            // Prepare and execute SQL query to fetch user
+            $stmt = $pdo->prepare("SELECT uuid, username, password_hash, role FROM users WHERE username = :username");
+            $stmt->bindParam(':username', $username);
+            $stmt->execute();
+
+            $user = $stmt->fetch();
+
+            if ($user) {
+                // Verify password
+                if (password_verify($password, $user['password_hash'])) {
+                    // Password is correct, regenerate session ID
+                    session_regenerate_id(true);
+
+                    // Store user details in session
+                    $_SESSION['user_id'] = $user['uuid']; // uuid is the primary key
+                    $_SESSION['username'] = $user['username'];
+                    $_SESSION['role'] = $user['role'];
+
+                    // Redirect to a dashboard or home page
+                    header("Location: index.php");
+                    exit;
+                } else {
+                    // Password does not match
+                    $error_message = "Invalid username or password.";
+                }
+            } else {
+                // User not found
+                $error_message = "Invalid username or password.";
+            }
+        } catch (PDOException $e) {
+            // Database connection or query error
+            // $error_message = "Database error: " . $e->getMessage(); // For debugging
+            $error_message = "An error occurred. Please try again later."; // User-friendly message
+        } catch (Exception $e) {
+            // Other errors (e.g., config file missing)
+            $error_message = "An unexpected error occurred. Please try again later.";
+        }
+    }
+}
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -17,10 +96,17 @@
                 <div class="card login-card">
                     <div class="card-body p-4">
                         <h5 class="card-title text-center mb-4">Login</h5>
-                        <form>
+
+                        <?php if (!empty($error_message)): ?>
+                            <div class="alert alert-danger" role="alert">
+                                <?php echo htmlspecialchars($error_message); ?>
+                            </div>
+                        <?php endif; ?>
+
+                        <form method="POST" action="login.php">
                             <div class="mb-3">
                                 <label for="username" class="form-label">Username</label>
-                                <input type="text" class="form-control" id="username" name="username" required>
+                                <input type="text" class="form-control" id="username" name="username" required value="<?php echo isset($username) ? htmlspecialchars($username) : ''; ?>">
                             </div>
                             <div class="mb-3">
                                 <label for="password" class="form-label">Password</label>

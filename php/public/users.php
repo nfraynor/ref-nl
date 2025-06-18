@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../utils/session_auth.php';
 // users.php
 // Page for managing users
 

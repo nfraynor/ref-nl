@@ -1,4 +1,5 @@
-<?php include 'includes/header.php'; ?>
+<?php require_once __DIR__ . '/../utils/session_auth.php';
+include 'includes/header.php'; ?>
 <?php include 'includes/nav.php'; ?>
 
 <h1>Welcome to the Referee Assignment System</h1>
