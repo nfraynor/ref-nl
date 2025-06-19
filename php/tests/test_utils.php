@@ -15,12 +15,18 @@ function get_first_match_data() {
                 m.uuid,
                 m.match_date,
                 ht.team_name AS home_team_name,
-                ac.club_name AS away_club_name, -- Away club name for variety
-                at.team_name AS away_team_name
+                ac.club_name AS away_club_name,
+                at.team_name AS away_team_name,
+                l.name AS location_name,
+                l.address_text AS location_address_text,
+                l.latitude AS location_latitude,
+                l.longitude AS location_longitude,
+                l.notes AS location_specific_notes
             FROM matches m
             JOIN teams ht ON m.home_team_id = ht.uuid
             JOIN teams at ON m.away_team_id = at.uuid
-            JOIN clubs ac ON at.club_id = ac.uuid -- Join with clubs for away team's club
+            JOIN clubs ac ON at.club_id = ac.uuid
+            LEFT JOIN locations l ON m.location_uuid = l.uuid -- Join with locations table
             ORDER BY m.match_date ASC, m.kickoff_time ASC
             LIMIT 1
         ");

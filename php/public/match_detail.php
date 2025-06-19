@@ -19,14 +19,17 @@ $stmt = $pdo->prepare("
         m.uuid AS match_uuid,
         m.match_date,
         m.kickoff_time,
-        m.location_notes,
+        -- m.location_notes, -- Old notes from matches table, replaced by locations.notes
         m.division,
         ht.team_name AS home_team_name,
         at.team_name AS away_team_name,
         hcl.club_name AS home_club_name,
         acl.club_name AS away_club_name,
-        l.name AS location_name,
-        l.address AS location_address,
+        l.name AS location_name,                 -- from locations table
+        l.address_text AS location_address_text, -- from locations table
+        l.latitude AS location_latitude,         -- from locations table
+        l.longitude AS location_longitude,       -- from locations table
+        l.notes AS location_specific_notes,      -- from locations table
         CONCAT(main_ref.first_name, ' ', main_ref.last_name) AS main_ref_name,
         main_ref.uuid AS main_ref_uuid,
         CONCAT(ar1.first_name, ' ', ar1.last_name) AS ar1_name,
@@ -38,7 +41,7 @@ $stmt = $pdo->prepare("
     JOIN teams at ON m.away_team_id = at.uuid
     LEFT JOIN clubs hcl ON ht.club_id = hcl.uuid
     LEFT JOIN clubs acl ON at.club_id = acl.uuid
-    LEFT JOIN locations l ON m.location_id = l.uuid
+    LEFT JOIN locations l ON m.location_uuid = l.uuid -- Corrected JOIN condition
     LEFT JOIN referees main_ref ON m.referee_id = main_ref.uuid
     LEFT JOIN referees ar1 ON m.ar1_id = ar1.uuid
     LEFT JOIN referees ar2 ON m.ar2_id = ar2.uuid
@@ -79,13 +82,21 @@ if (!$match) {
 
                     <dt class="col-sm-3">Location</dt>
                     <dd class="col-sm-9">
-                        <?= htmlspecialchars($match['location_name']) ?><br>
-                        <small><?= htmlspecialchars($match['location_address']) ?></small>
+                        <?php if ($match['location_name'] || $match['location_address_text']): ?>
+                            <strong><?= htmlspecialchars($match['location_name'] ?: 'N/A') ?></strong><br>
+                            <small><?= htmlspecialchars($match['location_address_text'] ?: 'Address not available') ?></small><br>
+                            <?php if ($match['location_latitude'] && $match['location_longitude']): ?>
+                                <small>Lat: <?= htmlspecialchars($match['location_latitude']) ?>, Lon: <?= htmlspecialchars($match['location_longitude']) ?></small><br>
+                                <a href="https://www.google.com/maps?q=<?= htmlspecialchars($match['location_latitude']) ?>,<?= htmlspecialchars($match['location_longitude']) ?>" target="_blank" class="btn btn-sm btn-info mt-1">View on Map</a>
+                            <?php endif; ?>
+                        <?php else: ?>
+                            N/A
+                        <?php endif; ?>
                     </dd>
 
-                    <?php if ($match['location_notes']): ?>
+                    <?php if (!empty($match['location_specific_notes'])): ?>
                     <dt class="col-sm-3">Location Notes</dt>
-                    <dd class="col-sm-9"><?= nl2br(htmlspecialchars($match['location_notes'])) ?></dd>
+                    <dd class="col-sm-9"><?= nl2br(htmlspecialchars($match['location_specific_notes'])) ?></dd>
                     <?php endif; ?>
 
                     <dt class="col-sm-3">Referee</dt>

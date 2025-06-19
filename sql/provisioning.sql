@@ -116,3 +116,19 @@ CREATE TABLE IF NOT EXISTS users (
                                      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                                      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
+
+-- Locations Table
+CREATE TABLE IF NOT EXISTS locations (
+    uuid CHAR(36) PRIMARY KEY,
+    name VARCHAR(255),
+    address_text VARCHAR(255) NOT NULL,
+    latitude DECIMAL(10, 8) NOT NULL,
+    longitude DECIMAL(11, 8) NOT NULL,
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- Modify matches table to include location_uuid foreign key
+ALTER TABLE matches ADD COLUMN location_uuid CHAR(36) NULL;
+ALTER TABLE matches ADD CONSTRAINT fk_match_location FOREIGN KEY (location_uuid) REFERENCES locations(uuid);
