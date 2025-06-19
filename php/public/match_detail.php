@@ -1,15 +1,15 @@
 <?php
-require_once __DIR__ . '/../../utils/session_auth.php';
-require_once __DIR__ . '/../../utils/db.php';
-include '../includes/header.php';
-include '../includes/nav.php';
+require_once __DIR__ . '/../utils/session_auth.php';
+require_once __DIR__ . '/../utils/db.php';
+include __DIR__ . '/includes/header.php';
+include __DIR__ . '/includes/nav.php';
 
 $pdo = Database::getConnection();
 $matchUuid = $_GET['uuid'] ?? null;
 
 if (!$matchUuid) {
     echo "<div class='container mt-4'><p class='alert alert-warning'>Match ID is missing.</p></div>";
-    include '../includes/footer.php';
+    include __DIR__ . '/includes/footer.php';
     exit;
 }
 
@@ -49,7 +49,7 @@ $match = $stmt->fetch();
 
 if (!$match) {
     echo "<div class='container mt-4'><p class='alert alert-danger'>Match not found.</p></div>";
-    include '../includes/footer.php';
+    include __DIR__ . '/includes/footer.php';
     exit;
 }
 ?>
@@ -129,4 +129,4 @@ if (!$match) {
 
 </div>
 
-<?php include '../includes/footer.php'; ?>
+<?php include __DIR__ . '/includes/footer.php'; ?>
