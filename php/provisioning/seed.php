@@ -84,6 +84,34 @@ foreach ($referee_names as $index => $name) {
 
 echo "Referees seeded.\n";
 
+// ----- Sample Locations -----
+$sample_locations_data = [
+    ['name' => 'Central Sports Park Pitch 1', 'address_text' => '123 Main St, Sportsville, SP 12345', 'latitude' => 52.370216, 'longitude' => 4.895168, 'notes' => 'Main pitch, well maintained. Good parking.'],
+    ['name' => 'North End Community Field', 'address_text' => '456 North Rd, Townsville, TV 67890', 'latitude' => 52.400000, 'longitude' => 4.900000, 'notes' => 'Artificial turf. Limited street parking.'],
+    ['name' => 'Riverside Rugby Ground', 'address_text' => '789 River Ln, Riverton, RT 24680', 'latitude' => 52.351111, 'longitude' => 4.888888, 'notes' => 'Often muddy after rain. Clubhouse nearby.'],
+    ['name' => 'Hilltop Arena', 'address_text' => '101 Summit Dr, Hillcrest, HC 13579', 'latitude' => 52.391234, 'longitude' => 4.876543, 'notes' => 'Exposed to wind. Excellent views.'],
+    ['name' => 'Westside Training Pitch', 'address_text' => '222 West Ave, Westfield, WF 97531', 'latitude' => 52.365432, 'longitude' => 4.865432, 'notes' => 'Primarily for training, basic facilities.'],
+    ['name' => 'Old Town RFC Stadium', 'address_text' => '1 Old Stadium Rd, Old Town, OT 54321', 'latitude' => 52.123456, 'longitude' => 4.654321, 'notes' => 'Historic ground, home of Old Town RFC.'],
+    ['name' => 'New Town RFC Pitch B', 'address_text' => '2 New Park Ln, New Town, NT 87654', 'latitude' => 52.987654, 'longitude' => 4.123456, 'notes' => 'Secondary pitch for New Town RFC.'],
+];
+
+$seeded_location_uuids = [];
+$stmt_insert_location = $pdo->prepare("INSERT IGNORE INTO locations (uuid, name, address_text, latitude, longitude, notes) VALUES (?, ?, ?, ?, ?, ?)");
+
+foreach ($sample_locations_data as $loc_data) {
+    $location_uuid = generate_uuid_v4();
+    $stmt_insert_location->execute([
+        $location_uuid,
+        $loc_data['name'],
+        $loc_data['address_text'],
+        $loc_data['latitude'],
+        $loc_data['longitude'],
+        $loc_data['notes']
+    ]);
+    $seeded_location_uuids[] = $location_uuid;
+}
+echo count($seeded_location_uuids) . " sample locations seeded.\n";
+
 
 // ----- Matches -----
 // Ensure $teams is populated correctly for match seeding
@@ -134,13 +162,13 @@ for ($i = 1; $i <= 250; $i++) {
     $poule = $poules[array_rand($poules)];
     $match_uuid = generate_uuid_v4();
 
+    $selected_location_uuid = $seeded_location_uuids[array_rand($seeded_location_uuids)];
+
     $match = [
         'uuid' => $match_uuid,
         'home_team_id' => $homeTeam['uuid'],
         'away_team_id' => $awayTeam['uuid'],
-        'location_lat' => rand(50000000, 55000000) / 1000000, // More precise random lat
-        'location_lon' => rand(3000000, 7000000) / 1000000,   // More precise random lon
-        'location_address' => 'Random Pitch Location ' . $i,
+        'location_uuid' => $selected_location_uuid, // Use seeded location UUID
         'division' => $homeTeam['division'], // Assuming division is taken from home team
         'expected_grade' => $grades[array_rand($grades)],
         'match_date' => $match_date,
@@ -150,14 +178,12 @@ for ($i = 1; $i <= 250; $i++) {
     ];
     // $matches[] = $match; // Add to $matches array if needed for other operations
 
-    $stmt = $pdo->prepare("INSERT IGNORE INTO matches (uuid, home_team_id, away_team_id, location_lat, location_lon, location_address, division, expected_grade, match_date, kickoff_time, district, poule) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+    $stmt = $pdo->prepare("INSERT IGNORE INTO matches (uuid, home_team_id, away_team_id, location_uuid, division, expected_grade, match_date, kickoff_time, district, poule) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
     $stmt->execute([
         $match['uuid'],
         $match['home_team_id'],
         $match['away_team_id'],
-        $match['location_lat'],
-        $match['location_lon'],
-        $match['location_address'],
+        $match['location_uuid'],
         $match['division'],
         $match['expected_grade'],
         $match['match_date'],
