@@ -148,5 +148,34 @@ th:nth-child(11), td:nth-child(11) { min-width: 180px; } /* Ref roles */
 .editable-cell .cell-value {
     display: inline-block;
     vertical-align: middle;
-    margin-left: 18px; /* Make space for the icon to the left */
+    margin-left: 20px; /* Increased slightly for more space */
+}
+
+.editable-cell:hover {
+    border: 1px solid blue !important; /* Added !important for testing visibility */
+    background-color: #f0f8ff; /* Light blue background on hover for better visibility */
+}
+
+/* Ensure the icon itself has some dimensions and is clearly visible if it renders */
+.editable-cell .edit-icon {
+    position: absolute;
+    left: 5px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: none !important; /* Hidden by default - use !important for testing */
+    cursor: pointer;
+    color: #007bff;
+    padding: 2px;
+    font-size: 1.1em; /* Slightly larger for visibility */
+    width: 16px; /* Explicit width */
+    height: 16px; /* Explicit height */
+    line-height: 16px; /* Center icon if it's a font icon */
+    text-align: center;
+}
+
+.editable-cell:hover .edit-icon {
+    display: inline-block !important; /* Show on hover - use !important for testing */
+    background-color: #ffffff; /* Add a background to ensure it's not transparent */
+    border: 1px solid #cccccc; /* Border around icon for visibility */
+    border-radius: 3px;
 }
