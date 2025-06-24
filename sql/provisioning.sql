@@ -74,12 +74,14 @@ CREATE TABLE IF NOT EXISTS matches (
                                        commissioner_id CHAR(36),
                                        district VARCHAR(100),        -- New column
                                        poule VARCHAR(100),           -- New column
+                                       referee_assigner_uuid CHAR(36), -- New column for referee assigner
                                        FOREIGN KEY (home_team_id) REFERENCES teams(uuid),
                                        FOREIGN KEY (away_team_id) REFERENCES teams(uuid),
                                        FOREIGN KEY (referee_id) REFERENCES referees(uuid),
                                        FOREIGN KEY (ar1_id) REFERENCES referees(uuid),
                                        FOREIGN KEY (ar2_id) REFERENCES referees(uuid),
-                                       FOREIGN KEY (commissioner_id) REFERENCES referees(uuid)
+                                       FOREIGN KEY (commissioner_id) REFERENCES referees(uuid),
+                                       FOREIGN KEY (referee_assigner_uuid) REFERENCES users(uuid) -- Foreign key constraint
 );
 
 
