@@ -121,3 +121,32 @@ th:nth-child(11), td:nth-child(11) { min-width: 180px; } /* Ref roles */
 .select2-container {
     width: 350px !important;
 }
+
+/* Styling for editable cells in the matches table */
+.editable-cell {
+    position: relative;
+    /* Adjusted padding-left after testing, icon is small */
+}
+
+.editable-cell .edit-icon {
+    position: absolute;
+    left: 5px; /* Position from the left edge of the cell */
+    top: 50%;
+    transform: translateY(-50%);
+    display: none; /* Hidden by default */
+    cursor: pointer;
+    color: #007bff; /* Bootstrap primary color */
+    padding: 2px; /* Small padding around icon for easier click */
+    font-size: 0.9em; /* Slightly smaller icon if needed */
+}
+
+.editable-cell:hover .edit-icon {
+    display: inline-block; /* Show on hover */
+}
+
+/* Ensure cell content aligns well and doesn't overlap with the icon if cell is narrow */
+.editable-cell .cell-value {
+    display: inline-block;
+    vertical-align: middle;
+    margin-left: 18px; /* Make space for the icon to the left */
+}

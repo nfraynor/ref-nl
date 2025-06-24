@@ -223,16 +223,30 @@ function getRefName($referees, $uuid) {
                 <td><?= htmlspecialchars($match['division']) ?></td>
                 <td><?= htmlspecialchars($match['district']) ?></td>
                 <td><?= htmlspecialchars($match['poule']) ?></td>
-                <td>
-                    <?php
-                    $locOutput = htmlspecialchars($match['location_name'] ?? 'N/A');
-                    if (!empty($match['location_address']) && $match['location_name'] !== $match['location_address']) {
-                        $locOutput .= '<br><small>' . htmlspecialchars($match['location_address']) . '</small>';
-                    }
-                    echo $locOutput;
-                    ?>
+                <td class="editable-cell"
+                    data-match-uuid="<?= htmlspecialchars($match['uuid']) ?>"
+                    data-field-type="location"
+                    data-current-value="<?= htmlspecialchars($match['location_uuid'] ?? '') ?>">
+                    <span class="cell-value">
+                        <?php
+                        $locOutput = htmlspecialchars($match['location_name'] ?? 'N/A');
+                        if (!empty($match['location_address']) && $match['location_name'] !== $match['location_address'] && $match['location_name']) { // only add address if name exists
+                            $locOutput .= '<br><small>' . htmlspecialchars($match['location_address']) . '</small>';
+                        } elseif (empty($match['location_name']) && !empty($match['location_address'])) { // Show address if name is empty
+                             $locOutput = '<small>' . htmlspecialchars($match['location_address']) . '</small>';
+                        }
+                        echo $locOutput;
+                        ?>
+                    </span>
+                    <i class="bi bi-pencil-square edit-icon" style="display: none;"></i>
                 </td>
-                <td><?= htmlspecialchars($match['referee_assigner_username'] ?? 'N/A') ?></td>
+                <td class="editable-cell"
+                    data-match-uuid="<?= htmlspecialchars($match['uuid']) ?>"
+                    data-field-type="referee_assigner"
+                    data-current-value="<?= htmlspecialchars($match['referee_assigner_uuid'] ?? '') ?>">
+                    <span class="cell-value"><?= htmlspecialchars($match['referee_assigner_username'] ?? 'N/A') ?></span>
+                    <i class="bi bi-pencil-square edit-icon" style="display: none;"></i>
+                </td>
                 <td><?php renderRefereeDropdown("referee_id", $match, $referees, $assignMode, $matches); ?></td>
                 <td><?php renderRefereeDropdown("ar1_id", $match, $referees, $assignMode, $matches); ?></td>
                 <td><?php renderRefereeDropdown("ar2_id", $match, $referees, $assignMode, $matches); ?></td>
@@ -253,4 +267,24 @@ function getRefName($referees, $uuid) {
 
 <script src="/js/matches.js"></script>
 <script src="/js/match_conflicts.js"></script>
+
+<!-- Generic Edit Modal -->
+<div class="modal fade" id="editMatchFieldModal" tabindex="-1" aria-labelledby="editMatchFieldModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editMatchFieldModalLabel">Edit Field</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="editMatchFieldModalBody">
+                <!-- Input field will be injected here by JavaScript -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" id="saveMatchFieldChange">Save changes</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <?php include 'includes/footer.php'; ?>

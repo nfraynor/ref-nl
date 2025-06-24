@@ -199,3 +199,134 @@ document.getElementById('clearPouleFilter')?.addEventListener('click', () => {
     document.querySelectorAll('.poule-filter-checkbox').forEach(cb => cb.checked = false);
     applyMultiFilter('poule', 'poule-filter-checkbox');
 });
+
+// --- Inline Editing Functionality ---
+document.addEventListener('DOMContentLoaded', () => {
+    let allLocations = [];
+    let allUsers = [];
+    let editMatchFieldModalInstance = null;
+
+    // Get modal instance
+    const modalElement = document.getElementById('editMatchFieldModal');
+    if (modalElement) {
+        editMatchFieldModalInstance = new bootstrap.Modal(modalElement);
+    }
+
+    // Fetch initial data for dropdowns
+    function fetchSelectData() {
+        fetch('/ajax/location_options.php') // Assuming a new endpoint that returns all locations as JSON
+            .then(response => response.json())
+            .then(data => {
+                allLocations = data;
+            })
+            .catch(error => console.error('Error fetching locations:', error));
+
+        fetch('/ajax/user_options.php') // Assuming a new endpoint that returns all users as JSON
+            .then(response => response.json())
+            .then(data => {
+                allUsers = data;
+            })
+            .catch(error => console.error('Error fetching users:', error));
+    }
+
+    // Call fetchSelectData on page load
+    fetchSelectData();
+
+    document.body.addEventListener('click', function(event) {
+        if (event.target.classList.contains('edit-icon')) {
+            const icon = event.target;
+            const cell = icon.closest('.editable-cell');
+            const matchUuid = cell.dataset.matchUuid;
+            const fieldType = cell.dataset.fieldType;
+            const currentValue = cell.dataset.currentValue;
+
+            const modalTitle = document.getElementById('editMatchFieldModalLabel');
+            const modalBody = document.getElementById('editMatchFieldModalBody');
+            const saveButton = document.getElementById('saveMatchFieldChange');
+
+            modalBody.innerHTML = ''; // Clear previous content
+            let selectElement = document.createElement('select');
+            selectElement.classList.add('form-select');
+            selectElement.id = 'modalSelectField';
+
+            let defaultOption = document.createElement('option');
+            defaultOption.value = '';
+            defaultOption.textContent = `-- Select ${fieldType.replace('_', ' ')} --`;
+            selectElement.appendChild(defaultOption);
+
+            if (fieldType === 'location') {
+                modalTitle.textContent = 'Edit Match Location';
+                allLocations.forEach(loc => {
+                    let option = document.createElement('option');
+                    option.value = loc.uuid;
+                    option.textContent = `${loc.name} (${loc.address_text})`;
+                    if (loc.uuid === currentValue) {
+                        option.selected = true;
+                    }
+                    selectElement.appendChild(option);
+                });
+            } else if (fieldType === 'referee_assigner') {
+                modalTitle.textContent = 'Edit Referee Assigner';
+                allUsers.forEach(user => {
+                    let option = document.createElement('option');
+                    option.value = user.uuid;
+                    option.textContent = user.username;
+                    if (user.uuid === currentValue) {
+                        option.selected = true;
+                    }
+                    selectElement.appendChild(option);
+                });
+            }
+            modalBody.appendChild(selectElement);
+
+            // Store context on save button
+            saveButton.dataset.matchUuid = matchUuid;
+            saveButton.dataset.fieldType = fieldType;
+            saveButton.dataset.cellValueElement = `#matchesTableBody tr td[data-match-uuid='${matchUuid}'][data-field-type='${fieldType}'] span.cell-value`;
+            saveButton.dataset.cellElement = `#matchesTableBody tr td[data-match-uuid='${matchUuid}'][data-field-type='${fieldType}']`;
+
+
+            if(editMatchFieldModalInstance) {
+                editMatchFieldModalInstance.show();
+            }
+        }
+
+        if (event.target.id === 'saveMatchFieldChange') {
+            const saveButton = event.target;
+            const matchUuid = saveButton.dataset.matchUuid;
+            const fieldType = saveButton.dataset.fieldType;
+            const newValue = document.getElementById('modalSelectField').value;
+            const cellValueSelector = saveButton.dataset.cellValueElement;
+            const cellSelector = saveButton.dataset.cellElement;
+
+
+            fetch('/ajax/update_match_field.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `match_uuid=${encodeURIComponent(matchUuid)}&field_type=${encodeURIComponent(fieldType)}&new_value=${encodeURIComponent(newValue)}`
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const cellValueElement = document.querySelector(cellValueSelector);
+                    const cellElement = document.querySelector(cellSelector);
+                    if (cellValueElement && cellElement) {
+                        cellValueElement.innerHTML = data.newValueDisplay; // Update display text
+                        cellElement.dataset.currentValue = newValue; // Update current value for next edit
+                    }
+                    if(editMatchFieldModalInstance) {
+                        editMatchFieldModalInstance.hide();
+                    }
+                } else {
+                    alert('Error updating field: ' + (data.message || 'Unknown error'));
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An unexpected error occurred.');
+            });
+        }
+    });
+});
