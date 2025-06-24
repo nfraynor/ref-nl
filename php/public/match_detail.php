@@ -148,20 +148,6 @@ if (isset($_GET['update_success'])) {
                     <dt class="col-sm-3">Away Team</dt>
                     <dd class="col-sm-9"><?= htmlspecialchars($match['away_club_name'] . ' - ' . $match['away_team_name']) ?></dd>
 
-                    <dt class="col-sm-3">Location</dt>
-                    <dd class="col-sm-9">
-                        <?php if ($match['location_name'] || $match['location_address_text']): ?>
-                            <strong><?= htmlspecialchars($match['location_name'] ?: 'N/A') ?></strong><br>
-                            <small><?= htmlspecialchars($match['location_address_text'] ?: 'Address not available') ?></small><br>
-                            <?php if ($match['location_latitude'] && $match['location_longitude']): ?>
-                                <small>Lat: <?= htmlspecialchars($match['location_latitude']) ?>, Lon: <?= htmlspecialchars($match['location_longitude']) ?></small><br>
-                                <a href="https://www.google.com/maps?q=<?= htmlspecialchars($match['location_latitude']) ?>,<?= htmlspecialchars($match['location_longitude']) ?>" target="_blank" class="btn btn-sm btn-info mt-1">View on Map</a>
-                            <?php endif; ?>
-                        <?php else: ?>
-                            N/A
-                        <?php endif; ?>
-                    </dd>
-
                     <?php if (!empty($match['location_specific_notes'])): ?>
                     <dt class="col-sm-3">Location Notes</dt>
                     <dd class="col-sm-9"><?= nl2br(htmlspecialchars($match['location_specific_notes'])) ?></dd>
