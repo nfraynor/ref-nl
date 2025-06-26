@@ -28,12 +28,12 @@ try {
 
     // Prepare and execute SQL query
     $stmt = $pdo->prepare("
-        SELECT u.uuid, u.username, u.created_at, GROUP_CONCAT(DISTINCT d.name SEPARATOR ', ') AS divisions, GROUP_CONCAT(DISTINCT dist.name SEPARATOR ', ') AS districts
+        SELECT u.uuid, u.username, u.role, u.created_at, GROUP_CONCAT(DISTINCT d.name SEPARATOR ', ') AS divisions, GROUP_CONCAT(DISTINCT dist.name SEPARATOR ', ') AS districts
         FROM users u
         LEFT JOIN user_permissions up ON u.uuid = up.user_id
         LEFT JOIN divisions d ON up.division_id = d.id
         LEFT JOIN districts dist ON up.district_id = dist.id
-        GROUP BY u.uuid, u.username, u.created_at
+        GROUP BY u.uuid, u.username, u.role, u.created_at
         ORDER BY u.username ASC
     ");
     $stmt->execute();
@@ -76,6 +76,7 @@ require_once 'includes/nav.php';
                 <thead class="table-dark">
                     <tr>
                         <th>Username</th>
+                        <th>Global Role</th>
                         <th>Divisions</th>
                         <th>Districts</th>
                         <th>Date Created</th>
@@ -85,6 +86,7 @@ require_once 'includes/nav.php';
                     <?php foreach ($users as $user): ?>
                         <tr>
                             <td><?php echo htmlspecialchars($user['username']); ?></td>
+                            <td><?php echo htmlspecialchars($user['role'] ?? 'N/A'); ?></td>
                             <td><?php echo htmlspecialchars($user['divisions'] ?? 'N/A'); ?></td>
                             <td><?php echo htmlspecialchars($user['districts'] ?? 'N/A'); ?></td>
                             <td><?php echo htmlspecialchars(date('Y-m-d H:i:s', strtotime($user['created_at']))); ?></td>

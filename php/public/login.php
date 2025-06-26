@@ -39,13 +39,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
             // Prepare and execute SQL query to fetch user
             $stmt = $pdo->prepare("
-                SELECT u.uuid, u.username, u.password_hash, GROUP_CONCAT(DISTINCT d.id) AS division_ids, GROUP_CONCAT(DISTINCT dist.id) AS district_ids
+                SELECT u.uuid, u.username, u.password_hash, u.role, GROUP_CONCAT(DISTINCT d.id) AS division_ids, GROUP_CONCAT(DISTINCT dist.id) AS district_ids
                 FROM users u
                 LEFT JOIN user_permissions up ON u.uuid = up.user_id
                 LEFT JOIN divisions d ON up.division_id = d.id
                 LEFT JOIN districts dist ON up.district_id = dist.id
                 WHERE u.username = :username
-                GROUP BY u.uuid, u.username, u.password_hash
+                GROUP BY u.uuid, u.username, u.password_hash, u.role
             ");
             $stmt->bindParam(':username', $username);
             $stmt->execute();
@@ -61,8 +61,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     // Store user details in session
                     $_SESSION['user_id'] = $user['uuid']; // uuid is the primary key
                     $_SESSION['username'] = $user['username'];
-                    $_SESSION['division_ids'] = explode(',', $user['division_ids'] ?? '');
-                    $_SESSION['district_ids'] = explode(',', $user['district_ids'] ?? '');
+                    $_SESSION['user_role'] = $user['role']; // Store the global role
+                    $_SESSION['division_ids'] = ($user['role'] === 'super_admin') ? [] : explode(',', $user['division_ids'] ?? ''); // Super_admin has all divisions/districts implicitly
+                    $_SESSION['district_ids'] = ($user['role'] === 'super_admin') ? [] : explode(',', $user['district_ids'] ?? ''); // Super_admin has all divisions/districts implicitly
 
                     // Redirect to a dashboard or home page
                     header("Location: index.php");
