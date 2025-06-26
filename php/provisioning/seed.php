@@ -203,8 +203,8 @@ $adminPassword = 'password'; // Securely hash this password
 $passwordHash = password_hash($adminPassword, PASSWORD_DEFAULT);
 
 // Generate UUID for the admin user
-$adminUuid = generate_uuid_v4();
-$adminRole = 'admin';
+$adminUuid = '123e4567-e89b-12d3-a456-426614174000'; // Fixed UUID for default admin
+$adminRole = 'super_admin'; // Set role to super_admin
 
 try {
     // Check if admin user already exists
