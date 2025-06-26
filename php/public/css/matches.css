@@ -125,40 +125,23 @@ th:nth-child(11), td:nth-child(11) { min-width: 180px; } /* Ref roles */
 /* Styling for editable cells in the matches table */
 .editable-cell {
     position: relative;
-    /* Adjusted padding-left after testing, icon is small */
-}
-
-.editable-cell .edit-icon {
-    position: absolute;
-    left: 5px; /* Position from the left edge of the cell */
-    top: 50%;
-    transform: translateY(-50%);
-    display: none; /* Hidden by default */
-    cursor: pointer;
-    color: #007bff; /* Bootstrap primary color */
-    padding: 2px; /* Small padding around icon for easier click */
-    font-size: 0.9em; /* Slightly smaller icon if needed */
-}
-
-.editable-cell:hover .edit-icon {
-    display: inline-block; /* Show on hover */
 }
 
 /* Ensure cell content aligns well and doesn't overlap with the icon if cell is narrow */
 .editable-cell .cell-value {
     display: inline-block;
     vertical-align: middle;
-    margin-right: 20px; /* Space for the icon on the right */
+    /* Ensure margin is appropriate for icon on the right, or remove if padding on cell is used */
+    margin-right: 22px; /* Space for the icon on the right, adjusted for padding on icon */
 }
 
 .editable-cell:hover {
-    /* Debug styles removed */
     /* Consider a subtle background change if desired for hover UX, e.g. background-color: #f9f9f9; */
 }
 
 .editable-cell .edit-icon {
     position: absolute;
-    right: 5px; /* Moved to the right */
+    right: 5px; /* Icon on the right */
     top: 50%;
     transform: translateY(-50%);
     display: none !important; /* Hidden by default, ensuring override */
