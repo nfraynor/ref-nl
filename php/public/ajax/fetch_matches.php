@@ -25,7 +25,22 @@ foreach (['division', 'district', 'poule'] as $filter) {
     }
 }
 
+// Add new filters for location and referee_assigner
+if (!empty($_GET['location']) && is_array($_GET['location'])) {
+    $placeholders = implode(',', array_fill(0, count($_GET['location']), '?'));
+    $whereClauses[] = "m.location_uuid IN ($placeholders)";
+    foreach ($_GET['location'] as $value) {
+        $params[] = $value;
+    }
+}
 
+if (!empty($_GET['referee_assigner']) && is_array($_GET['referee_assigner'])) {
+    $placeholders = implode(',', array_fill(0, count($_GET['referee_assigner']), '?'));
+    $whereClauses[] = "m.referee_assigner_uuid IN ($placeholders)";
+    foreach ($_GET['referee_assigner'] as $value) {
+        $params[] = $value;
+    }
+}
 
 $whereSQL = $whereClauses ? 'WHERE ' . implode(' AND ', $whereClauses) : '';
 
@@ -35,12 +50,17 @@ $sql = "
         hc.club_name AS home_club_name,
         ht.team_name AS home_team_name,
         ac.club_name AS away_club_name,
-        at.team_name AS away_team_name
+        at.team_name AS away_team_name,
+        l.name AS location_name,
+        l.address_text AS location_address,
+        assigner_user.username AS referee_assigner_username
     FROM matches m
     JOIN teams ht ON m.home_team_id = ht.uuid
     JOIN clubs hc ON ht.club_id = hc.uuid
     JOIN teams at ON m.away_team_id = at.uuid
     JOIN clubs ac ON at.club_id = ac.uuid
+    LEFT JOIN locations l ON m.location_uuid = l.uuid
+    LEFT JOIN users assigner_user ON m.referee_assigner_uuid = assigner_user.uuid
     $whereSQL
     ORDER BY m.match_date ASC, m.kickoff_time ASC
     LIMIT 100
@@ -109,6 +129,30 @@ foreach ($matches as $match): ?>
         <td><?= htmlspecialchars($match['division']) ?></td>
         <td><?= htmlspecialchars($match['district']) ?></td>
         <td><?= htmlspecialchars($match['poule']) ?></td>
+        <td class="editable-cell"
+            data-match-uuid="<?= htmlspecialchars($match['uuid']) ?>"
+            data-field-type="location"
+            data-current-value="<?= htmlspecialchars($match['location_uuid'] ?? '') ?>">
+            <span class="cell-value">
+                <?php
+                $locOutput = htmlspecialchars($match['location_name'] ?? 'N/A');
+                if (!empty($match['location_address']) && $match['location_name'] !== $match['location_address'] && $match['location_name']) {
+                    $locOutput .= '<br><small>' . htmlspecialchars($match['location_address']) . '</small>';
+                } elseif (empty($match['location_name']) && !empty($match['location_address'])) {
+                     $locOutput = '<small>' . htmlspecialchars($match['location_address']) . '</small>';
+                }
+                echo $locOutput;
+                ?>
+            </span>
+            <i class="bi bi-pencil-square edit-icon" style="display: none;"></i>
+        </td>
+        <td class="editable-cell"
+            data-match-uuid="<?= htmlspecialchars($match['uuid']) ?>"
+            data-field-type="referee_assigner"
+            data-current-value="<?= htmlspecialchars($match['referee_assigner_uuid'] ?? '') ?>">
+            <span class="cell-value"><?= htmlspecialchars($match['referee_assigner_username'] ?? 'N/A') ?></span>
+            <i class="bi bi-pencil-square edit-icon" style="display: none;"></i>
+        </td>
         <td><?php renderRefereeDropdown("referee_id", $match, $referees, $assignMode, $matches); ?></td>
         <td><?php renderRefereeDropdown("ar1_id", $match, $referees, $assignMode, $matches); ?></td>
         <td><?php renderRefereeDropdown("ar2_id", $match, $referees, $assignMode, $matches); ?></td>

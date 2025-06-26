@@ -127,7 +127,9 @@ document.addEventListener('click', function (e) {
     const filters = [
         { toggleId: 'divisionFilterToggle', boxId: 'divisionFilterBox' },
         { toggleId: 'districtFilterToggle', boxId: 'districtFilterBox' },
-        { toggleId: 'pouleFilterToggle', boxId: 'pouleFilterBox' }
+        { toggleId: 'pouleFilterToggle', boxId: 'pouleFilterBox' },
+        { toggleId: 'locationFilterToggle', boxId: 'locationFilterBox' },
+        { toggleId: 'refereeAssignerFilterToggle', boxId: 'refereeAssignerFilterBox' }
     ];
 
     filters.forEach(({ toggleId, boxId }) => {
@@ -199,6 +201,25 @@ document.getElementById('clearPouleFilter')?.addEventListener('click', () => {
     document.querySelectorAll('.poule-filter-checkbox').forEach(cb => cb.checked = false);
     applyMultiFilter('poule', 'poule-filter-checkbox');
 });
+
+// Location Filter
+document.getElementById('locationFilterToggle')?.addEventListener('click', () => {
+    loadFilterOptions('location_filter', 'locationFilterBox', 'locationFilterOptions', 'location-filter-checkbox', 'location');
+});
+document.getElementById('clearLocationFilter')?.addEventListener('click', () => {
+    document.querySelectorAll('.location-filter-checkbox').forEach(cb => cb.checked = false);
+    applyMultiFilter('location', 'location-filter-checkbox');
+});
+
+// Referee Assigner Filter
+document.getElementById('refereeAssignerFilterToggle')?.addEventListener('click', () => {
+    loadFilterOptions('referee_assigner', 'refereeAssignerFilterBox', 'refereeAssignerFilterOptions', 'referee-assigner-filter-checkbox', 'referee_assigner');
+});
+document.getElementById('clearRefereeAssignerFilter')?.addEventListener('click', () => {
+    document.querySelectorAll('.referee-assigner-filter-checkbox').forEach(cb => cb.checked = false);
+    applyMultiFilter('referee_assigner', 'referee-assigner-filter-checkbox');
+});
+
 
 // --- Inline Editing Functionality ---
 document.addEventListener('DOMContentLoaded', () => {

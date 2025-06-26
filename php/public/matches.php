@@ -205,8 +205,26 @@ function getRefName($referees, $uuid) {
                     <button type="button" id="clearPouleFilter" class="btn btn-sm btn-light mt-2">Clear</button>
                 </div>
             </th>
-            <th>Location</th>
-            <th>Referee Assigner</th>
+            <th style="position: relative;">
+                Location
+                <button type="button" class="btn btn-sm btn-outline-secondary ms-1" id="locationFilterToggle">
+                    <i class="bi bi-filter"></i>
+                </button>
+                <div id="locationFilterBox" class="filter-box">
+                    <div id="locationFilterOptions" class="filter-options"></div>
+                    <button type="button" id="clearLocationFilter" class="btn btn-sm btn-light mt-2">Clear</button>
+                </div>
+            </th>
+            <th style="position: relative;">
+                Referee Assigner
+                <button type="button" class="btn btn-sm btn-outline-secondary ms-1" id="refereeAssignerFilterToggle">
+                    <i class="bi bi-filter"></i>
+                </button>
+                <div id="refereeAssignerFilterBox" class="filter-box">
+                    <div id="refereeAssignerFilterOptions" class="filter-options"></div>
+                    <button type="button" id="clearRefereeAssignerFilter" class="btn btn-sm btn-light mt-2">Clear</button>
+                </div>
+            </th>
             <th>Referee</th>
             <th>AR1</th>
             <th>AR2</th>
