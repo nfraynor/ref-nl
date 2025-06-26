@@ -61,9 +61,34 @@ CREATE TABLE IF NOT EXISTS users (
                                      uuid CHAR(36) PRIMARY KEY,
                                      username VARCHAR(255) UNIQUE NOT NULL,
                                      password_hash VARCHAR(255) NOT NULL,
-                                     role VARCHAR(50) NOT NULL, -- e.g., 'admin', 'referee_manager', 'referee'
                                      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                                      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- Divisions Table
+CREATE TABLE IF NOT EXISTS divisions (
+                                         id INT AUTO_INCREMENT PRIMARY KEY,
+                                         name VARCHAR(255) UNIQUE NOT NULL
+);
+
+-- Districts Table
+CREATE TABLE IF NOT EXISTS districts (
+                                         id INT AUTO_INCREMENT PRIMARY KEY,
+                                         name VARCHAR(255) NOT NULL,
+                                         division_id INT NOT NULL,
+                                         FOREIGN KEY (division_id) REFERENCES divisions(id),
+                                         UNIQUE (name, division_id) -- Ensure district names are unique within a division
+);
+
+-- User Permissions Table
+CREATE TABLE IF NOT EXISTS user_permissions (
+                                                user_id CHAR(36) NOT NULL,
+                                                division_id INT,
+                                                district_id INT,
+                                                PRIMARY KEY (user_id, division_id, district_id), -- Composite primary key
+                                                FOREIGN KEY (user_id) REFERENCES users(uuid) ON DELETE CASCADE,
+                                                FOREIGN KEY (division_id) REFERENCES divisions(id) ON DELETE CASCADE,
+                                                FOREIGN KEY (district_id) REFERENCES districts(id) ON DELETE CASCADE
 );
 
 -- Matches

@@ -38,7 +38,15 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $pdo = new PDO($dsn, $config['username'], $config['password'], $options);
 
             // Prepare and execute SQL query to fetch user
-            $stmt = $pdo->prepare("SELECT uuid, username, password_hash, role FROM users WHERE username = :username");
+            $stmt = $pdo->prepare("
+                SELECT u.uuid, u.username, u.password_hash, GROUP_CONCAT(DISTINCT d.id) AS division_ids, GROUP_CONCAT(DISTINCT dist.id) AS district_ids
+                FROM users u
+                LEFT JOIN user_permissions up ON u.uuid = up.user_id
+                LEFT JOIN divisions d ON up.division_id = d.id
+                LEFT JOIN districts dist ON up.district_id = dist.id
+                WHERE u.username = :username
+                GROUP BY u.uuid, u.username, u.password_hash
+            ");
             $stmt->bindParam(':username', $username);
             $stmt->execute();
 
@@ -53,7 +61,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     // Store user details in session
                     $_SESSION['user_id'] = $user['uuid']; // uuid is the primary key
                     $_SESSION['username'] = $user['username'];
-                    $_SESSION['role'] = $user['role'];
+                    $_SESSION['division_ids'] = explode(',', $user['division_ids'] ?? '');
+                    $_SESSION['district_ids'] = explode(',', $user['district_ids'] ?? '');
 
                     // Redirect to a dashboard or home page
                     header("Location: index.php");
