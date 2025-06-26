@@ -161,7 +161,7 @@ th:nth-child(11), td:nth-child(11) { min-width: 180px; } /* Ref roles */
     right: 5px; /* Moved to the right */
     top: 50%;
     transform: translateY(-50%);
-    display: none; /* Hidden by default */
+    display: none !important; /* Hidden by default, ensuring override */
     cursor: pointer;
     color: #007bff; /* Bootstrap primary color */
     padding: 2px;
@@ -169,6 +169,6 @@ th:nth-child(11), td:nth-child(11) { min-width: 180px; } /* Ref roles */
 }
 
 .editable-cell:hover .edit-icon {
-    display: inline-block; /* Show on hover */
+    display: inline-block !important; /* Show on hover, ensuring override */
     /* Removed extra background/border from debug */
 }
