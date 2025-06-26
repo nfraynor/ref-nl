@@ -60,7 +60,12 @@ require_once 'includes/nav.php';
 ?>
 
 <div class="container">
-    <h1>User Management</h1>
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1>User Management</h1>
+        <?php if (isset($_SESSION['user_role']) && ($_SESSION['user_role'] === 'super_admin' || $_SESSION['user_role'] === 'user_admin')): ?>
+            <a href="add_user.php" class="btn btn-success">Add New User</a>
+        <?php endif; ?>
+    </div>
 
     <?php if ($error_message): ?>
         <div class="alert alert-danger" role="alert">
