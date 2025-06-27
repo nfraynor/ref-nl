@@ -98,42 +98,30 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
             // Only add to user_permissions if no global role (or 'none') is selected
             if ($role_to_insert === null) {
-                $assigned_divisions_for_district_check = [];
-
-                if (!empty($user_division_ids_form)) {
+                if (!empty($user_district_ids_form)) {
                     $sql_permission = "INSERT INTO user_permissions (user_id, division_id, district_id) VALUES (:user_id, :division_id, :district_id)";
                     $stmt_permission = $pdo->prepare($sql_permission);
-                    foreach ($user_division_ids_form as $div_id) {
-                        $stmt_permission->execute([
-                            ':user_id' => $user_uuid_actual,
-                            ':division_id' => $div_id,
-                            ':district_id' => null
-                        ]);
-                        $assigned_divisions_for_district_check[] = $div_id; // Track for district check
-                    }
-                }
 
-                if (!empty($user_district_ids_form)) {
-                    // Prepare statement if not already prepared (e.g. if no divisions were selected)
-                    if (!isset($stmt_permission)) {
-                        $sql_permission = "INSERT INTO user_permissions (user_id, division_id, district_id) VALUES (:user_id, :division_id, :district_id)";
-                        $stmt_permission = $pdo->prepare($sql_permission);
-                    }
+                    // Keep track of unique division_id + district_id pairs to prevent accidental duplicates if form somehow submitted them
+                    $inserted_permissions = [];
 
                     foreach ($user_district_ids_form as $dist_id) {
                         $stmt_get_dist_div = $pdo->prepare("SELECT division_id FROM districts WHERE id = :district_id");
                         $stmt_get_dist_div->execute([':district_id' => $dist_id]);
                         $dist_info = $stmt_get_dist_div->fetch();
 
-                        // Add district permission only if its parent division wasn't already assigned directly AND district is valid
-                        if ($dist_info && !in_array($dist_info['division_id'], $assigned_divisions_for_district_check)) {
-                             $stmt_permission->execute([
-                                ':user_id' => $user_uuid_actual,
-                                ':division_id' => $dist_info['division_id'],
-                                ':district_id' => $dist_id
-                            ]);
-                        } elseif (!$dist_info) {
-                             error_log("District ID $dist_id not found for user $user_uuid_actual.");
+                        if ($dist_info) {
+                            $permission_key = $dist_info['division_id'] . '-' . $dist_id;
+                            if (!isset($inserted_permissions[$permission_key])) {
+                                $stmt_permission->execute([
+                                    ':user_id' => $user_uuid_actual,
+                                    ':division_id' => $dist_info['division_id'],
+                                    ':district_id' => $dist_id
+                                ]);
+                                $inserted_permissions[$permission_key] = true;
+                            }
+                        } else {
+                             error_log("District ID $dist_id not found during permission assignment for user $user_uuid_actual.");
                         }
                     }
                 }
@@ -204,25 +192,12 @@ require_once 'includes/nav.php';
         </div>
 
         <fieldset class="mb-3" id="permissions_fieldset">
-            <legend class="h6">Permissions (Active if Global Role is 'None')</legend>
+            <legend class="h6">District Permissions (Active if Global Role is 'None')</legend>
             <div class="mb-3">
-                <label class="form-label">Divisions (Assigning a Division grants access to all its Districts)</label>
-                <?php if (!empty($divisions)): ?>
-                    <?php foreach ($divisions as $division): ?>
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" name="divisions[]" value="<?php echo $division['id']; ?>" id="div_<?php echo $division['id']; ?>" <?php echo in_array($division['id'], $user_division_ids_form) ? 'checked' : ''; ?>>
-                            <label class="form-check-label" for="div_<?php echo $division['id']; ?>">
-                                <?php echo htmlspecialchars($division['name']); ?>
-                            </label>
-                        </div>
-                    <?php endforeach; ?>
-                <?php elseif (empty($error_message)): // Only show "No divisions" if there wasn't a DB error already ?>
-                    <p class="text-muted">No divisions found. Please add divisions in the system first.</p>
-                <?php endif; ?>
-            </div>
-            <div class="mb-3">
-                <label class="form-label">Districts (Assign for specific district access if parent Division is not selected above)</label>
+                <label class="form-label">Districts (Select the districts the user should have access to. Access to the parent division is implied.)</label>
                 <?php if (!empty($districts)):
+                    // Ensure $divisions is available for displaying district groupings by division name
+                    // This was fetched earlier in the script. If not, it would need to be.
                     $current_division_id_for_layout = null;
                     foreach ($districts as $district):
                         // Group districts by their division in the UI
