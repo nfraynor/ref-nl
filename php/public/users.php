@@ -26,20 +26,72 @@ try {
     // Create a new PDO instance
     $pdo = new PDO($dsn, $config['username'], $config['password'], $options);
 
-    // Prepare and execute SQL query
+    // Prepare and execute SQL query to fetch users and their individual permissions
     $stmt = $pdo->prepare("
-        SELECT u.uuid, u.username, u.role, u.created_at, GROUP_CONCAT(DISTINCT d.name SEPARATOR ', ') AS divisions, GROUP_CONCAT(DISTINCT dist.name SEPARATOR ', ') AS districts
-        FROM users u
-        LEFT JOIN user_permissions up ON u.uuid = up.user_id
-        LEFT JOIN divisions d ON up.division_id = d.id
-        LEFT JOIN districts dist ON up.district_id = dist.id
-        GROUP BY u.uuid, u.username, u.role, u.created_at
-        ORDER BY u.username ASC
+        SELECT
+            u.uuid,
+            u.username,
+            u.role AS global_role,
+            u.created_at,
+            d.name AS division_name,
+            dist.name AS district_name
+        FROM
+            users u
+        LEFT JOIN
+            user_permissions up ON u.uuid = up.user_id
+        LEFT JOIN
+            divisions d ON up.division_id = d.id
+        LEFT JOIN
+            districts dist ON up.district_id = dist.id
+        ORDER BY
+            u.username ASC, d.name ASC, dist.name ASC
     ");
     $stmt->execute();
 
-    // Fetch all users
-    $users = $stmt->fetchAll();
+    // Fetch all rows. This will have duplicates for users if they have multiple permissions.
+    $raw_user_data = $stmt->fetchAll();
+
+    // Process the raw data to group permissions by user
+    $users_processed = [];
+    foreach ($raw_user_data as $row) {
+        $user_uuid = $row['uuid'];
+        if (!isset($users_processed[$user_uuid])) {
+            $users_processed[$user_uuid] = [
+                'uuid' => $user_uuid,
+                'username' => $row['username'],
+                'global_role' => $row['global_role'],
+                'created_at' => $row['created_at'],
+                'permissions' => [] // Array to store "Division - District" strings or global role
+            ];
+        }
+
+        // Add global role if present and not already added (it will be the same for all rows of a user)
+        if (!empty($row['global_role']) && !in_array($row['global_role'], $users_processed[$user_uuid]['permissions'])) {
+            // Check if the global role is the only permission type we want to show if present
+            // For now, let's assume global role is primary. If it exists, specific permissions might be secondary or not shown
+            // Based on user request, global role is one of the roles.
+            // To avoid adding it multiple times if user has district permissions too:
+            if (empty($users_processed[$user_uuid]['permissions']) || $users_processed[$user_uuid]['permissions'][0] !== $row['global_role']) {
+                 // If permissions list is empty, or global role is not already the first item.
+                 // This logic might need refinement based on how we want to prioritize display if both exist.
+                 // For now, let's add it if it's not there. A user should ideally have a global role OR specific permissions.
+                 // The add_user.php logic enforces this.
+                 if(!in_array($row['global_role'], $users_processed[$user_uuid]['permissions'])) { // ensure it's not duplicately added
+                    $users_processed[$user_uuid]['permissions'][] = $row['global_role'];
+                 }
+            }
+        }
+
+        // Add specific "Division - District" permission
+        if (!empty($row['district_name'])) { // district_name implies division_name will also be there for a valid permission
+            $permission_string = $row['division_name'] . " - " . $row['district_name'];
+            if (!in_array($permission_string, $users_processed[$user_uuid]['permissions'])) {
+                $users_processed[$user_uuid]['permissions'][] = $permission_string;
+            }
+        }
+    }
+    // $users_processed is now the array to loop through in the HTML table
+    // If a user has no global role and no specific permissions, their 'permissions' array will be empty.
 
 } catch (PDOException $e) {
     // Store error message
@@ -72,7 +124,7 @@ require_once 'includes/nav.php';
             <?php echo htmlspecialchars($error_message); ?>
         </div>
     <?php else: ?>
-        <?php if (empty($users)): ?>
+        <?php if (empty($users_processed)): ?>
             <div class="alert alert-info" role="alert">
                 No users found in the system.
             </div>
@@ -81,20 +133,24 @@ require_once 'includes/nav.php';
                 <thead class="table-dark">
                     <tr>
                         <th>Username</th>
-                        <th>Global Role</th>
-                        <th>Divisions</th>
-                        <th>Districts</th>
+                        <th>Roles</th>
                         <th>Date Created</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <?php foreach ($users as $user): ?>
+                    <?php foreach ($users_processed as $user_uuid => $user_data): ?>
                         <tr>
-                            <td><?php echo htmlspecialchars($user['username']); ?></td>
-                            <td><?php echo htmlspecialchars($user['role'] ?? 'N/A'); ?></td>
-                            <td><?php echo htmlspecialchars($user['divisions'] ?? 'N/A'); ?></td>
-                            <td><?php echo htmlspecialchars($user['districts'] ?? 'N/A'); ?></td>
-                            <td><?php echo htmlspecialchars(date('Y-m-d H:i:s', strtotime($user['created_at']))); ?></td>
+                            <td><?php echo htmlspecialchars($user_data['username']); ?></td>
+                            <td>
+                                <?php
+                                if (!empty($user_data['permissions'])) {
+                                    echo implode('<br>', array_map('htmlspecialchars', $user_data['permissions']));
+                                } else {
+                                    echo 'N/A'; // Or leave blank if preferred: echo '';
+                                }
+                                ?>
+                            </td>
+                            <td><?php echo htmlspecialchars(date('Y-m-d H:i:s', strtotime($user_data['created_at']))); ?></td>
                         </tr>
                     <?php endforeach; ?>
                 </tbody>
