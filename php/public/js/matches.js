@@ -2,9 +2,49 @@
 document.getElementById('clearAssignments')?.addEventListener('click', () => {
     document.querySelectorAll('select.referee-select').forEach(select => { // Target only referee-select dropdowns
         select.value = "";
-        select.removeAttribute('style'); // Remove inline styles (conflict colors)
-        const event = new Event('change', { bubbles: true }); // Dispatch change event for Select2 or other listeners
-        select.dispatchEvent(event);
+        select.removeAttribute('style'); // Remove inline styles from the original select
+
+        // Attempt to find and reset style on the Select2 container's selection element
+        const selectId = select.id;
+        if (selectId) {
+            // Select2 often creates its display element with an ID derived from the original, or it's a sibling.
+            // More robustly, we can find the container next to the select element if using jQuery's .next() or similar.
+            // Since we're using vanilla JS, and assuming Select2's structure might place its container right after the select:
+            // This is a common pattern: $(select).next('.select2-container').find('.select2-selection')
+            // Let's try to find the specific element that holds the background.
+            // The visual element is usually span.select2-selection
+
+            // If jQuery is available and used for Select2, this would be simpler:
+            // $(select).val(null).trigger('change'); // This often resets Select2 visuals.
+            // $(select).next('.select2-container').find('.select2-selection').removeAttr('style');
+
+            // Vanilla JS approach:
+            // The select element itself might have the 'select2-hidden-accessible' class if Select2 has processed it.
+            // The actual visible element is a sibling or near it.
+            // Let's assume the select element has an ID.
+            const select2Container = document.querySelector(`[aria-labelledby="select2-${selectId}-container"]`);
+            if (select2Container && select2Container.parentElement) {
+                 // The element with the style is usually the first child of the container span, or one with class select2-selection
+                const selectionElement = select2Container.parentElement.querySelector('.select2-selection');
+                if (selectionElement) {
+                    selectionElement.removeAttribute('style');
+                }
+            } else {
+                // Fallback if the above specific selector for ARIA doesn't work, try a more generic sibling approach
+                // This is less reliable as DOM structure can vary.
+                let sibling = select.nextElementSibling;
+                if (sibling && sibling.classList.contains('select2-container')) {
+                    const selectionRendered = sibling.querySelector('.select2-selection');
+                    if (selectionRendered) {
+                        selectionRendered.removeAttribute('style');
+                    }
+                }
+            }
+        }
+
+        const event = new Event('change', { bubbles: true }); // Dispatch change event
+        select.dispatchEvent(event); // This should make Select2 re-read the value.
+                                     // For visual style, Select2 might need more.
     });
 });
 
