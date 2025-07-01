@@ -26,7 +26,12 @@ if ($userRole === 'super_admin') {
     // If $divisions is still empty here, the user has no specific division assignments or they are invalid.
     // No divisions will be shown, which is correct.
 }
-error_log("[division_options.php] Divisions to be displayed: " . print_r($divisions, true));
+
+// Deduplicate division names before displaying
+if (!empty($divisions)) {
+    $divisions = array_unique($divisions);
+}
+error_log("[division_options.php] Divisions to be displayed (deduplicated): " . print_r($divisions, true));
 
 if (empty($divisions)) {
     echo '<small class="text-muted">No division options available based on your permissions or current data.</small>';

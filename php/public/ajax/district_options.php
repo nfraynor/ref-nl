@@ -35,7 +35,12 @@ if ($userRole === 'super_admin') {
     }
     // If $districts is still empty, user has no specific district assignments or they are invalid.
 }
-error_log("[district_options.php] Districts to be displayed: " . print_r($districts, true));
+
+// Deduplicate district names before displaying
+if (!empty($districts)) {
+    $districts = array_unique($districts);
+}
+error_log("[district_options.php] Districts to be displayed (deduplicated): " . print_r($districts, true));
 
 if (empty($districts)) {
     echo '<small class="text-muted">No district options available based on your permissions or current data.</small>';
