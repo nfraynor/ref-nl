@@ -80,7 +80,7 @@ function renderRefereeDropdown($role, $match, $referees, $assignMode, $matches) 
             echo '<span style="' . $colorStyle . '">' . htmlspecialchars(getRefName($referees, $refId)) . '</span>';
         }
         else {
-            echo '<a href="assign.php?match_id=' . $match['uuid'] . '&role=' . $role . '" class="btn btn-sm btn-primary">Assign</a>';
+            echo '<a href="assign.php?match_id=' . $match['uuid'] . '&role=' . $role . '" class="false-a btn btn-sm btn-primary">Assign</a>';
         }
     }
 }

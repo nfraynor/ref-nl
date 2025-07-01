@@ -145,6 +145,10 @@ body {
     color: #0056b3;
     text-decoration: underline;
 }
+.false-a {
+    color:white !important;
+    font-weight: 500 !important;
+}
 
 .btn-destructive-action {
     background-color: #dc3545; /* Bootstrap danger color */

@@ -200,7 +200,7 @@ function getRefName($referees, $uuid) {
 <?php endif; ?>
 
 <?php if ($assignMode): ?>
-    <a href="matches.php?<?= buildQueryString(['assign_mode' => null]) ?>" class="btn btn-sm btn-secondary-action mb-3">Disable Assign Mode</a>
+    <a href="matches.php?<?= buildQueryString(['assign_mode' => null]) ?>" class="false-a btn btn-sm btn-secondary-action mb-3">Disable Assign Mode</a>
     <button type="button" id="suggestAssignments" class="btn btn-sm btn-main-action mb-3">Suggest Assignments</button> <!-- Changed to main-action from info -->
     <button type="button" id="clearAssignments" class="btn btn-sm btn-destructive-action mb-3">Clear Assignments</button>
 <?php else: ?>
