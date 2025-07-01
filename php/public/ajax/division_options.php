@@ -1,15 +1,41 @@
 <?php
+if (session_status() == PHP_SESSION_NONE) {
+    session_start();
+}
 require_once __DIR__ . '/../../utils/db.php';
 
 $pdo = Database::getConnection();
-$stmt = $pdo->query("SELECT DISTINCT division FROM matches ORDER BY division ASC");
-$divisions = $stmt->fetchAll(PDO::FETCH_COLUMN);
+$divisions = [];
 
-foreach ($divisions as $division):
-    $safe = htmlspecialchars($division);
+$userRole = $_SESSION['user_role'] ?? null;
+$userDivisionIds = $_SESSION['division_ids'] ?? [];
+
+if ($userRole === 'super_admin') {
+    $stmt = $pdo->query("SELECT DISTINCT division FROM matches WHERE division IS NOT NULL AND division != '' ORDER BY division ASC");
+    $divisions = $stmt->fetchAll(PDO::FETCH_COLUMN);
+} else {
+    if (!empty($userDivisionIds) && !(count($userDivisionIds) === 1 && $userDivisionIds[0] === '')) {
+        $placeholders = implode(',', array_fill(0, count($userDivisionIds), '?'));
+        $stmt = $pdo->prepare("SELECT name FROM divisions WHERE id IN ($placeholders) ORDER BY name ASC");
+        $stmt->execute($userDivisionIds);
+        $divisions = $stmt->fetchAll(PDO::FETCH_COLUMN);
+    }
+    // If $divisions is still empty here, the user has no specific division assignments or they are invalid.
+    // No divisions will be shown, which is correct.
+}
+
+if (empty($divisions)) {
+    echo '<small class="text-muted">No division options available based on your permissions or current data.</small>';
+} else {
+    foreach ($divisions as $division):
+        if (empty($division)) continue; // Skip empty division names if any
+        $safe = htmlspecialchars($division);
+        $isChecked = in_array($division, ($_GET['division'] ?? []));
     ?>
     <label class="form-check">
-        <input type="checkbox" class="form-check-input division-filter-checkbox" value="<?= $safe ?>" <?= in_array($safe, ($_GET['division'] ?? [])) ? 'checked' : '' ?>>
+        <input type="checkbox" class="form-check-input division-filter-checkbox" value="<?= $safe ?>" <?= $isChecked ? 'checked' : '' ?>>
         <?= $safe ?>
     </label>
-<?php endforeach; ?>
+    <?php endforeach;
+}
+?>
