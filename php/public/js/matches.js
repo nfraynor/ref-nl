@@ -1,8 +1,9 @@
 // Clear all dropdowns
 document.getElementById('clearAssignments')?.addEventListener('click', () => {
-    document.querySelectorAll('select').forEach(select => {
+    document.querySelectorAll('select.referee-select').forEach(select => { // Target only referee-select dropdowns
         select.value = "";
-        const event = new Event('change', { bubbles: true });
+        select.removeAttribute('style'); // Remove inline styles (conflict colors)
+        const event = new Event('change', { bubbles: true }); // Dispatch change event for Select2 or other listeners
         select.dispatchEvent(event);
     });
 });
