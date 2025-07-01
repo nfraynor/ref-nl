@@ -211,65 +211,76 @@ foreach ($matches as $match) {
     ];
 }
 
-// Process day by day
-foreach ($matchesByDate as $date => $dayMatches) {
+// Helper function to attempt assignment for a role, match, and pass
+function attemptAssignment(
+    string $roleToAssign, // 'referee_id', 'ar1_id', 'ar2_id'
+    array &$matchDetails, // current match being processed
+    array $referees,      // list of all referees
+    &$suggestions,         // all suggestions
+    &$suggestedAssignmentsCountThisRun, // games suggested in this run per ref
+    $matches, // all matches (for canAssign context)
+    $existingAssignmentsByDateRef, // existing assignments grouped by date and ref
+    $pdo,                  // DB connection
+    int $pass             // 1 for first game, 2 for second game
+) {
+    if ($suggestions[$matchDetails['uuid']][$roleToAssign] !== null) {
+        return; // Role already filled
+    }
 
+    $matchDate = $matchDetails['match_date'];
+
+    foreach ($referees as $ref) {
+        $refId = $ref['uuid'];
+
+        // Rule 3: "One game per referee before second"
+        $gamesSuggestedThisRunForRef = $suggestedAssignmentsCountThisRun[$refId] ?? 0;
+
+        if ($pass === 1 && $gamesSuggestedThisRunForRef > 0) {
+            continue; // In pass 1, only assign to refs with 0 games suggested in this run
+        }
+        // In pass 2, we allow assignment if they have 0 or 1 game from this run.
+        // canAssign will handle the overall daily limit (max 2, considering existing and current suggestions).
+
+        if (!isRefereeAvailable($refId, $matchDate, $matchDetails['kickoff_time'], $pdo)) {
+            continue;
+        }
+
+        // This is the crucial 10th argument for canAssign
+        $existingGamesCountOnDateForRef = $existingAssignmentsByDateRef[$matchDate][$refId] ?? 0;
+
+        // Ensure all 10 arguments are passed to canAssign:
+        if (canAssign($refId, $matchDetails['uuid'], $matchDate, $matchDetails['kickoff_time'], $matchDetails['location_lat'], $matchDetails['location_lon'], $suggestions, $matches, $roleToAssign, $existingGamesCountOnDateForRef)) {
+            $suggestions[$matchDetails['uuid']][$roleToAssign] = $refId;
+            $suggestedAssignmentsCountThisRun[$refId]++;
+            break; // Referee found for this role in this match
+        }
+    }
+}
+
+// Process day by day
+foreach ($matchesByDate as $date => &$dayMatches) { // Use reference to sort in place
+    // Sort matches by division (alphabetically - limitation acknowledged)
     usort($dayMatches, function($a, $b) {
         return strcmp($a['division'], $b['division']);
     });
 
-    // REFEREE FIRST
-    foreach ($dayMatches as $match) {
+    $rolesToAssignInOrder = ['referee_id', 'ar1_id', 'ar2_id'];
 
-        foreach ($referees as $ref) {
-            $refId = $ref['uuid'];
-            $assignedCount = $assignedReferees[$refId] ?? 0;
-
-            if (!$testingMode && $assignedCount > 0) continue; // This logic will be revised later for Rule 3
-
-            if (!isRefereeAvailable($refId, $match['match_date'], $match['kickoff_time'], $pdo)) continue;
-            if (!canAssign($refId, $match['uuid'], $match['match_date'], $match['kickoff_time'], $match['location_lat'], $match['location_lon'], $suggestions, $matches, 'referee_id')) continue;
-
-            $suggestions[$match['uuid']]['referee_id'] = $refId;
-            $assignedReferees[$refId] = ($assignedReferees[$refId] ?? 0) + 1;
-            break;
+    foreach ($rolesToAssignInOrder as $role) {
+        // Pass 1: Assign first game for this role
+        foreach ($dayMatches as &$match) {
+            attemptAssignment($role, $match, $referees, $suggestions, $suggestedAssignmentsCountThisRun, $matches, $existingAssignmentsByDateRef, $pdo, 1);
         }
-    }
+        unset($match); // release reference
 
-    // AR1 + AR2 TOGETHER per match
-    foreach ($dayMatches as $match) {
-
-        // AR1
-        foreach ($referees as $ref) {
-            $refId = $ref['uuid'];
-            $assignedCount = $assignedReferees[$refId] ?? 0;
-
-            if (!$testingMode && $assignedCount > 0) continue; // This logic will be revised later for Rule 3
-
-            if (!isRefereeAvailable($refId, $match['match_date'], $match['kickoff_time'], $pdo)) continue;
-            if (!canAssign($refId, $match['uuid'], $match['match_date'], $match['kickoff_time'], $match['location_lat'], $match['location_lon'], $suggestions, $matches, 'ar1_id')) continue;
-
-            $suggestions[$match['uuid']]['ar1_id'] = $refId;
-            $assignedReferees[$refId] = ($assignedReferees[$refId] ?? 0) + 1;
-            break;
+        // Pass 2: Assign second game for this role (respecting daily limits via canAssign)
+        foreach ($dayMatches as &$match) {
+            attemptAssignment($role, $match, $referees, $suggestions, $suggestedAssignmentsCountThisRun, $matches, $existingAssignmentsByDateRef, $pdo, 2);
         }
-
-        // AR2
-        foreach ($referees as $ref) {
-            $refId = $ref['uuid'];
-            $assignedCount = $assignedReferees[$refId] ?? 0;
-
-            if (!$testingMode && $assignedCount > 0) continue; // This logic will be revised later for Rule 3
-
-            if (!isRefereeAvailable($refId, $match['match_date'], $match['kickoff_time'], $pdo)) continue;
-            if (!canAssign($refId, $match['uuid'], $match['match_date'], $match['kickoff_time'], $match['location_lat'], $match['location_lon'], $suggestions, $matches, 'ar2_id')) continue;
-
-            $suggestions[$match['uuid']]['ar2_id'] = $refId;
-            $assignedReferees[$refId] = ($assignedReferees[$refId] ?? 0) + 1;
-            break;
-        }
+        unset($match); // release reference
     }
 }
+unset($dayMatches); // release reference
 
 header('Content-Type: application/json');
 echo json_encode($suggestions, JSON_PRETTY_PRINT);
