@@ -27,6 +27,55 @@ $referees = $pdo->query("
 $whereClauses = [];
 $params = [];
 
+// --- START: Role-based permission logic for initial query ---
+$userRole = $_SESSION['user_role'] ?? null;
+$userDivisionIds = $_SESSION['division_ids'] ?? [];
+$userDistrictIds = $_SESSION['district_ids'] ?? [];
+
+$allowedDivisionNames = [];
+$allowedDistrictNames = [];
+$loadInitialMatches = true; // Flag to control if the initial query runs
+
+if ($userRole !== 'super_admin') {
+    // Fetch allowed division names
+    if (!empty($userDivisionIds) && !(count($userDivisionIds) === 1 && $userDivisionIds[0] === '')) {
+        $placeholders = implode(',', array_fill(0, count($userDivisionIds), '?'));
+        // Prepare and execute statement to prevent SQL injection if IDs were from unsafe source
+        // Though session IDs are generally safer, good practice.
+        $stmtDiv = $pdo->prepare("SELECT name FROM divisions WHERE id IN ($placeholders)");
+        $stmtDiv->execute($userDivisionIds);
+        $allowedDivisionNames = $stmtDiv->fetchAll(PDO::FETCH_COLUMN);
+    }
+
+    // Fetch allowed district names
+    if (!empty($userDistrictIds) && !(count($userDistrictIds) === 1 && $userDistrictIds[0] === '')) {
+        $placeholders = implode(',', array_fill(0, count($userDistrictIds), '?'));
+        $stmtDist = $pdo->prepare("SELECT name FROM districts WHERE id IN ($placeholders)");
+        $stmtDist->execute($userDistrictIds);
+        $allowedDistrictNames = $stmtDist->fetchAll(PDO::FETCH_COLUMN);
+    }
+
+    if (empty($allowedDivisionNames) || empty($allowedDistrictNames)) {
+        $loadInitialMatches = false;
+        $matches = []; // Ensure matches is empty if not loading
+    } else {
+        // Add permission-based WHERE clauses
+        $divisionPlaceholders = implode(',', array_fill(0, count($allowedDivisionNames), '?'));
+        $whereClauses[] = "m.division IN ($divisionPlaceholders)";
+        foreach ($allowedDivisionNames as $name) {
+            $params[] = $name;
+        }
+
+        $districtPlaceholders = implode(',', array_fill(0, count($allowedDistrictNames), '?'));
+        $whereClauses[] = "m.district IN ($districtPlaceholders)";
+        foreach ($allowedDistrictNames as $name) {
+            $params[] = $name;
+        }
+    }
+}
+// --- END: Role-based permission logic ---
+
+// Existing filters from _GET parameters
 if (!empty($_GET['start_date'])) {
     $whereClauses[] = "m.match_date >= ?";
     $params[] = $_GET['start_date'];
@@ -71,9 +120,18 @@ $sql = "
     LIMIT 20
 ";
 
-$stmt = $pdo->prepare($sql);
-$stmt->execute($params);
-$matches = $stmt->fetchAll();
+if ($loadInitialMatches) {
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    $matches = $stmt->fetchAll();
+} else {
+    // $matches should already be [] if $loadInitialMatches is false,
+    // but explicitly ensuring it here if it wasn't set earlier in a specific path.
+    // However, the previous step does set $matches = [] when $loadInitialMatches becomes false.
+    if (!isset($matches)) { // Defensive check
+        $matches = [];
+    }
+}
 
 
 // Conflict checker
