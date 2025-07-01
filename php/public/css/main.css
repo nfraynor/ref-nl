@@ -145,3 +145,59 @@ body {
     color: #0056b3;
     text-decoration: underline;
 }
+
+.btn-destructive-action {
+    background-color: #dc3545; /* Bootstrap danger color */
+    border-color: #dc3545;
+    color: #fff;
+    padding: 10px 15px;
+    font-weight: 500;
+    transition: background-color 0.15s ease-in-out, border-color 0.15s ease-in-out, transform 0.15s ease-in-out;
+    border-radius: 0.3rem;
+}
+
+.btn-destructive-action:hover {
+    background-color: #bb2d3b; /* Darker danger */
+    border-color: #b02a37;
+    color: #fff;
+    transform: translateY(-1px);
+}
+
+.btn-warning-action {
+    background-color: #ffc107; /* Bootstrap warning color */
+    border-color: #ffc107;
+    color: #000; /* Warning buttons usually have dark text for contrast */
+    padding: 10px 15px;
+    font-weight: 500;
+    transition: background-color 0.15s ease-in-out, border-color 0.15s ease-in-out, transform 0.15s ease-in-out;
+    border-radius: 0.3rem;
+}
+
+.btn-warning-action:hover {
+    background-color: #ffca2c;
+    border-color: #ffc720;
+    color: #000;
+    transform: translateY(-1px);
+}
+
+/* Overrides for filter buttons if needed, or ensure they have enough contrast */
+.content-card .btn-outline-secondary {
+    color: #333; /* Darker text for better contrast on light card */
+    border-color: #bbb; /* Slightly darker border */
+}
+.content-card .btn-outline-secondary:hover {
+    color: #fff; /* Keep text white on hover when background changes */
+    background-color: #6c757d;
+    border-color: #6c757d;
+}
+
+.content-card .btn-light {
+    color: #000; /* Ensure black text on light button */
+    background-color: #f8f9fa;
+    border-color: #ddd; /* Slightly more defined border */
+}
+.content-card .btn-light:hover {
+    color: #000;
+    background-color: #e2e6ea;
+    border-color: #ccc;
+}

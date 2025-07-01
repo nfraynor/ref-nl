@@ -200,15 +200,15 @@ function getRefName($referees, $uuid) {
 <?php endif; ?>
 
 <?php if ($assignMode): ?>
-    <a href="matches.php?<?= buildQueryString(['assign_mode' => null]) ?>" class="btn btn-sm btn-secondary mb-3">Disable Assign Mode</a>
-    <button type="button" id="suggestAssignments" class="btn btn-sm btn-info mb-3">Suggest Assignments</button>
-    <button type="button" id="clearAssignments" class="btn btn-sm btn-danger mb-3">Clear Assignments</button>
+    <a href="matches.php?<?= buildQueryString(['assign_mode' => null]) ?>" class="btn btn-sm btn-secondary-action mb-3">Disable Assign Mode</a>
+    <button type="button" id="suggestAssignments" class="btn btn-sm btn-main-action mb-3">Suggest Assignments</button> <!-- Changed to main-action from info -->
+    <button type="button" id="clearAssignments" class="btn btn-sm btn-destructive-action mb-3">Clear Assignments</button>
 <?php else: ?>
-    <a href="matches.php?<?= buildQueryString(['assign_mode' => 1]) ?>" class="btn btn-sm btn-warning mb-3">Enable Assign Mode</a>
+    <a href="matches.php?<?= buildQueryString(['assign_mode' => 1]) ?>" class="btn btn-sm btn-warning-action mb-3">Enable Assign Mode</a>
 <?php endif; ?>
 
     <?php if ($assignMode): ?>
-        <button type="submit" class="btn btn-success sticky-assign-button">Save Assignments</button>
+        <button type="submit" class="btn btn-main-action sticky-assign-button">Save Assignments</button> <!-- Changed from btn-success -->
     <?php endif; ?>
 <div class="table-responsive-custom">
 
@@ -334,7 +334,7 @@ function getRefName($referees, $uuid) {
     </table>
 </div>
     <?php if ($assignMode): ?>
-        <button type="submit" class="btn btn-success" style="position: fixed; bottom: 20px; right: 20px; z-index: 999;">Save Assignments</button>
+        <button type="submit" class="btn btn-main-action" style="position: fixed; bottom: 20px; right: 20px; z-index: 999;">Save Assignments</button> <!-- Changed from btn-success -->
     <?php endif; ?>
 </form>
 
@@ -357,10 +357,12 @@ function getRefName($referees, $uuid) {
                 <!-- Input field will be injected here by JavaScript -->
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                <button type="button" class="btn btn-primary" id="saveMatchFieldChange">Save changes</button>
+                <button type="button" class="btn btn-secondary-action" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-main-action" id="saveMatchFieldChange">Save changes</button>
             </div>
         </div>
+    </div>
+</div> <!-- This is the closing div for "editMatchFieldModal" -->
     </div> <!-- close content-card -->
 </div> <!-- close container-fluid -->
 
