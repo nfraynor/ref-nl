@@ -1,4 +1,9 @@
 <?php
+// Ensure session is started at the very beginning.
+if (session_status() == PHP_SESSION_NONE) {
+    session_start();
+}
+
 require_once __DIR__ . '/../../utils/db.php';
 include __DIR__ . '/../components/referee_dropdown.php';
 
@@ -6,6 +11,53 @@ $pdo = Database::getConnection();
 $assignMode = isset($_GET['assign_mode']);
 $whereClauses = [];
 $params = [];
+
+// User role-based filtering
+$userRole = $_SESSION['user_role'] ?? null;
+$userDivisionIds = $_SESSION['division_ids'] ?? [];
+$userDistrictIds = $_SESSION['district_ids'] ?? [];
+
+$allowedDivisionNames = [];
+$allowedDistrictNames = [];
+
+if ($userRole !== 'super_admin') {
+    if (!empty($userDivisionIds)) {
+        $placeholders = implode(',', array_fill(0, count($userDivisionIds), '?'));
+        $stmt = $pdo->prepare("SELECT name FROM divisions WHERE id IN ($placeholders)");
+        $stmt->execute($userDivisionIds);
+        $allowedDivisionNames = $stmt->fetchAll(PDO::FETCH_COLUMN);
+    }
+
+    if (!empty($userDistrictIds)) {
+        $placeholders = implode(',', array_fill(0, count($userDistrictIds), '?'));
+        $stmt = $pdo->prepare("SELECT name FROM districts WHERE id IN ($placeholders)");
+        $stmt->execute($userDistrictIds);
+        $allowedDistrictNames = $stmt->fetchAll(PDO::FETCH_COLUMN);
+    }
+
+    // If a user has specific division/district assignments, they must have rights for both.
+    // If they are assigned divisions but no districts (or vice-versa), they effectively have no access unless this logic is changed.
+    // Based on "match both division and district", if one set of permissions is empty, they can't match both.
+    if (empty($allowedDivisionNames) || empty($allowedDistrictNames)) {
+        // If either allowed divisions or allowed districts is empty (and they are not super_admin),
+        // then they cannot match *both*, so effectively they see no matches under this rule.
+        // We can force no results by adding a condition that's always false.
+        $whereClauses[] = "1=0";
+    } else {
+        $divisionPlaceholders = implode(',', array_fill(0, count($allowedDivisionNames), '?'));
+        $whereClauses[] = "m.division IN ($divisionPlaceholders)";
+        foreach ($allowedDivisionNames as $name) {
+            $params[] = $name;
+        }
+
+        $districtPlaceholders = implode(',', array_fill(0, count($allowedDistrictNames), '?'));
+        $whereClauses[] = "m.district IN ($districtPlaceholders)";
+        foreach ($allowedDistrictNames as $name) {
+            $params[] = $name;
+        }
+    }
+}
+
 
 if (!empty($_GET['start_date'])) {
     $whereClauses[] = "m.match_date >= ?";

@@ -137,6 +137,58 @@ This document describes the primary data models used in the **Referee Management
 
 ---
 
+## User
+
+**Represents an application user account.**
+
+| Field           | Type             | Notes                                                                 |
+| --------------- | ---------------- | --------------------------------------------------------------------- |
+| `uuid`          | CHAR(36) (PK)    | Primary key. Unique identifier for the user.                          |
+| `username`      | VARCHAR(255)     | Unique username for login.                                            |
+| `password_hash` | VARCHAR(255)     | Hashed password.                                                      |
+| `role`          | VARCHAR(50)      | Global role (e.g., `super_admin`, `user_admin`). Specific permissions via `user_permissions`. |
+| `created_at`    | TIMESTAMP        | Timestamp when the user was created.                                  |
+| `updated_at`    | TIMESTAMP        | Timestamp when the user was last updated.                             |
+
+---
+
+## Division
+
+**Represents a sports division.**
+
+| Field | Type             | Notes                                        |
+| ----- | ---------------- | -------------------------------------------- |
+| `id`  | INT (PK)         | Primary key. Auto-incrementing identifier.   |
+| `name`| VARCHAR(255)     | Unique name of the division (e.g., "Men's Division 1"). |
+
+---
+
+## District
+
+**Represents a geographical or organizational district, typically within a division.**
+
+| Field        | Type             | Notes                                                           |
+| ------------ | ---------------- | --------------------------------------------------------------- |
+| `id`         | INT (PK)         | Primary key. Auto-incrementing identifier.                      |
+| `name`       | VARCHAR(255)     | Name of the district (e.g., "North District").                  |
+| `division_id`| INT (FK)         | Foreign key. References `divisions.id`. Links district to a division. |
+|              |                  | `UNIQUE (name, division_id)` ensures district name is unique within its division. |
+
+---
+
+## User Permission
+
+**Links users to specific divisions and districts they have access to.**
+
+| Field        | Type          | Notes                                                                    |
+| ------------ | ------------- | ------------------------------------------------------------------------ |
+| `user_id`    | CHAR(36) (FK) | Foreign key. References `users.uuid`. Part of composite primary key.     |
+| `division_id`| INT (FK)      | Foreign key. References `divisions.id`. Part of composite primary key.   |
+| `district_id`| INT (FK)      | Foreign key. References `districts.id`. Part of composite primary key.   |
+|              |               | `PRIMARY KEY (user_id, division_id, district_id)`                        |
+
+---
+
 ## Notes
 
 * **Privacy**: Personal information (e.g. referee home locations) are stored at city-level granularity only to avoid exposing sensitive data.
