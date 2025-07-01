@@ -135,6 +135,37 @@ foreach ($referee_names as $index => $name) {
 
 echo "Referees seeded.\n";
 
+// ----- Seed Referee Weekly Availability -----
+echo "Seeding Referee Weekly Availability...\n";
+$stmt_insert_availability = $pdo->prepare("
+    INSERT INTO referee_weekly_availability
+        (uuid, referee_id, weekday, morning_available, afternoon_available, evening_available)
+    VALUES (?, ?, ?, ?, ?, ?)
+    ON DUPLICATE KEY UPDATE
+        morning_available = VALUES(morning_available),
+        afternoon_available = VALUES(afternoon_available),
+        evening_available = VALUES(evening_available)
+");
+
+$availability_seeded_count = 0;
+foreach ($referees_data as $referee) {
+    for ($weekday = 0; $weekday <= 6; $weekday++) { // 0 = Sunday, 6 = Saturday
+        $availability_uuid = generate_uuid_v4();
+        $stmt_insert_availability->execute([
+            $availability_uuid,
+            $referee['uuid'],
+            $weekday,
+            true, // morning_available
+            true, // afternoon_available
+            true  // evening_available
+        ]);
+        $availability_seeded_count++;
+    }
+}
+echo "{$availability_seeded_count} referee availability records seeded/updated.\n";
+// ----- End Seed Referee Weekly Availability -----\n
+
+
 // ----- Sample Locations -----
 $sample_locations_data = [
     ['name' => 'Central Sports Park Pitch 1', 'address_text' => '123 Main St, Sportsville, SP 12345', 'latitude' => 52.370216, 'longitude' => 4.895168, 'notes' => 'Main pitch, well maintained. Good parking.'],
