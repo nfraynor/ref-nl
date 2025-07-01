@@ -19,31 +19,31 @@ $userDistrictIds = $_SESSION['district_ids'] ?? [];
 
 $allowedDivisionNames = [];
 $allowedDistrictNames = [];
+$proceedWithQuery = true;
 
 if ($userRole !== 'super_admin') {
-    if (!empty($userDivisionIds)) {
+    // Fetch allowed division names
+    if (!empty($userDivisionIds) && !(count($userDivisionIds) === 1 && $userDivisionIds[0] === '')) {
         $placeholders = implode(',', array_fill(0, count($userDivisionIds), '?'));
         $stmt = $pdo->prepare("SELECT name FROM divisions WHERE id IN ($placeholders)");
         $stmt->execute($userDivisionIds);
         $allowedDivisionNames = $stmt->fetchAll(PDO::FETCH_COLUMN);
     }
 
-    if (!empty($userDistrictIds)) {
+    // Fetch allowed district names
+    if (!empty($userDistrictIds) && !(count($userDistrictIds) === 1 && $userDistrictIds[0] === '')) {
         $placeholders = implode(',', array_fill(0, count($userDistrictIds), '?'));
         $stmt = $pdo->prepare("SELECT name FROM districts WHERE id IN ($placeholders)");
         $stmt->execute($userDistrictIds);
         $allowedDistrictNames = $stmt->fetchAll(PDO::FETCH_COLUMN);
     }
 
-    // If a user has specific division/district assignments, they must have rights for both.
-    // If they are assigned divisions but no districts (or vice-versa), they effectively have no access unless this logic is changed.
-    // Based on "match both division and district", if one set of permissions is empty, they can't match both.
+    // If user lacks permissions for BOTH divisions AND districts, they see no matches.
     if (empty($allowedDivisionNames) || empty($allowedDistrictNames)) {
-        // If either allowed divisions or allowed districts is empty (and they are not super_admin),
-        // then they cannot match *both*, so effectively they see no matches under this rule.
-        // We can force no results by adding a condition that's always false.
-        $whereClauses[] = "1=0";
+        $matches = []; // Prepare an empty result set
+        $proceedWithQuery = false; // Signal to skip the main match query
     } else {
+        // Add permission-based WHERE clauses
         $divisionPlaceholders = implode(',', array_fill(0, count($allowedDivisionNames), '?'));
         $whereClauses[] = "m.division IN ($divisionPlaceholders)";
         foreach ($allowedDivisionNames as $name) {
@@ -58,8 +58,9 @@ if ($userRole !== 'super_admin') {
     }
 }
 
-
-if (!empty($_GET['start_date'])) {
+if ($proceedWithQuery) {
+    // Only add other filters and execute query if we are proceeding
+    if (!empty($_GET['start_date'])) {
     $whereClauses[] = "m.match_date >= ?";
     $params[] = $_GET['start_date'];
 }
