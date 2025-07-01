@@ -191,10 +191,11 @@ function getRefName($referees, $uuid) {
     return "Unknown";
 }
 ?>
-
-<h1>Matches</h1>
-<script src="/js/referee_dropdown.js"></script>
-<?php if (isset($_GET['saved'])): ?>
+<div class="container-fluid"> <!-- Use container-fluid for wider tables -->
+    <div class="content-card">
+        <h1>Matches</h1>
+        <script src="/js/referee_dropdown.js"></script>
+        <?php if (isset($_GET['saved'])): ?>
     <div class="alert alert-success">Assignments saved successfully.</div>
 <?php endif; ?>
 
@@ -360,7 +361,7 @@ function getRefName($referees, $uuid) {
                 <button type="button" class="btn btn-primary" id="saveMatchFieldChange">Save changes</button>
             </div>
         </div>
-    </div>
-</div>
+    </div> <!-- close content-card -->
+</div> <!-- close container-fluid -->
 
 <?php include 'includes/footer.php'; ?>

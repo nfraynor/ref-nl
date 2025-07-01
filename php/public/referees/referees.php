@@ -22,11 +22,12 @@ $referees = $pdo->query("
     ORDER BY r.last_name, r.first_name
 ")->fetchAll();
 ?>
+<div class="container">
+    <div class="content-card">
+        <h1>Referees</h1>
 
-<h1>Referees</h1>
-
-<table class="table table-bordered">
-    <thead>
+        <table class="table table-bordered table-striped"> <!-- Added table-striped -->
+            <thead>
     <tr>
         <th>Referee ID</th>
         <th>Name</th>
@@ -59,5 +60,6 @@ $referees = $pdo->query("
     <?php endforeach; ?>
     </tbody>
 </table>
-
+    </div> <!-- close content-card -->
+</div> <!-- close container -->
 <?php include '../includes/footer.php'; ?>

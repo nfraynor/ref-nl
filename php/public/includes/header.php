@@ -5,6 +5,7 @@
     <title>Referee Assignment System</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css"> <!-- Added Bootstrap Icons -->
+    <link rel="stylesheet" href="/css/main.css"> <!-- Global styles -->
     <link rel="stylesheet" href="/css/matches.css"> <!-- Corrected path -->
     <link rel="stylesheet" href="/css/referee_modal.css"> <!-- Corrected path -->
     <!-- Flatpickr CSS -->

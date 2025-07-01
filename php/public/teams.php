@@ -18,11 +18,12 @@ $teams = $pdo->query("
     ORDER BY c.club_name, t.team_name
 ")->fetchAll();
 ?>
+<div class="container">
+    <div class="content-card">
+        <h1>Teams</h1>
 
-<h1>Teams</h1>
-
-<table class="table table-bordered">
-    <thead>
+        <table class="table table-bordered table-striped"> <!-- Added table-striped -->
+            <thead>
     <tr>
         <th>Team ID</th>
         <th>Team Name</th>
@@ -41,5 +42,6 @@ $teams = $pdo->query("
     <?php endforeach; ?>
     </tbody>
 </table>
-
+    </div> <!-- close content-card -->
+</div> <!-- close container -->
 <?php include 'includes/footer.php'; ?>
