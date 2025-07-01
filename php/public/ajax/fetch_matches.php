@@ -15,64 +15,57 @@ $params = [];
 
 // User role-based filtering
 $userRole = $_SESSION['user_role'] ?? null;
-$userDivisionIds = $_SESSION['division_ids'] ?? [];
-$userDistrictIds = $_SESSION['district_ids'] ?? [];
+$userId = $_SESSION['user_id'] ?? null; // Ensure user_id is fetched from session
 
-error_log("[fetch_matches.php] Session Data: User Role: " . $userRole .
-            ", Division IDs: " . print_r($userDivisionIds, true) .
-            ", District IDs: " . print_r($userDistrictIds, true));
+error_log("[fetch_matches.php] Session Data: User Role: " . $userRole . ", User ID: " . $userId);
 
-$allowedDivisionNames = [];
-$allowedDistrictNames = [];
 $proceedWithQuery = true;
+$permissionConditions = []; // Stores "(m.division = ? AND m.district = ?)" strings
 
-if ($userRole !== 'super_admin') {
-    // Fetch allowed division names
-    if (!empty($userDivisionIds) && !(count($userDivisionIds) === 1 && $userDivisionIds[0] === '')) {
-        $placeholders = implode(',', array_fill(0, count($userDivisionIds), '?'));
-        $stmt = $pdo->prepare("SELECT name FROM divisions WHERE id IN ($placeholders)");
-        $stmt->execute($userDivisionIds);
-        $allowedDivisionNames = $stmt->fetchAll(PDO::FETCH_COLUMN);
-    }
+if ($userRole !== 'super_admin' && $userId) {
+    // Fetch allowed division and district name pairs
+    $sqlPermissions = "
+        SELECT d.name AS division_name, dist.name AS district_name
+        FROM user_permissions up
+        JOIN divisions d ON up.division_id = d.id
+        JOIN districts dist ON up.district_id = dist.id
+        WHERE up.user_id = ?
+    ";
+    $stmtPermissions = $pdo->prepare($sqlPermissions);
+    $stmtPermissions->execute([$userId]);
+    $allowedPairs = $stmtPermissions->fetchAll(PDO::FETCH_ASSOC);
 
-    // Fetch allowed district names
-    if (!empty($userDistrictIds) && !(count($userDistrictIds) === 1 && $userDistrictIds[0] === '')) {
-        $placeholders = implode(',', array_fill(0, count($userDistrictIds), '?'));
-        $stmt = $pdo->prepare("SELECT name FROM districts WHERE id IN ($placeholders)");
-        $stmt->execute($userDistrictIds);
-        $allowedDistrictNames = $stmt->fetchAll(PDO::FETCH_COLUMN);
-    }
-    error_log("[fetch_matches.php] Fetched Names: Allowed Division Names: " . print_r($allowedDivisionNames, true) .
-                ", Allowed District Names: " . print_r($allowedDistrictNames, true));
+    error_log("[fetch_matches.php] Allowed Division/District Pairs: " . print_r($allowedPairs, true));
 
-    // If user lacks permissions for BOTH divisions AND districts, they see no matches.
-    if (empty($allowedDivisionNames) || empty($allowedDistrictNames)) {
+    if (empty($allowedPairs)) {
         $matches = []; // Prepare an empty result set
         $proceedWithQuery = false; // Signal to skip the main match query
-        error_log("[fetch_matches.php] Permission Check: User lacks permissions for both D/D. Proceed with query: false");
+        error_log("[fetch_matches.php] Permission Check: User has no specific division/district pairs. Proceed with query: false");
     } else {
-        // Add permission-based WHERE clauses
-        error_log("[fetch_matches.php] Permission Check: User has D/D permissions. Proceed with query: true");
-        $divisionPlaceholders = implode(',', array_fill(0, count($allowedDivisionNames), '?'));
-        $whereClauses[] = "m.division IN ($divisionPlaceholders)";
-        foreach ($allowedDivisionNames as $name) {
-            $params[] = $name;
+        foreach ($allowedPairs as $pair) {
+            $permissionConditions[] = "(m.division = ? AND m.district = ?)";
+            $params[] = $pair['division_name'];
+            $params[] = $pair['district_name'];
         }
-
-        $districtPlaceholders = implode(',', array_fill(0, count($allowedDistrictNames), '?'));
-        $whereClauses[] = "m.district IN ($districtPlaceholders)";
-        foreach ($allowedDistrictNames as $name) {
-            $params[] = $name;
-        }
+        // Combine all permission conditions with OR
+        $whereClauses[] = "(" . implode(' OR ', $permissionConditions) . ")";
+        error_log("[fetch_matches.php] Permission Check: Constructed permission WHERE clause: " . end($whereClauses));
     }
+} elseif ($userRole !== 'super_admin' && !$userId) {
+    // Non-super_admin without a user_id, should not see anything.
+    $matches = [];
+    $proceedWithQuery = false;
+    error_log("[fetch_matches.php] Permission Check: Non-super_admin without user_id. Proceed with query: false");
 }
+// For super_admin, $proceedWithQuery remains true and no specific permission clauses are added, so they see all.
 
 if ($proceedWithQuery) {
     // Only add other filters and execute query if we are proceeding
+    // Date filters
     if (!empty($_GET['start_date'])) {
-    $whereClauses[] = "m.match_date >= ?";
-    $params[] = $_GET['start_date'];
-}
+        $whereClauses[] = "m.match_date >= ?";
+        $params[] = $_GET['start_date'];
+    }
 if (!empty($_GET['end_date'])) {
     $whereClauses[] = "m.match_date <= ?";
     $params[] = $_GET['end_date'];
