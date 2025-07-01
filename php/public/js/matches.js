@@ -8,9 +8,19 @@ document.getElementById('clearAssignments')?.addEventListener('click', () => {
 });
 
 // Suggest assignments
-document.getElementById('suggestAssignments')?.addEventListener('click', () => {
+document.getElementById('suggestAssignments')?.addEventListener('click', (event) => {
+    const suggestButton = event.target;
+    const originalButtonText = suggestButton.textContent;
+    suggestButton.disabled = true;
+    suggestButton.textContent = 'Suggesting...';
+
     fetch('suggest_assignments.php')
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
         .then(data => {
             for (const matchId in data) {
                 const matchSuggestions = data[matchId];
@@ -26,6 +36,16 @@ document.getElementById('suggestAssignments')?.addEventListener('click', () => {
                     }
                 }
             }
+            // Optionally, add a small success message here if desired
+            // e.g., alert("Suggestions applied!");
+        })
+        .catch(error => {
+            console.error('Error fetching suggestions:', error);
+            alert('Error fetching suggestions. Please check the console for details or try again.');
+        })
+        .finally(() => {
+            suggestButton.disabled = false;
+            suggestButton.textContent = originalButtonText;
         });
 });
 
