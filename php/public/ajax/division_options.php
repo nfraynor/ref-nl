@@ -2,9 +2,12 @@
 if (session_status() == PHP_SESSION_NONE) {
     session_start();
 }
+error_log("[division_options.php] Script started. Session status: " . session_status());
 require_once __DIR__ . '/../../utils/db.php';
 
 $pdo = Database::getConnection();
+error_log("[division_options.php] Session Data: User Role: " . ($_SESSION['user_role'] ?? 'N/A') .
+            ", Division IDs: " . print_r(($_SESSION['division_ids'] ?? []), true));
 $divisions = [];
 
 $userRole = $_SESSION['user_role'] ?? null;
@@ -23,6 +26,7 @@ if ($userRole === 'super_admin') {
     // If $divisions is still empty here, the user has no specific division assignments or they are invalid.
     // No divisions will be shown, which is correct.
 }
+error_log("[division_options.php] Divisions to be displayed: " . print_r($divisions, true));
 
 if (empty($divisions)) {
     echo '<small class="text-muted">No division options available based on your permissions or current data.</small>';

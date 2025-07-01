@@ -3,6 +3,7 @@
 if (session_status() == PHP_SESSION_NONE) {
     session_start();
 }
+error_log("[fetch_matches.php] Script started. Session status: " . session_status());
 
 require_once __DIR__ . '/../../utils/db.php';
 include __DIR__ . '/../components/referee_dropdown.php';
@@ -16,6 +17,10 @@ $params = [];
 $userRole = $_SESSION['user_role'] ?? null;
 $userDivisionIds = $_SESSION['division_ids'] ?? [];
 $userDistrictIds = $_SESSION['district_ids'] ?? [];
+
+error_log("[fetch_matches.php] Session Data: User Role: " . $userRole .
+            ", Division IDs: " . print_r($userDivisionIds, true) .
+            ", District IDs: " . print_r($userDistrictIds, true));
 
 $allowedDivisionNames = [];
 $allowedDistrictNames = [];
@@ -37,13 +42,17 @@ if ($userRole !== 'super_admin') {
         $stmt->execute($userDistrictIds);
         $allowedDistrictNames = $stmt->fetchAll(PDO::FETCH_COLUMN);
     }
+    error_log("[fetch_matches.php] Fetched Names: Allowed Division Names: " . print_r($allowedDivisionNames, true) .
+                ", Allowed District Names: " . print_r($allowedDistrictNames, true));
 
     // If user lacks permissions for BOTH divisions AND districts, they see no matches.
     if (empty($allowedDivisionNames) || empty($allowedDistrictNames)) {
         $matches = []; // Prepare an empty result set
         $proceedWithQuery = false; // Signal to skip the main match query
+        error_log("[fetch_matches.php] Permission Check: User lacks permissions for both D/D. Proceed with query: false");
     } else {
         // Add permission-based WHERE clauses
+        error_log("[fetch_matches.php] Permission Check: User has D/D permissions. Proceed with query: true");
         $divisionPlaceholders = implode(',', array_fill(0, count($allowedDivisionNames), '?'));
         $whereClauses[] = "m.division IN ($divisionPlaceholders)";
         foreach ($allowedDivisionNames as $name) {
@@ -96,6 +105,8 @@ if (!empty($_GET['referee_assigner']) && is_array($_GET['referee_assigner'])) {
 }
 
 $whereSQL = $whereClauses ? 'WHERE ' . implode(' AND ', $whereClauses) : '';
+    error_log("[fetch_matches.php] SQL Query Data: WHERE Clauses: " . print_r($whereClauses, true) .
+                ", Params: " . print_r($params, true));
 
 $sql = "
     SELECT 
@@ -122,6 +133,9 @@ $sql = "
 $stmt = $pdo->prepare($sql);
 $stmt->execute($params);
 $matches = $stmt->fetchAll();
+    error_log("[fetch_matches.php] SQL Query Result: Number of matches fetched: " . count($matches));
+} else {
+    error_log("[fetch_matches.php] SQL Query Skipped. Proceed with query was false.");
 } // End of if ($proceedWithQuery)
 
 $referees = $pdo->query("SELECT uuid, first_name, last_name, grade FROM referees ORDER BY first_name")->fetchAll();

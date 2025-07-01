@@ -2,9 +2,12 @@
 if (session_status() == PHP_SESSION_NONE) {
     session_start();
 }
+error_log("[district_options.php] Script started. Session status: " . session_status());
 require_once __DIR__ . '/../../utils/db.php';
 
 $pdo = Database::getConnection();
+error_log("[district_options.php] Session Data: User Role: " . ($_SESSION['user_role'] ?? 'N/A') .
+            ", District IDs: " . print_r(($_SESSION['district_ids'] ?? []), true));
 $districts = [];
 
 $userRole = $_SESSION['user_role'] ?? null;
@@ -32,6 +35,7 @@ if ($userRole === 'super_admin') {
     }
     // If $districts is still empty, user has no specific district assignments or they are invalid.
 }
+error_log("[district_options.php] Districts to be displayed: " . print_r($districts, true));
 
 if (empty($districts)) {
     echo '<small class="text-muted">No district options available based on your permissions or current data.</small>';
