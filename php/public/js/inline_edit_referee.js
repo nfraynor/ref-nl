@@ -4,6 +4,12 @@ document.addEventListener('DOMContentLoaded', function () {
     document.querySelectorAll('.edit-icon').forEach(icon => {
         icon.addEventListener('click', function () {
             const fieldName = this.dataset.field;
+
+            // If the field is 'exempt_clubs', do nothing here as it's handled by custom script in referee_detail.php
+            if (fieldName === 'exempt_clubs') {
+                return;
+            }
+
             const ddElement = this.closest('.editable-field') || this.closest('h1'); // Handle h1 or dd
             let displayValueSpan;
 

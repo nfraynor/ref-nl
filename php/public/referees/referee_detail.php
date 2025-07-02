@@ -253,7 +253,7 @@ if ($referee && isset($referee['uuid'])) { // Ensure $currentRefereeUuid is avai
         // Store referee UUID for JS
         const refereeUUID = "<?= htmlspecialchars($referee['uuid']) ?>";
         const allClubsForJS = <?= json_encode($allClubs) ?>;
-        const exemptedClubUuidsForJS = <?= json_encode($exemptedClubUuids) ?>;
+        let exemptedClubUuidsForJS = <?= json_encode($exemptedClubUuids) ?>; // Changed const to let
     </script>
 
     <section class="mb-4">
