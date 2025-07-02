@@ -219,7 +219,7 @@ $matches = [];
 $districts = ['Noord', 'Zuid', 'Oost', 'West', 'Midden'];
 $poules = ['Cup', 'Plate', 'Bowl', 'Shield'];
 
-for ($i = 1; $i <= 250; $i++) {
+for ($i = 1; $i <= 5000; $i++) {
     $homeTeam = $teams[array_rand($teams)];
     $awayTeam = $teams[array_rand($teams)];
 
