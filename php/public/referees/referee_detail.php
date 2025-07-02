@@ -627,8 +627,10 @@ document.addEventListener('DOMContentLoaded', function () {
                 controlsWrapper.classList.add('edit-controls-exempt-clubs', 'd-flex', 'flex-column', 'align-items-start');
 
                 const selectElement = document.createElement('select');
-                selectElement.multiple = true;
+                // selectElement.multiple = true; // Previous attempt
+                selectElement.setAttribute('multiple', 'multiple'); // More direct attribute setting
                 selectElement.classList.add('form-control', 'form-control-sm', 'mb-2');
+                // Consider adding a specific class if a CSS framework's multi-select styling is needed e.g. 'form-multiselect'
                 selectElement.style.minHeight = '150px'; // Make it a bit taller for multi-select
 
                 allClubsForJS.forEach(club => {
