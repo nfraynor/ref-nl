@@ -34,7 +34,8 @@ $allowedFields = [
     'home_club_id',
     'home_location_city',
     'grade',
-    'ar_grade'
+    'ar_grade',
+    'max_travel_distance' // Added new field
 ];
 
 if (!in_array($fieldName, $allowedFields)) {
@@ -50,6 +51,19 @@ if ($fieldName === 'email') {
         echo json_encode(['status' => 'error', 'message' => 'Invalid email format.']);
         exit;
     }
+} elseif ($fieldName === 'max_travel_distance') {
+    if (!is_numeric($fieldValue) && $fieldValue !== '') { // Allow empty string to clear the value
+        http_response_code(400);
+        echo json_encode(['status' => 'error', 'message' => 'Max travel distance must be a number.']);
+        exit;
+    }
+    if ($fieldValue !== '' && (int)$fieldValue < 0) {
+        http_response_code(400);
+        echo json_encode(['status' => 'error', 'message' => 'Max travel distance cannot be negative.']);
+        exit;
+    }
+    // Convert to integer or null if empty
+    $fieldValue = ($fieldValue === '') ? null : (int)$fieldValue;
 }
 
 // Specific validation for grade fields
@@ -65,11 +79,11 @@ if (($fieldName === 'grade' || $fieldName === 'ar_grade')) {
         echo json_encode(['status' => 'error', 'message' => 'Invalid ' . str_replace('_', ' ', $fieldName) . ' selected. Please choose from A-E.']);
         exit;
     }
-} elseif (in_array($fieldName, ['first_name', 'last_name', 'home_location_city']) && trim($fieldValue) === '') {
-    // Moved other required field checks here, excluding grade/ar_grade as they are handled above
-     http_response_code(400);
-     echo json_encode(['status' => 'error', 'message' => ucfirst(str_replace('_', ' ', $fieldName)) . ' cannot be empty.']);
-     exit;
+} elseif (in_array($fieldName, ['first_name', 'last_name', 'home_location_city']) && trim($fieldValue ?? '') === '') {
+    // Moved other required field checks here, ensure $fieldValue is treated as string for trim
+    http_response_code(400);
+    echo json_encode(['status' => 'error', 'message' => ucfirst(str_replace('_', ' ', $fieldName)) . ' cannot be empty.']);
+    exit;
 }
 
 
@@ -80,9 +94,9 @@ if ($fieldName === 'home_club_id') {
     if (empty($fieldValue)) { // Allow unsetting a club if that's a desired feature, otherwise validate.
         // If unsetting is not allowed, or a value is provided, check it.
         // For this example, let's assume a club must be selected if the field is 'home_club_id'
-         http_response_code(400);
-         echo json_encode(['status' => 'error', 'message' => 'Home club cannot be empty.']);
-         exit;
+        http_response_code(400);
+        echo json_encode(['status' => 'error', 'message' => 'Home club cannot be empty.']);
+        exit;
     }
     $stmt = $pdo->prepare("SELECT uuid FROM clubs WHERE uuid = ?");
     $stmt->execute([$fieldValue]);
@@ -112,8 +126,8 @@ try {
             $checkStmt = $pdo->prepare("SELECT uuid FROM referees WHERE uuid = ?");
             $checkStmt->execute([$refereeUuid]);
             if ($checkStmt->rowCount() === 0) {
-                 http_response_code(404); // Not Found
-                 echo json_encode(['status' => 'error', 'message' => 'Referee not found.']);
+                http_response_code(404); // Not Found
+                echo json_encode(['status' => 'error', 'message' => 'Referee not found.']);
             } else {
                 // Value was likely the same, which isn't an error for the user.
                 echo json_encode(['status' => 'success', 'message' => ucfirst(str_replace('_', ' ', $fieldName)) . ' is already set to this value.']);

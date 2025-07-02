@@ -27,6 +27,23 @@ if (!$referee) {
     exit;
 }
 
+// Fetch all clubs for the exempt clubs dropdown
+$allClubsStmt = $pdo->query("SELECT uuid, club_name FROM clubs ORDER BY club_name ASC");
+$allClubs = $allClubsStmt->fetchAll(PDO::FETCH_ASSOC);
+
+// Fetch current exempt clubs for the referee
+$exemptClubsStmt = $pdo->prepare("
+    SELECT c.uuid, c.club_name 
+    FROM referee_exempt_clubs rec
+    JOIN clubs c ON rec.club_uuid = c.uuid
+    WHERE rec.referee_uuid = ?
+    ORDER BY c.club_name ASC
+");
+$exemptClubsStmt->execute([$referee['uuid']]);
+$exemptedClubs = $exemptClubsStmt->fetchAll(PDO::FETCH_ASSOC);
+$exemptedClubUuids = array_column($exemptedClubs, 'uuid');
+
+
 // Fetch unavailability
 $unavailability = $pdo->prepare("
     SELECT * FROM referee_unavailability 
@@ -208,6 +225,26 @@ if ($referee && isset($referee['uuid'])) { // Ensure $currentRefereeUuid is avai
                         <span class="display-value" data-field="ar_grade"><?= htmlspecialchars($referee['ar_grade']) ?></span>
                         <i class="bi bi-pencil-square edit-icon" data-field="ar_grade" style="cursor:pointer; margin-left: 5px;"></i>
                     </dd>
+
+                    <dt class="col-sm-3">Max Travel Distance (km)</dt>
+                    <dd class="col-sm-9 editable-field">
+                        <span class="display-value" data-field="max_travel_distance"><?= htmlspecialchars($referee['max_travel_distance'] ?? '') ?></span>
+                        <i class="bi bi-pencil-square edit-icon" data-field="max_travel_distance" style="cursor:pointer; margin-left: 5px;"></i>
+                    </dd>
+
+                    <dt class="col-sm-3">Exempt Clubs</dt>
+                    <dd class="col-sm-9 editable-field" id="exempt-clubs-dd">
+                        <span class="display-value" data-field="exempt_clubs">
+                            <?php
+                            if (!empty($exemptedClubs)) {
+                                echo htmlspecialchars(implode(', ', array_column($exemptedClubs, 'club_name')));
+                            } else {
+                                echo 'None';
+                            }
+                            ?>
+                        </span>
+                        <i class="bi bi-pencil-square edit-icon" data-field="exempt_clubs" style="cursor:pointer; margin-left: 5px;"></i>
+                    </dd>
                 </dl>
             </div>
         </div>
@@ -215,6 +252,8 @@ if ($referee && isset($referee['uuid'])) { // Ensure $currentRefereeUuid is avai
     <script>
         // Store referee UUID for JS
         const refereeUUID = "<?= htmlspecialchars($referee['uuid']) ?>";
+        const allClubsForJS = <?= json_encode($allClubs) ?>;
+        let exemptedClubUuidsForJS = <?= json_encode($exemptedClubUuids) ?>; // Changed const to let
     </script>
 
     <section class="mb-4">
@@ -256,18 +295,18 @@ if ($referee && isset($referee['uuid'])) { // Ensure $currentRefereeUuid is avai
                     <table class="table table-bordered table-striped">
                         <thead>
                         <tr><th>From</th><th>To</th><th>Reason</th><th>Actions</th></tr>
-    </thead>
-    <tbody id="unavailabilityListBody">
-    <?php foreach ($unavailabilityList as $ua): ?>
-        <tr>
-            <td><?= htmlspecialchars($ua['start_date']) ?></td>
-            <td><?= htmlspecialchars($ua['end_date']) ?></td>
-            <td><?= nl2br(htmlspecialchars($ua['reason'])) ?></td>
-            <td>
-                <button class="btn btn-danger btn-sm remove-unavailability-btn" data-unavailability-uuid="<?= htmlspecialchars($ua['uuid']) ?>">Remove</button>
-            </td>
-        </tr>
-    <?php endforeach; ?>
+                        </thead>
+                        <tbody id="unavailabilityListBody">
+                        <?php foreach ($unavailabilityList as $ua): ?>
+                            <tr>
+                                <td><?= htmlspecialchars($ua['start_date']) ?></td>
+                                <td><?= htmlspecialchars($ua['end_date']) ?></td>
+                                <td><?= nl2br(htmlspecialchars($ua['reason'])) ?></td>
+                                <td>
+                                    <button class="btn btn-danger btn-sm remove-unavailability-btn" data-unavailability-uuid="<?= htmlspecialchars($ua['uuid']) ?>">Remove</button>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
                         </tbody>
                     </table>
                 </div>
@@ -336,44 +375,44 @@ if ($referee && isset($referee['uuid'])) { // Ensure $currentRefereeUuid is avai
                     <div class="table-responsive">
                         <table class="table table-striped table-bordered">
                             <thead>
-                                <tr>
-                                    <th>Match Date</th>
-                                    <th>Kick-off</th>
-                                    <th>Home Team</th>
-                                    <th>Away Team</th>
-                                    <th>Your Role</th>
-                                    <th>Your Travel (km)</th>
-                                    <th>Main Referee</th>
-                                    <th>AR1</th>
-                                    <th>AR2</th>
-                                </tr>
+                            <tr>
+                                <th>Match Date</th>
+                                <th>Kick-off</th>
+                                <th>Home Team</th>
+                                <th>Away Team</th>
+                                <th>Your Role</th>
+                                <th>Your Travel (km)</th>
+                                <th>Main Referee</th>
+                                <th>AR1</th>
+                                <th>AR2</th>
+                            </tr>
                             </thead>
                             <tbody>
-                                <?php foreach ($assignedMatches as $match): ?>
-                                    <tr>
-                                        <td><?= htmlspecialchars($match['match_date'] ?? 'N/A') ?></td>
-                                        <td><?= htmlspecialchars(substr($match['kickoff_time'], 0, 5) ?? 'N/A') ?></td>
-                                        <td><?= htmlspecialchars(($match['home_club_name'] ? $match['home_club_name'] . ' - ' : '') . ($match['home_team_name'] ?? 'N/A')) ?></td>
-                                        <td><?= htmlspecialchars(($match['away_club_name'] ? $match['away_club_name'] . ' - ' : '') . ($match['away_team_name'] ?? 'N/A')) ?></td>
-                                        <td>
-                                            <?php
-                                                if ($match['main_ref_name'] && strpos($match['main_ref_name'], $referee['first_name']) !== false && strpos($match['main_ref_name'], $referee['last_name']) !== false) {
-                                                    echo 'Referee';
-                                                } elseif ($match['ar1_ref_name'] && strpos($match['ar1_ref_name'], $referee['first_name']) !== false && strpos($match['ar1_ref_name'], $referee['last_name']) !== false) {
-                                                    echo 'AR1';
-                                                } elseif ($match['ar2_ref_name'] && strpos($match['ar2_ref_name'], $referee['first_name']) !== false && strpos($match['ar2_ref_name'], $referee['last_name']) !== false) {
-                                                    echo 'AR2';
-                                                } else {
-                                                    echo 'N/A';
-                                                }
-                                            ?>
-                                        </td>
-                                        <td><?= htmlspecialchars($match['travel_distance_for_current_referee'] ?? 'N/A') ?></td>
-                                        <td><?= htmlspecialchars($match['main_ref_name'] ?? 'N/A') ?></td>
-                                        <td><?= htmlspecialchars($match['ar1_ref_name'] ?? 'N/A') ?></td>
-                                        <td><?= htmlspecialchars($match['ar2_ref_name'] ?? 'N/A') ?></td>
-                                    </tr>
-                                <?php endforeach; ?>
+                            <?php foreach ($assignedMatches as $match): ?>
+                                <tr>
+                                    <td><?= htmlspecialchars($match['match_date'] ?? 'N/A') ?></td>
+                                    <td><?= htmlspecialchars(substr($match['kickoff_time'], 0, 5) ?? 'N/A') ?></td>
+                                    <td><?= htmlspecialchars(($match['home_club_name'] ? $match['home_club_name'] . ' - ' : '') . ($match['home_team_name'] ?? 'N/A')) ?></td>
+                                    <td><?= htmlspecialchars(($match['away_club_name'] ? $match['away_club_name'] . ' - ' : '') . ($match['away_team_name'] ?? 'N/A')) ?></td>
+                                    <td>
+                                        <?php
+                                        if ($match['main_ref_name'] && strpos($match['main_ref_name'], $referee['first_name']) !== false && strpos($match['main_ref_name'], $referee['last_name']) !== false) {
+                                            echo 'Referee';
+                                        } elseif ($match['ar1_ref_name'] && strpos($match['ar1_ref_name'], $referee['first_name']) !== false && strpos($match['ar1_ref_name'], $referee['last_name']) !== false) {
+                                            echo 'AR1';
+                                        } elseif ($match['ar2_ref_name'] && strpos($match['ar2_ref_name'], $referee['first_name']) !== false && strpos($match['ar2_ref_name'], $referee['last_name']) !== false) {
+                                            echo 'AR2';
+                                        } else {
+                                            echo 'N/A';
+                                        }
+                                        ?>
+                                    </td>
+                                    <td><?= htmlspecialchars($match['travel_distance_for_current_referee'] ?? 'N/A') ?></td>
+                                    <td><?= htmlspecialchars($match['main_ref_name'] ?? 'N/A') ?></td>
+                                    <td><?= htmlspecialchars($match['ar1_ref_name'] ?? 'N/A') ?></td>
+                                    <td><?= htmlspecialchars($match['ar2_ref_name'] ?? 'N/A') ?></td>
+                                </tr>
+                            <?php endforeach; ?>
                             </tbody>
                         </table>
                     </div>
@@ -394,45 +433,45 @@ if ($referee && isset($referee['uuid'])) { // Ensure $currentRefereeUuid is avai
                     <div class="table-responsive">
                         <table class="table table-striped table-bordered">
                             <thead>
-                                <tr>
-                                    <th>Match Date</th>
-                                    <th>Kick-off</th>
-                                    <th>Home Team</th>
-                                    <th>Away Team</th>
-                                    <th>Your Role</th>
-                                    <th>Your Travel (km)</th>
-                                    <th>Main Referee</th>
-                                    <th>AR1</th>
-                                    <th>AR2</th>
-                                </tr>
+                            <tr>
+                                <th>Match Date</th>
+                                <th>Kick-off</th>
+                                <th>Home Team</th>
+                                <th>Away Team</th>
+                                <th>Your Role</th>
+                                <th>Your Travel (km)</th>
+                                <th>Main Referee</th>
+                                <th>AR1</th>
+                                <th>AR2</th>
+                            </tr>
                             </thead>
                             <tbody>
-                                <?php foreach ($previousMatches as $match): ?>
-                                    <tr>
-                                        <td><?= htmlspecialchars($match['match_date'] ?? 'N/A') ?></td>
-                                        <td><?= htmlspecialchars(isset($match['kickoff_time']) ? substr($match['kickoff_time'], 0, 5) : 'N/A') ?></td>
-                                        <td><?= htmlspecialchars(($match['home_club_name'] ? $match['home_club_name'] . ' - ' : '') . ($match['home_team_name'] ?? 'N/A')) ?></td>
-                                        <td><?= htmlspecialchars(($match['away_club_name'] ? $match['away_club_name'] . ' - ' : '') . ($match['away_team_name'] ?? 'N/A')) ?></td>
-                                        <td>
-                                            <?php
-                                            $currentRefereeFullName = $referee['first_name'] . ' ' . $referee['last_name'];
-                                            $role = 'N/A';
-                                            if (isset($match['main_ref_name']) && $match['main_ref_name'] == $currentRefereeFullName) {
-                                                $role = 'Referee';
-                                            } elseif (isset($match['ar1_ref_name']) && $match['ar1_ref_name'] == $currentRefereeFullName) {
-                                                $role = 'AR1';
-                                            } elseif (isset($match['ar2_ref_name']) && $match['ar2_ref_name'] == $currentRefereeFullName) {
-                                                $role = 'AR2';
-                                            }
-                                            echo htmlspecialchars($role);
-                                            ?>
-                                        </td>
-                                        <td><?= htmlspecialchars($match['travel_distance_for_current_referee'] ?? 'N/A') ?></td>
-                                        <td><?= htmlspecialchars($match['main_ref_name'] ?? 'N/A') ?></td>
-                                        <td><?= htmlspecialchars($match['ar1_ref_name'] ?? 'N/A') ?></td>
-                                        <td><?= htmlspecialchars($match['ar2_ref_name'] ?? 'N/A') ?></td>
-                                    </tr>
-                                <?php endforeach; ?>
+                            <?php foreach ($previousMatches as $match): ?>
+                                <tr>
+                                    <td><?= htmlspecialchars($match['match_date'] ?? 'N/A') ?></td>
+                                    <td><?= htmlspecialchars(isset($match['kickoff_time']) ? substr($match['kickoff_time'], 0, 5) : 'N/A') ?></td>
+                                    <td><?= htmlspecialchars(($match['home_club_name'] ? $match['home_club_name'] . ' - ' : '') . ($match['home_team_name'] ?? 'N/A')) ?></td>
+                                    <td><?= htmlspecialchars(($match['away_club_name'] ? $match['away_club_name'] . ' - ' : '') . ($match['away_team_name'] ?? 'N/A')) ?></td>
+                                    <td>
+                                        <?php
+                                        $currentRefereeFullName = $referee['first_name'] . ' ' . $referee['last_name'];
+                                        $role = 'N/A';
+                                        if (isset($match['main_ref_name']) && $match['main_ref_name'] == $currentRefereeFullName) {
+                                            $role = 'Referee';
+                                        } elseif (isset($match['ar1_ref_name']) && $match['ar1_ref_name'] == $currentRefereeFullName) {
+                                            $role = 'AR1';
+                                        } elseif (isset($match['ar2_ref_name']) && $match['ar2_ref_name'] == $currentRefereeFullName) {
+                                            $role = 'AR2';
+                                        }
+                                        echo htmlspecialchars($role);
+                                        ?>
+                                    </td>
+                                    <td><?= htmlspecialchars($match['travel_distance_for_current_referee'] ?? 'N/A') ?></td>
+                                    <td><?= htmlspecialchars($match['main_ref_name'] ?? 'N/A') ?></td>
+                                    <td><?= htmlspecialchars($match['ar1_ref_name'] ?? 'N/A') ?></td>
+                                    <td><?= htmlspecialchars($match['ar2_ref_name'] ?? 'N/A') ?></td>
+                                </tr>
+                            <?php endforeach; ?>
                             </tbody>
                         </table>
                     </div>
@@ -443,124 +482,290 @@ if ($referee && isset($referee['uuid'])) { // Ensure $currentRefereeUuid is avai
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', function () {
-    flatpickr("#unavailability_start_date", {
-        dateFormat: "Y-m-d",
-        altInput: true,
-        altFormat: "F j, Y",
-    });
-    flatpickr("#unavailability_end_date", {
-        dateFormat: "Y-m-d",
-        altInput: true,
-        altFormat: "F j, Y",
-    });
-
-    const addUnavailabilityForm = document.getElementById('addUnavailabilityForm');
-    const unavailabilityListBody = document.getElementById('unavailabilityListBody');
-    const formFeedback = document.getElementById('formFeedback');
-    // Get Flatpickr instances to clear them later
-    const startDatePicker = document.querySelector("#unavailability_start_date")._flatpickr;
-    const endDatePicker = document.querySelector("#unavailability_end_date")._flatpickr;
-
-
-    if (addUnavailabilityForm) {
-        addUnavailabilityForm.addEventListener('submit', function (event) {
-            event.preventDefault();
-            formFeedback.innerHTML = ''; // Clear previous feedback
-
-            const formData = new FormData(addUnavailabilityForm);
-
-            // Log FormData content for debugging
-            // for (var pair of formData.entries()) {
-            //     console.log(pair[0]+ ', ' + pair[1]);
-            // }
-
-            fetch('add_unavailability.php', {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    // Clear form fields
-                    addUnavailabilityForm.reset();
-                    // Clear Flatpickr fields
-                    if(startDatePicker) startDatePicker.clear();
-                    if(endDatePicker) endDatePicker.clear();
-
-
-                    // Add new row to the table
-                    const newRow = unavailabilityListBody.insertRow(0); // Insert at the top like current list
-                    const cell1 = newRow.insertCell(0);
-                    const cell2 = newRow.insertCell(1);
-                    const cell3 = newRow.insertCell(2);
-
-                    cell1.textContent = data.data.start_date;
-                    cell2.textContent = data.data.end_date;
-                    // For reason, handle potential null and nl2br equivalent
-                    let reasonText = data.data.reason || "";
-                    cell3.innerHTML = reasonText.replace(/\r\n|\r|\n/g, '<br>');
-
-
-                    formFeedback.innerHTML = '<div class="alert alert-success">Unavailability added successfully.</div>';
-                } else {
-                    formFeedback.innerHTML = `<div class="alert alert-danger">Error: ${data.message || 'Could not add unavailability.'}</div>`;
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                formFeedback.innerHTML = '<div class="alert alert-danger">An unexpected error occurred. Please try again.</div>';
-            });
+    document.addEventListener('DOMContentLoaded', function () {
+        flatpickr("#unavailability_start_date", {
+            dateFormat: "Y-m-d",
+            altInput: true,
+            altFormat: "F j, Y",
         });
-    }
+        flatpickr("#unavailability_start_date", { // Ensure this ID is unique if you reuse flatpickr elsewhere
+            dateFormat: "Y-m-d",
+            altInput: true,
+            altFormat: "F j, Y",
+        });
+        flatpickr("#unavailability_end_date", { // Ensure this ID is unique
+            dateFormat: "Y-m-d",
+            altInput: true,
+            altFormat: "F j, Y",
+        });
 
-    // Event listener for removing unavailability
-    if (unavailabilityListBody) {
-        unavailabilityListBody.addEventListener('click', function(event) {
-            if (event.target.classList.contains('remove-unavailability-btn')) {
-                event.preventDefault(); // Prevent any default button action
+        const addUnavailabilityForm = document.getElementById('addUnavailabilityForm');
+        const unavailabilityListBody = document.getElementById('unavailabilityListBody');
+        const formFeedback = document.getElementById('formFeedback');
+        // Get Flatpickr instances to clear them later
+        const startDatePicker = document.querySelector("#unavailability_start_date")._flatpickr;
+        const endDatePicker = document.querySelector("#unavailability_end_date")._flatpickr;
+
+
+        if (addUnavailabilityForm) {
+            addUnavailabilityForm.addEventListener('submit', function (event) {
+                event.preventDefault();
                 formFeedback.innerHTML = ''; // Clear previous feedback
 
-                const button = event.target;
-                const unavailabilityUuid = button.dataset.unavailabilityUuid;
+                const formData = new FormData(addUnavailabilityForm);
 
-                if (confirm("Are you sure you want to remove this unavailability period?")) {
-                    const formData = new FormData();
-                    formData.append('unavailability_uuid', unavailabilityUuid);
+                // Log FormData content for debugging
+                // for (var pair of formData.entries()) {
+                //     console.log(pair[0]+ ', ' + pair[1]);
+                // }
 
-                    fetch('remove_unavailability.php', {
-                        method: 'POST',
-                        body: formData
-                        // Headers are not strictly necessary for FormData with fetch,
-                        // but good practice for other types or if server requires it.
-                        // headers: { 'Content-Type': 'application/x-www-form-urlencoded' } // Example if not using FormData
-                    })
-                    .then(response => {
-                        // Try to parse JSON regardless of response.ok, as server might send error details in JSON
-                        return response.json().then(data => ({ ok: response.ok, status: response.status, data }));
-                    })
-                    .then(result => {
-                        if (result.ok && result.data.status === 'success') {
-                            button.closest('tr').remove();
-                            formFeedback.innerHTML = `<div class="alert alert-success">${result.data.message || 'Unavailability removed successfully.'}</div>`;
+                fetch('add_unavailability.php', {
+                    method: 'POST',
+                    body: formData
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.status === 'success') {
+                            // Clear form fields
+                            addUnavailabilityForm.reset();
+                            // Clear Flatpickr fields
+                            if(startDatePicker) startDatePicker.clear();
+                            if(endDatePicker) endDatePicker.clear();
+
+
+                            // Add new row to the table
+                            const newRow = unavailabilityListBody.insertRow(0); // Insert at the top like current list
+                            const cell1 = newRow.insertCell(0);
+                            const cell2 = newRow.insertCell(1);
+                            const cell3 = newRow.insertCell(2);
+
+                            cell1.textContent = data.data.start_date;
+                            cell2.textContent = data.data.end_date;
+                            // For reason, handle potential null and nl2br equivalent
+                            let reasonText = data.data.reason || "";
+                            cell3.innerHTML = reasonText.replace(/\r\n|\r|\n/g, '<br>');
+
+
+                            formFeedback.innerHTML = '<div class="alert alert-success">Unavailability added successfully.</div>';
                         } else {
-                            // Handle HTTP errors (like 404, 500) or application errors ({status: 'error'})
-                            let message = result.data.message || `Error ${result.status}: Could not remove unavailability.`;
-                            if (result.status === 405) message = "Error: Invalid request method."; // From remove_unavailability.php
-                            if (result.status === 400) message = "Error: Missing Unavailability UUID."; // From remove_unavailability.php
-                            formFeedback.innerHTML = `<div class="alert alert-danger">${message}</div>`;
+                            formFeedback.innerHTML = `<div class="alert alert-danger">Error: ${data.message || 'Could not add unavailability.'}</div>`;
                         }
                     })
                     .catch(error => {
                         console.error('Error:', error);
-                        // Network error or JSON parsing error from response.json()
-                        formFeedback.innerHTML = '<div class="alert alert-danger">An unexpected error occurred while trying to remove unavailability. Please check console.</div>';
+                        formFeedback.innerHTML = '<div class="alert alert-danger">An unexpected error occurred. Please try again.</div>';
                     });
+            });
+        }
+
+        // Event listener for removing unavailability
+        if (unavailabilityListBody) {
+            unavailabilityListBody.addEventListener('click', function(event) {
+                if (event.target.classList.contains('remove-unavailability-btn')) {
+                    event.preventDefault(); // Prevent any default button action
+                    formFeedback.innerHTML = ''; // Clear previous feedback
+
+                    const button = event.target;
+                    const unavailabilityUuid = button.dataset.unavailabilityUuid;
+
+                    if (confirm("Are you sure you want to remove this unavailability period?")) {
+                        const formData = new FormData();
+                        formData.append('unavailability_uuid', unavailabilityUuid);
+
+                        fetch('remove_unavailability.php', {
+                            method: 'POST',
+                            body: formData
+                            // Headers are not strictly necessary for FormData with fetch,
+                            // but good practice for other types or if server requires it.
+                            // headers: { 'Content-Type': 'application/x-www-form-urlencoded' } // Example if not using FormData
+                        })
+                            .then(response => {
+                                // Try to parse JSON regardless of response.ok, as server might send error details in JSON
+                                return response.json().then(data => ({ ok: response.ok, status: response.status, data }));
+                            })
+                            .then(result => {
+                                if (result.ok && result.data.status === 'success') {
+                                    button.closest('tr').remove();
+                                    formFeedback.innerHTML = `<div class="alert alert-success">${result.data.message || 'Unavailability removed successfully.'}</div>`;
+                                } else {
+                                    // Handle HTTP errors (like 404, 500) or application errors ({status: 'error'})
+                                    let message = result.data.message || `Error ${result.status}: Could not remove unavailability.`;
+                                    if (result.status === 405) message = "Error: Invalid request method."; // From remove_unavailability.php
+                                    if (result.status === 400) message = "Error: Missing Unavailability UUID."; // From remove_unavailability.php
+                                    formFeedback.innerHTML = `<div class="alert alert-danger">${message}</div>`;
+                                }
+                            })
+                            .catch(error => {
+                                console.error('Error:', error);
+                                // Network error or JSON parsing error from response.json()
+                                formFeedback.innerHTML = '<div class="alert alert-danger">An unexpected error occurred while trying to remove unavailability. Please check console.</div>';
+                            });
+                    }
                 }
+            });
+        }
+
+        // --- Logic for Exempt Clubs Edit ---
+        const exemptClubsDd = document.getElementById('exempt-clubs-dd');
+        if (exemptClubsDd) {
+            const editIconExemptClubs = exemptClubsDd.querySelector('.edit-icon[data-field="exempt_clubs"]');
+            const displaySpanExemptClubs = exemptClubsDd.querySelector('.display-value[data-field="exempt_clubs"]');
+
+            if (editIconExemptClubs && displaySpanExemptClubs) {
+                editIconExemptClubs.addEventListener('click', function(event) { // Added event parameter
+                    event.stopPropagation(); // Stop event from bubbling to other listeners
+
+                    // Hide display span and edit icon
+                    displaySpanExemptClubs.style.display = 'none';
+                    this.style.display = 'none';
+
+                    // Explicitly remove any generic edit controls that might have been added by inline_edit_referee.js
+                    const parentDdElement = this.closest('.editable-field'); // 'this' is the clicked edit icon
+                    if (parentDdElement) {
+                        const existingGenericControls = parentDdElement.querySelector('.edit-controls');
+                        if (existingGenericControls) {
+                            existingGenericControls.remove();
+                        }
+                    }
+
+                    // Remove any existing custom controls for exempt clubs (good practice before rebuilding)
+                    const existingControls = exemptClubsDd.querySelector('.edit-controls-exempt-clubs');
+                    if (existingControls) {
+                        existingControls.remove();
+                    }
+
+                    const controlsWrapper = document.createElement('div');
+                    controlsWrapper.classList.add('edit-controls-exempt-clubs', 'd-flex', 'flex-column', 'align-items-start');
+
+                    const checkboxContainer = document.createElement('div');
+                    checkboxContainer.classList.add('exempt-clubs-checkbox-container', 'mb-2');
+                    checkboxContainer.style.maxHeight = '200px';
+                    checkboxContainer.style.overflowY = 'auto';
+                    checkboxContainer.style.border = '1px solid #ced4da'; // Standard Bootstrap border color
+                    checkboxContainer.style.padding = '10px';
+                    checkboxContainer.style.borderRadius = '.25rem'; // Standard Bootstrap border radius
+
+
+                    allClubsForJS.forEach(club => {
+                        const formCheckDiv = document.createElement('div');
+                        formCheckDiv.classList.add('form-check');
+
+                        const checkbox = document.createElement('input');
+                        checkbox.type = 'checkbox';
+                        checkbox.classList.add('form-check-input');
+                        checkbox.value = club.uuid;
+                        checkbox.id = `exempt-club-${club.uuid}`;
+                        if (exemptedClubUuidsForJS.includes(club.uuid)) {
+                            checkbox.checked = true;
+                        }
+
+                        const label = document.createElement('label');
+                        label.classList.add('form-check-label');
+                        label.htmlFor = checkbox.id;
+                        label.textContent = club.club_name;
+
+                        formCheckDiv.appendChild(checkbox);
+                        formCheckDiv.appendChild(label);
+                        checkboxContainer.appendChild(formCheckDiv);
+                    });
+
+                    const buttonGroup = document.createElement('div');
+                    buttonGroup.classList.add('mt-2');
+
+                    const saveButton = document.createElement('button');
+                    saveButton.classList.add('btn', 'btn-success', 'btn-sm', 'mr-2');
+                    saveButton.textContent = 'Save';
+
+                    const cancelButton = document.createElement('button');
+                    cancelButton.classList.add('btn', 'btn-secondary', 'btn-sm');
+                    cancelButton.textContent = 'Cancel';
+
+                    buttonGroup.appendChild(saveButton);
+                    buttonGroup.appendChild(cancelButton);
+
+                    controlsWrapper.appendChild(checkboxContainer);
+                    controlsWrapper.appendChild(buttonGroup);
+                    exemptClubsDd.appendChild(controlsWrapper);
+
+                    saveButton.addEventListener('click', function() {
+                        const selectedClubUuids = [];
+                        const selectedClubNames = [];
+                        checkboxContainer.querySelectorAll('input[type="checkbox"]:checked').forEach(cb => {
+                            selectedClubUuids.push(cb.value);
+                            // Find the label text for the name
+                            const label = checkboxContainer.querySelector(`label[for="${cb.id}"]`);
+                            if (label) {
+                                selectedClubNames.push(label.textContent);
+                            }
+                        });
+
+                        const formData = new FormData();
+                        formData.append('referee_uuid', refereeUUID);
+                        selectedClubUuids.forEach(uuid => {
+                            formData.append('club_uuids[]', uuid);
+                        });
+
+                        fetch('update_referee_exempt_clubs.php', {
+                            method: 'POST',
+                            body: formData
+                        })
+                            .then(response => response.json())
+                            .then(data => {
+                                const messagesDiv = document.getElementById('referee-details-messages');
+                                if (data.status === 'success') {
+                                    exemptedClubUuidsForJS = selectedClubUuids; // Update global JS variable for subsequent edits
+                                    // const selectedClubNames array is already populated from the saveButton click listener
+                                    displaySpanExemptClubs.textContent = selectedClubNames.length > 0 ? selectedClubNames.join(', ') : 'None';
+                                    if (messagesDiv) {
+                                        messagesDiv.innerHTML = `<div class="alert alert-success alert-dismissible fade show" role="alert">
+                                    ${data.message || 'Exempt clubs updated successfully.'}
+                                    <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                                </div>`;
+                                    }
+                                    toggleExemptClubsToViewMode();
+                                } else {
+                                    if (messagesDiv) {
+                                        messagesDiv.innerHTML = `<div class="alert alert-danger">${data.message || 'Error updating exempt clubs.'}</div>`;
+                                    }
+                                }
+                                // Auto-dismiss message
+                                setTimeout(() => {
+                                    if (messagesDiv && messagesDiv.querySelector('.alert')) {
+                                        messagesDiv.querySelector('.alert').remove();
+                                    }
+                                }, 5000);
+                            })
+                            .catch(error => {
+                                console.error('Error:', error);
+                                const messagesDiv = document.getElementById('referee-details-messages');
+                                if (messagesDiv) {
+                                    messagesDiv.innerHTML = '<div class="alert alert-danger">An unexpected error occurred.</div>';
+                                    setTimeout(() => {
+                                        if (messagesDiv.querySelector('.alert')) messagesDiv.querySelector('.alert').remove();
+                                    }, 5000);
+                                }
+                            });
+                    });
+
+                    cancelButton.addEventListener('click', function() {
+                        toggleExemptClubsToViewMode();
+                    });
+                });
             }
-        });
-    }
-});
+        }
+
+        function toggleExemptClubsToViewMode() {
+            const controls = exemptClubsDd.querySelector('.edit-controls-exempt-clubs');
+            if (controls) {
+                controls.remove();
+            }
+            const displaySpan = exemptClubsDd.querySelector('.display-value[data-field="exempt_clubs"]');
+            const editIcon = exemptClubsDd.querySelector('.edit-icon[data-field="exempt_clubs"]');
+            if (displaySpan) displaySpan.style.display = '';
+            if (editIcon) editIcon.style.display = '';
+        }
+        // --- End of Logic for Exempt Clubs Edit ---
+    });
 </script>
 
 <?php include '../includes/footer.php'; ?>
