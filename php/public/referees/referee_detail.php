@@ -612,7 +612,9 @@ document.addEventListener('DOMContentLoaded', function () {
         const displaySpanExemptClubs = exemptClubsDd.querySelector('.display-value[data-field="exempt_clubs"]');
 
         if (editIconExemptClubs && displaySpanExemptClubs) {
-            editIconExemptClubs.addEventListener('click', function() {
+            editIconExemptClubs.addEventListener('click', function(event) { // Added event parameter
+                event.stopPropagation(); // Stop event from bubbling to other listeners
+
                 // Hide display span and edit icon
                 displaySpanExemptClubs.style.display = 'none';
                 this.style.display = 'none';
