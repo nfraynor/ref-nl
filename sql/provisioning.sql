@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS referees (
                                         home_club_id CHAR(36),
                                         home_location_city VARCHAR(100),
                                         grade VARCHAR(50),
+                                        ar_grade VARCHAR(50),
                                         FOREIGN KEY (home_club_id) REFERENCES clubs(uuid)
 );
 

@@ -19,6 +19,7 @@ This document describes the primary data models used in the **Referee Management
 | `home_club_id`       | CHAR(36) (FK)    | Foreign key. References `Club.uuid`. Indicates the referee’s home club.     |
 | `home_location_city` | VARCHAR          | City of residence. Used only at the city level for privacy reasons.         |
 | `grade`              | VARCHAR or INT   | Referee’s current grade/level. Stored as text or numeric based on use case. |
+| `ar_grade`           | VARCHAR or INT   | Referee’s current AR grade/level. Stored as text or numeric based on use case. |
 
 ---
 

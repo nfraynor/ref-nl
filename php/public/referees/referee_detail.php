@@ -166,6 +166,9 @@ if ($referee && isset($referee['uuid'])) { // Ensure $currentRefereeUuid is avai
 
                     <dt class="col-sm-3">Grade</dt>
                     <dd class="col-sm-9"><?= htmlspecialchars($referee['grade']) ?></dd>
+
+                    <dt class="col-sm-3">AR Grade</dt>
+                    <dd class="col-sm-9"><?= htmlspecialchars($referee['ar_grade']) ?></dd>
                 </dl>
             </div>
         </div>
