@@ -4,12 +4,9 @@ require_once __DIR__ . '/../../utils/db.php'; // Database connection
 
 header('Content-Type: application/json');
 
-// Check if user is authenticated (basic check, can be expanded with roles)
-if (!is_user_logged_in()) {
-    http_response_code(401); // Unauthorized
-    echo json_encode(['status' => 'error', 'message' => 'You must be logged in to perform this action.']);
-    exit;
-}
+// The require_once for session_auth.php (above) handles authentication.
+// If the user is not logged in, session_auth.php will redirect to login.php and exit.
+// So, if the script reaches this point, the user is considered authenticated.
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405); // Method Not Allowed
