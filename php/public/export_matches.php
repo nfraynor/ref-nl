@@ -165,7 +165,7 @@ $headers = [
     'Referee Assigner',
     'Referee', 'AR1', 'AR2', 'Commissioner'
 ];
-fputcsv($output, $headers, ',', '"');
+fputcsv($output, $headers, ',', '"', '\\');
 
 // Write data rows
 if (!empty($matches)) {
@@ -189,7 +189,7 @@ if (!empty($matches)) {
             trim(($match['ar2_first_name'] ?? '') . ' ' . ($match['ar2_last_name'] ?? '')),
             trim(($match['commissioner_first_name'] ?? '') . ' ' . ($match['commissioner_last_name'] ?? ''))
         ];
-        fputcsv($output, $row, ',', '"');
+        fputcsv($output, $row, ',', '"', '\\');
     }
 } else if (!$canFetchData) {
     // Optional: Write a row indicating no permissions or no data due to permissions
