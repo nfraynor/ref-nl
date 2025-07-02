@@ -206,6 +206,8 @@ function getRefName($referees, $uuid) {
 <?php else: ?>
     <a href="matches.php?<?= buildQueryString(['assign_mode' => 1]) ?>" class="btn btn-sm btn-warning-action mb-3">Enable Assign Mode</a>
 <?php endif; ?>
+    <a href="export_matches.php?<?= buildQueryString([]) ?>" class="btn btn-sm btn-info-action mb-3 ms-2">Export to Excel (CSV)</a>
+
 
     <?php if ($assignMode): ?>
         <button type="submit" class="btn btn-main-action sticky-assign-button">Save Assignments</button> <!-- Changed from btn-success -->
