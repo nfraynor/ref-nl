@@ -252,20 +252,16 @@ function loadFilterOptions(type, targetBoxId, targetHtmlId, checkboxClass, param
             });
         });
 }
-function initializeSelect2AndEvents() {
-    $('.referee-select').select2({
-        placeholder: "-- Select Referee --",
-        width: 'resolve',
-        dropdownParent: $('body'),
-        matcher: refereeMatcher
-    // This function is removed as it conflicts with the global one from referee_dropdown.js
-    // $('.referee-select').select2({
-    //     placeholder: "-- Select Referee --",
-    //     width: 'resolve',
-    //     dropdownParent: $('body'),
-    //     matcher: refereeMatcher
-    // });
-}
+// function initializeSelect2AndEvents() {
+//     // This local function definition is removed to ensure the global
+//     // window.initializeSelect2AndEvents from referee_dropdown.js is used.
+//     // $('.referee-select').select2({
+//     //     placeholder: "-- Select Referee --",
+//     //     width: 'resolve',
+//     //     dropdownParent: $('body'),
+//     //     matcher: refereeMatcher
+//     // });
+// }
 
 document.getElementById('districtFilterToggle')?.addEventListener('click', () => {
     loadFilterOptions('district', 'districtFilterBox', 'districtFilterOptions', 'district-filter-checkbox', 'district');
