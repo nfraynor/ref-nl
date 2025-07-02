@@ -258,7 +258,13 @@ function initializeSelect2AndEvents() {
         width: 'resolve',
         dropdownParent: $('body'),
         matcher: refereeMatcher
-    });
+    // This function is removed as it conflicts with the global one from referee_dropdown.js
+    // $('.referee-select').select2({
+    //     placeholder: "-- Select Referee --",
+    //     width: 'resolve',
+    //     dropdownParent: $('body'),
+    //     matcher: refereeMatcher
+    // });
 }
 
 document.getElementById('districtFilterToggle')?.addEventListener('click', () => {
