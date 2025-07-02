@@ -55,7 +55,21 @@ if ($fieldName === 'email') {
     }
 }
 
-if (in_array($fieldName, ['first_name', 'last_name', 'grade', 'ar_grade', 'home_location_city']) && trim($fieldValue) === '') {
+// Specific validation for grade fields
+if (($fieldName === 'grade' || $fieldName === 'ar_grade')) {
+    $allowedGrades = ["A", "B", "C", "D", "E"];
+    if (trim($fieldValue) === '') { // Check if empty first
+        http_response_code(400);
+        echo json_encode(['status' => 'error', 'message' => ucfirst(str_replace('_', ' ', $fieldName)) . ' cannot be empty.']);
+        exit;
+    }
+    if (!in_array($fieldValue, $allowedGrades)) {
+        http_response_code(400);
+        echo json_encode(['status' => 'error', 'message' => 'Invalid ' . str_replace('_', ' ', $fieldName) . ' selected. Please choose from A-E.']);
+        exit;
+    }
+} elseif (in_array($fieldName, ['first_name', 'last_name', 'home_location_city']) && trim($fieldValue) === '') {
+    // Moved other required field checks here, excluding grade/ar_grade as they are handled above
      http_response_code(400);
      echo json_encode(['status' => 'error', 'message' => ucfirst(str_replace('_', ' ', $fieldName)) . ' cannot be empty.']);
      exit;

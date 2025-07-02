@@ -66,6 +66,26 @@ document.addEventListener('DOMContentLoaded', function () {
                         inputElement.innerHTML = '<option>Error loading clubs</option>';
                          displayMessage('Error loading clubs. Please try again.', 'danger');
                     });
+            } else if (fieldName === 'grade' || fieldName === 'ar_grade') {
+                inputElement = document.createElement('select');
+                inputElement.classList.add('form-control', 'form-control-sm', 'mr-2');
+                inputElement.style.flexGrow = '1';
+                const grades = ["A", "B", "C", "D", "E"];
+
+                const pleaseSelectOption = document.createElement('option');
+                pleaseSelectOption.value = '';
+                pleaseSelectOption.textContent = `Select ${fieldName.replace('_', ' ')}`;
+                inputElement.appendChild(pleaseSelectOption);
+
+                grades.forEach(grade => {
+                    const option = document.createElement('option');
+                    option.value = grade;
+                    option.textContent = grade;
+                    if (grade === currentValue) {
+                        option.selected = true;
+                    }
+                    inputElement.appendChild(option);
+                });
             } else {
                 inputElement = document.createElement('input');
                 inputElement.type = (fieldName === 'email') ? 'email' : 'text';
