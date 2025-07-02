@@ -131,12 +131,13 @@ foreach ($referee_names as $index => $name) {
         'home_club_id' => $club['uuid'],
         'home_location_city' => $club['club_name'], // Assuming city is same as club name for dummy data
         'grade' => $grades[array_rand($grades)],
+        'ar_grade' => $grades[array_rand($grades)]
     ];
     $referees_data[] = $ref;
 
     $stmt = $pdo->prepare("INSERT IGNORE INTO referees (uuid, referee_id, first_name, last_name, email, phone, home_club_id, home_location_city, grade, ar_grade) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
     // Assuming ar_grade is the same as grade for initial seeding
-    $stmt->execute([$ref['uuid'], $ref['referee_id'], $ref['first_name'], $ref['last_name'], $ref['email'], $ref['phone'], $ref['home_club_id'], $ref['home_location_city'], $ref['grade'], $ref['grade']]);
+    $stmt->execute([$ref['uuid'], $ref['referee_id'], $ref['first_name'], $ref['last_name'], $ref['email'], $ref['phone'], $ref['home_club_id'], $ref['home_location_city'], $ref['grade'], $ref['ar_grade']]);
 }
 
 echo "Referees seeded.\n";
