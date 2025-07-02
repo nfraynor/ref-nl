@@ -111,7 +111,12 @@ echo "Teams seeded.\n";
 $grades = ['A', 'B', 'C', 'D', 'E'];
 
 $referees_data = []; // Store referee data for later use if needed
-$referee_names = ['Alice', 'Bob', 'Charlie', 'Diana', 'Edward', 'Fiona', 'George', 'Hannah', 'Isaac', 'Julia'];
+$referee_names = [
+    'Alice', 'Bob', 'Charlie', 'Diana', 'Edward', 'Fiona', 'George', 'Hannah', 'Isaac', 'Julia',
+    'Kevin', 'Laura', 'Michael', 'Nina', 'Oscar', 'Paula', 'Quentin', 'Rachel', 'Samuel', 'Tina',
+    'Umar', 'Vanessa', 'William', 'Xenia', 'Yusuf', 'Zara', 'Aaron', 'Bianca', 'Caleb', 'Delilah'
+];
+
 
 foreach ($referee_names as $index => $name) {
     $club = $clubs[array_rand($clubs)];
