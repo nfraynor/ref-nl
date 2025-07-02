@@ -125,71 +125,71 @@ if ($loadInitialMatches) {
     $stmt->execute($params);
     $matches = $stmt->fetchAll();
 } else {
-    // $matches should already be [] if $loadInitialMatches is false,
-    // but explicitly ensuring it here if it wasn't set earlier in a specific path.
-    // However, the previous step does set $matches = [] when $loadInitialMatches becomes false.
-    if (!isset($matches)) { // Defensive check
+    if (!isset($matches)) {
         $matches = [];
     }
 }
 
+// --- START: Pre-computation for Conflict & Availability for initial load ---
+// This logic mirrors what's in fetch_matches.php. Consider moving to a shared utility if structure allows.
+// Ensure $referees is already fetched. $matches here is the initial set (e.g., 20 matches).
 
-// Conflict checker
-function checkConflict($matches, $refId, $thisMatchId, $matchDate, $kickoffTime) {
-    $conflictType = null;
+$refereeSchedule_initial = [];
+if ($loadInitialMatches) { // Only compute if matches were loaded
+    foreach ($matches as $match_item_initial) { // Use unique var name
+        $match_uuid_initial = $match_item_initial['uuid'];
+        $match_date_for_schedule_initial = $match_item_initial['match_date'];
+        $kickoff_time_for_schedule_initial = $match_item_initial['kickoff_time'];
 
-    $currentDate = new DateTime($matchDate);
-    $currentStart = strtotime("1970-01-01T" . $kickoffTime);
-    $currentEnd = $currentStart + (90 * 60); // 90 min
-
-    foreach ($matches as $match) {
-        $sameMatch = $match['uuid'] === $thisMatchId;
-
-        foreach (['referee_id', 'ar1_id', 'ar2_id', 'commissioner_id'] as $role) {
-            if ($match[$role] == $refId) {
-
-                // 🟥 Same match: multiple roles
-                if ($sameMatch) {
-                    $refCount = 0;
-                    foreach (['referee_id', 'ar1_id', 'ar2_id', 'commissioner_id'] as $checkRole) {
-                        if ($match[$checkRole] === $refId) $refCount++;
-                    }
-                    if ($refCount > 1) return 'red';
-                    continue;
+        foreach (['referee_id', 'ar1_id', 'ar2_id', 'commissioner_id'] as $role_key_initial) {
+            if (!empty($match_item_initial[$role_key_initial])) {
+                $ref_id_for_schedule_initial = $match_item_initial[$role_key_initial];
+                if (!isset($refereeSchedule_initial[$ref_id_for_schedule_initial])) {
+                    $refereeSchedule_initial[$ref_id_for_schedule_initial] = [];
                 }
-
-                $otherDate = new DateTime($match['match_date']);
-                $daysBetween = (int)$currentDate->diff($otherDate)->format('%r%a');
-
-                // 🟥 Same day: check time overlap
-                if ($daysBetween === 0) {
-                    $otherStart = strtotime("1970-01-01T" . $match['kickoff_time']);
-                    $otherEnd = $otherStart + (90 * 60);
-
-                    if ($currentStart < $otherEnd && $otherStart < $currentEnd) {
-                        return 'red';
-                    } else {
-                        $conflictType = 'orange';
-                    }
-                }
-
-                // 🟡 Within ±2 days
-                elseif (abs($daysBetween) <= 2) {
-                    if (!$conflictType) $conflictType = 'yellow';
-                }
+                $refereeSchedule_initial[$ref_id_for_schedule_initial][] = [
+                    'match_id' => $match_uuid_initial,
+                    'match_date_str' => $match_date_for_schedule_initial,
+                    'kickoff_time_str' => $kickoff_time_for_schedule_initial,
+                    'role' => $role_key_initial
+                ];
             }
         }
     }
-
-    return $conflictType;
 }
 
-function getRefName($referees, $uuid) {
-    foreach ($referees as $ref) {
-        if ($ref['uuid'] === $uuid) return $ref['first_name'] . ' ' . $ref['last_name'];
+
+$refereeAvailabilityCache_initial = [];
+if ($loadInitialMatches && !empty($referees)) { // Only compute if matches were loaded and referees exist
+    $allRefereeIds_initial = array_map(function($ref) { return $ref['uuid']; }, $referees);
+
+    if (!empty($allRefereeIds_initial)) {
+        $placeholders_initial = implode(',', array_fill(0, count($allRefereeIds_initial), '?'));
+
+        $unavailabilityStmt_initial = $pdo->prepare("SELECT referee_id, start_date, end_date FROM referee_unavailability WHERE referee_id IN ($placeholders_initial)");
+        $unavailabilityStmt_initial->execute($allRefereeIds_initial);
+        while ($row_initial = $unavailabilityStmt_initial->fetch(PDO::FETCH_ASSOC)) {
+            if (!isset($refereeAvailabilityCache_initial[$row_initial['referee_id']])) {
+                $refereeAvailabilityCache_initial[$row_initial['referee_id']] = ['unavailability' => [], 'weekly' => []];
+            }
+            $refereeAvailabilityCache_initial[$row_initial['referee_id']]['unavailability'][] = $row_initial;
+        }
+
+        $weeklyStmt_initial = $pdo->prepare("SELECT referee_id, weekday, morning_available, afternoon_available, evening_available FROM referee_weekly_availability WHERE referee_id IN ($placeholders_initial)");
+        $weeklyStmt_initial->execute($allRefereeIds_initial);
+        while ($row_initial = $weeklyStmt_initial->fetch(PDO::FETCH_ASSOC)) {
+            if (!isset($refereeAvailabilityCache_initial[$row_initial['referee_id']])) {
+                $refereeAvailabilityCache_initial[$row_initial['referee_id']] = ['unavailability' => [], 'weekly' => []];
+            }
+            $refereeAvailabilityCache_initial[$row_initial['referee_id']]['weekly'][$row_initial['weekday']] = $row_initial;
+        }
     }
-    return "Unknown";
 }
+// Note: The helper functions isRefereeAvailable_Cached and get_assignment_details_for_referee
+// are expected to be available via the included 'components/referee_dropdown.php'.
+// The old checkConflict and getRefName functions in this file are now obsolete.
+// --- END: Pre-computation ---
+
 ?>
 <div class="container-fluid"> <!-- Use container-fluid for wider tables -->
     <div class="content-card">

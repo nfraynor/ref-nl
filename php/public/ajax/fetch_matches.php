@@ -133,54 +133,153 @@ $matches = $stmt->fetchAll();
 
 $referees = $pdo->query("SELECT uuid, first_name, last_name, grade FROM referees ORDER BY first_name")->fetchAll();
 
-function checkConflict($matches, $refId, $thisMatchId, $matchDate, $kickoffTime) {
-    $conflictType = null;
+// --- START: Pre-computation for Conflict & Availability ---
+$refereeSchedule = [];
+foreach ($matches as $match_item) {
+    $match_uuid = $match_item['uuid'];
+    $match_date_for_schedule = $match_item['match_date']; // Store string date
+    $kickoff_time_for_schedule = $match_item['kickoff_time']; // Store string time
 
-    $currentDate = new DateTime($matchDate);
-    $currentStart = strtotime("1970-01-01T" . $kickoffTime);
-    $currentEnd = $currentStart + (90 * 60); // 90 min
-
-    foreach ($matches as $match) {
-        $sameMatch = $match['uuid'] === $thisMatchId;
-
-        foreach (['referee_id', 'ar1_id', 'ar2_id', 'commissioner_id'] as $role) {
-            if ($match[$role] == $refId) {
-
-                // 🟥 Same match: multiple roles
-                if ($sameMatch) {
-                    $refCount = 0;
-                    foreach (['referee_id', 'ar1_id', 'ar2_id', 'commissioner_id'] as $checkRole) {
-                        if ($match[$checkRole] === $refId) $refCount++;
-                    }
-                    if ($refCount > 1) return 'red';
-                    continue;
-                }
-
-                $otherDate = new DateTime($match['match_date']);
-                $daysBetween = (int)$currentDate->diff($otherDate)->format('%r%a');
-
-                // 🟥 Same day: check time overlap
-                if ($daysBetween === 0) {
-                    $otherStart = strtotime("1970-01-01T" . $match['kickoff_time']);
-                    $otherEnd = $otherStart + (90 * 60);
-
-                    if ($currentStart < $otherEnd && $otherStart < $currentEnd) {
-                        return 'red';
-                    } else {
-                        $conflictType = 'orange';
-                    }
-                }
-
-                // 🟡 Within ±2 days
-                elseif (abs($daysBetween) <= 2) {
-                    if (!$conflictType) $conflictType = 'yellow';
-                }
+    foreach (['referee_id', 'ar1_id', 'ar2_id', 'commissioner_id'] as $role_key) {
+        if (!empty($match_item[$role_key])) {
+            $ref_id_for_schedule = $match_item[$role_key];
+            if (!isset($refereeSchedule[$ref_id_for_schedule])) {
+                $refereeSchedule[$ref_id_for_schedule] = [];
             }
+            $refereeSchedule[$ref_id_for_schedule][] = [
+                'match_id' => $match_uuid,
+                'match_date_str' => $match_date_for_schedule, // Store date string
+                'kickoff_time_str' => $kickoff_time_for_schedule, // Store time string
+                'role' => $role_key
+            ];
+        }
+    }
+}
+
+$allRefereeIds = array_map(function($ref) { return $ref['uuid']; }, $referees);
+$refereeAvailabilityCache = [];
+
+if (!empty($allRefereeIds)) {
+    $placeholders = implode(',', array_fill(0, count($allRefereeIds), '?'));
+
+    $unavailabilityStmt = $pdo->prepare("SELECT referee_id, start_date, end_date FROM referee_unavailability WHERE referee_id IN ($placeholders)");
+    $unavailabilityStmt->execute($allRefereeIds);
+    while ($row = $unavailabilityStmt->fetch(PDO::FETCH_ASSOC)) {
+        if (!isset($refereeAvailabilityCache[$row['referee_id']])) {
+            $refereeAvailabilityCache[$row['referee_id']] = ['unavailability' => [], 'weekly' => []];
+        }
+        $refereeAvailabilityCache[$row['referee_id']]['unavailability'][] = $row;
+    }
+
+    $weeklyStmt = $pdo->prepare("SELECT referee_id, weekday, morning_available, afternoon_available, evening_available FROM referee_weekly_availability WHERE referee_id IN ($placeholders)");
+    $weeklyStmt->execute($allRefereeIds);
+    while ($row = $weeklyStmt->fetch(PDO::FETCH_ASSOC)) {
+        if (!isset($refereeAvailabilityCache[$row['referee_id']])) {
+            $refereeAvailabilityCache[$row['referee_id']] = ['unavailability' => [], 'weekly' => []];
+        }
+        $refereeAvailabilityCache[$row['referee_id']]['weekly'][$row['weekday']] = $row;
+    }
+}
+
+function isRefereeAvailable_Cached($refId, $matchDateStr, $kickoffTimeStr, $cache) {
+    if (!isset($cache[$refId])) return true;
+
+    foreach ($cache[$refId]['unavailability'] as $block) {
+        if ($matchDateStr >= $block['start_date'] && $matchDateStr <= $block['end_date']) {
+            return false;
         }
     }
 
-    return $conflictType;
+    $weekday = date('w', strtotime($matchDateStr));
+    $hour = (int)date('H', strtotime("1970-01-01T" . $kickoffTimeStr));
+
+    if ($hour < 12) $slot = 'morning_available';
+    elseif ($hour < 17) $slot = 'afternoon_available';
+    else $slot = 'evening_available';
+
+    if (isset($cache[$refId]['weekly'][$weekday])) {
+        return (bool)$cache[$refId]['weekly'][$weekday][$slot];
+    }
+    return true;
 }
+
+function get_assignment_details_for_referee(
+    $refereeIdToCheck,
+    $currentMatchContext, // ['uuid', 'match_date', 'kickoff_time', 'assigned_roles' => [...], 'current_role_being_rendered' => 'role_name']
+    $refereeSchedule,     // Precomputed schedule of other matches
+    $refereeAvailabilityCache
+) {
+    $availability = isRefereeAvailable_Cached(
+        $refereeIdToCheck,
+        $currentMatchContext['match_date'],
+        $currentMatchContext['kickoff_time'],
+        $refereeAvailabilityCache
+    );
+
+    if (!$availability) {
+        return ['conflict_type' => null, 'is_available' => false];
+    }
+
+    $conflictLevel = null;
+
+    $currentMatchDateObj = new DateTime($currentMatchContext['match_date']);
+    $currentMatchStartTimestamp = strtotime("1970-01-01T" . $currentMatchContext['kickoff_time']);
+    $currentMatchEndTimestamp = $currentMatchStartTimestamp + (90 * 60); // Assuming 90 min
+
+    // Check for conflicts with other roles in the *same* current match
+    foreach ($currentMatchContext['assigned_roles'] as $roleInSameMatch => $assignedRefIdInSameMatch) {
+        if ($roleInSameMatch !== $currentMatchContext['current_role_being_rendered'] && // Not the role we are currently populating
+            $assignedRefIdInSameMatch === $refereeIdToCheck) { // And the referee is the same
+            return ['conflict_type' => 'red', 'is_available' => true]; // Red conflict: assigned to another role in the same match
+        }
+    }
+
+    if (isset($refereeSchedule[$refereeIdToCheck])) {
+        foreach ($refereeSchedule[$refereeIdToCheck] as $scheduledMatch) {
+            // Skip if this scheduled item is for the exact same role in the exact same match
+            // (This happens if we are checking an already assigned referee for their existing slot)
+            if ($scheduledMatch['match_id'] === $currentMatchContext['uuid'] &&
+                $scheduledMatch['role'] === $currentMatchContext['current_role_being_rendered']) {
+                continue;
+            }
+
+            // If the scheduled item is for the *same match* but a *different role*
+            if ($scheduledMatch['match_id'] === $currentMatchContext['uuid']) {
+                 // This is a conflict if the ref is assigned to another role in this same match.
+                 // This is now handled by the loop above checking currentMatchContext['assigned_roles'] more directly.
+                 // However, $refereeSchedule is based on DB state, currentMatchContext['assigned_roles'] might be "what if".
+                 // For safety, let's ensure this check covers cases where $currentMatchContext['assigned_roles'] might not yet be fully populated
+                 // with what's in $refereeSchedule for *this specific match*.
+                 // Essentially, if $refereeIdToCheck is in $refereeSchedule for $currentMatchContext['uuid'] in a *different role*, it's red.
+                 if ($scheduledMatch['role'] !== $currentMatchContext['current_role_being_rendered']) {
+                    $conflictLevel = 'red';
+                    break;
+                 }
+                 continue; // Already handled or it's the same assignment.
+            }
+
+            // Different match, same referee
+            $scheduledMatchDateObj = new DateTime($scheduledMatch['match_date_str']);
+            $daysBetween = (int)$currentMatchDateObj->diff($scheduledMatchDateObj)->format('%r%a');
+
+            if ($daysBetween === 0) { // Same day
+                $scheduledMatchStartTimestamp = strtotime("1970-01-01T" . $scheduledMatch['kickoff_time_str']);
+                $scheduledMatchEndTimestamp = $scheduledMatchStartTimestamp + (90 * 60);
+                if ($currentMatchStartTimestamp < $scheduledMatchEndTimestamp && $scheduledMatchStartTimestamp < $currentMatchEndTimestamp) {
+                    $conflictLevel = 'red';
+                    break;
+                } else {
+                    if ($conflictLevel !== 'red') $conflictLevel = 'orange';
+                }
+            } elseif (abs($daysBetween) <= 2) {
+                if ($conflictLevel !== 'red' && $conflictLevel !== 'orange') $conflictLevel = 'yellow';
+            }
+        }
+    }
+    return ['conflict_type' => $conflictLevel, 'is_available' => true];
+}
+// --- END: Pre-computation ---
+
 foreach ($matches as $match): ?>
     <tr>
         <td><a href="match_detail.php?uuid=<?= htmlspecialchars($match['uuid']) ?>"><?= htmlspecialchars($match['match_date']) ?></a></td>
@@ -214,9 +313,9 @@ foreach ($matches as $match): ?>
             <span class="cell-value"><?= htmlspecialchars($match['referee_assigner_username'] ?? 'N/A') ?></span>
             <i class="bi bi-pencil-square edit-icon" style="display: none;"></i>
         </td>
-        <td><?php renderRefereeDropdown("referee_id", $match, $referees, $assignMode, $matches); ?></td>
-        <td><?php renderRefereeDropdown("ar1_id", $match, $referees, $assignMode, $matches); ?></td>
-        <td><?php renderRefereeDropdown("ar2_id", $match, $referees, $assignMode, $matches); ?></td>
-        <td><?php renderRefereeDropdown("commissioner_id", $match, $referees, $assignMode, $matches); ?></td>
+        <td><?php renderRefereeDropdown("referee_id", $match, $referees, $assignMode, $refereeSchedule, $refereeAvailabilityCache); ?></td>
+        <td><?php renderRefereeDropdown("ar1_id", $match, $referees, $assignMode, $refereeSchedule, $refereeAvailabilityCache); ?></td>
+        <td><?php renderRefereeDropdown("ar2_id", $match, $referees, $assignMode, $refereeSchedule, $refereeAvailabilityCache); ?></td>
+        <td><?php renderRefereeDropdown("commissioner_id", $match, $referees, $assignMode, $refereeSchedule, $refereeAvailabilityCache); ?></td>
     </tr>
 <?php endforeach; ?>
