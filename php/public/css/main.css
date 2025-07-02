@@ -20,6 +20,7 @@ body {
     background-color: rgba(255, 255, 255, 0.98); /* Very slightly transparent white */
     padding: 20px; /* Add padding inside the card */
     margin-bottom: 20px; /* Space below the card */
+    overflow-x: auto; /* Allow horizontal scrolling if content is too wide */
 }
 
 /* Responsive adjustments for the content card if needed */

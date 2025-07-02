@@ -58,6 +58,7 @@ $referees = $pdo->query("
             <td><?= htmlspecialchars($ref['home_club_name']) ?></td>
             <td><?= htmlspecialchars($ref['home_location_city']) ?></td>
             <td><?= htmlspecialchars($ref['grade']) ?></td>
+            <td><?= htmlspecialchars($ref['ar_grade']) ?></td>
         </tr>
     <?php endforeach; ?>
     </tbody>
