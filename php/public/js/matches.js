@@ -104,6 +104,15 @@ document.addEventListener('click', function (event) {
     }
 });
 
+// Helper function to destroy select2 on existing elements
+function destroyExistingSelect2(containerElement) {
+    $(containerElement).find('.referee-select').each(function() {
+        if ($(this).data('select2')) {
+            $(this).select2('destroy');
+        }
+    });
+}
+
 // Handle all the date stuff
 function fetchMatchesWithDates(startDate, endDate) {
     const params = new URLSearchParams({
@@ -115,8 +124,10 @@ function fetchMatchesWithDates(startDate, endDate) {
     fetch(`/ajax/fetch_matches.php?${params.toString()}`)
         .then(res => res.text())
         .then(html => {
-            document.getElementById('matchesTableBody').innerHTML = html;
-            initializeSelect2AndEvents(); // ← add this here
+            const tableBody = document.getElementById('matchesTableBody');
+            destroyExistingSelect2(tableBody); // Destroy before updating
+            tableBody.innerHTML = html;
+            initializeSelect2AndEvents();
         });
 }
 
@@ -168,8 +179,10 @@ function applyDivisionFilter() {
     fetch('/ajax/fetch_matches.php?' + params.toString())
         .then(res => res.text())
         .then(html => {
-            document.getElementById('matchesTableBody').innerHTML = html;
-            initializeSelect2AndEvents(); // ← add this here
+            const tableBody = document.getElementById('matchesTableBody');
+            destroyExistingSelect2(tableBody); // Destroy before updating
+            tableBody.innerHTML = html;
+            initializeSelect2AndEvents();
         });
 }
 
@@ -214,9 +227,10 @@ function applyMultiFilter(paramName, checkboxClass) {
     fetch('/ajax/fetch_matches.php?' + params.toString())
         .then(res => res.text())
         .then(html => {
-            document.getElementById('matchesTableBody').innerHTML = html;
+            const tableBody = document.getElementById('matchesTableBody');
+            destroyExistingSelect2(tableBody); // Destroy before updating
+            tableBody.innerHTML = html;
             initializeSelect2AndEvents();
-
         });
 }
 
