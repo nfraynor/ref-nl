@@ -619,7 +619,16 @@ document.addEventListener('DOMContentLoaded', function () {
                 displaySpanExemptClubs.style.display = 'none';
                 this.style.display = 'none';
 
-                // Remove any existing controls
+                // Explicitly remove any generic edit controls that might have been added by inline_edit_referee.js
+                const parentDdElement = this.closest('.editable-field'); // 'this' is the clicked edit icon
+                if (parentDdElement) {
+                    const existingGenericControls = parentDdElement.querySelector('.edit-controls');
+                    if (existingGenericControls) {
+                        existingGenericControls.remove();
+                    }
+                }
+
+                // Remove any existing custom controls for exempt clubs (good practice before rebuilding)
                 const existingControls = exemptClubsDd.querySelector('.edit-controls-exempt-clubs');
                 if (existingControls) {
                     existingControls.remove();
