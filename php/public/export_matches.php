@@ -112,8 +112,7 @@ $sql = "
         ref.first_name AS referee_first_name, ref.last_name AS referee_last_name,
         ar1.first_name AS ar1_first_name, ar1.last_name AS ar1_last_name,
         ar2.first_name AS ar2_first_name, ar2.last_name AS ar2_last_name,
-        com.first_name AS commissioner_first_name, com.last_name AS commissioner_last_name,
-        m.notes
+        com.first_name AS commissioner_first_name, com.last_name AS commissioner_last_name
     FROM matches m
     JOIN teams ht ON m.home_team_id = ht.uuid
     JOIN clubs hc ON ht.club_id = hc.uuid
@@ -164,8 +163,7 @@ $headers = [
     'Division', 'District', 'Poule',
     'Location Name', 'Location Address',
     'Referee Assigner',
-    'Referee', 'AR1', 'AR2', 'Commissioner',
-    'Notes'
+    'Referee', 'AR1', 'AR2', 'Commissioner'
 ];
 fputcsv($output, $headers);
 
@@ -189,8 +187,7 @@ if (!empty($matches)) {
             trim(($match['referee_first_name'] ?? '') . ' ' . ($match['referee_last_name'] ?? '')),
             trim(($match['ar1_first_name'] ?? '') . ' ' . ($match['ar1_last_name'] ?? '')),
             trim(($match['ar2_first_name'] ?? '') . ' ' . ($match['ar2_last_name'] ?? '')),
-            trim(($match['commissioner_first_name'] ?? '') . ' ' . ($match['commissioner_last_name'] ?? '')),
-            $match['notes']
+            trim(($match['commissioner_first_name'] ?? '') . ' ' . ($match['commissioner_last_name'] ?? ''))
         ];
         fputcsv($output, $row);
     }
