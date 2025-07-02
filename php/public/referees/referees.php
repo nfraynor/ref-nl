@@ -16,7 +16,8 @@ $referees = $pdo->query("
         r.phone,
         c.club_name AS home_club_name,
         r.home_location_city,
-        r.grade
+        r.grade,
+        r.ar_grade
     FROM referees r
     LEFT JOIN clubs c ON r.home_club_id = c.uuid
     ORDER BY r.last_name, r.first_name
@@ -36,6 +37,7 @@ $referees = $pdo->query("
         <th>Home Club</th>
         <th>City</th>
         <th>Grade</th>
+        <th>AR Grade</th>
     </tr>
     </thead>
     <tbody>
