@@ -626,21 +626,36 @@ document.addEventListener('DOMContentLoaded', function () {
                 const controlsWrapper = document.createElement('div');
                 controlsWrapper.classList.add('edit-controls-exempt-clubs', 'd-flex', 'flex-column', 'align-items-start');
 
-                const selectElement = document.createElement('select');
-                // selectElement.multiple = true; // Previous attempt
-                selectElement.setAttribute('multiple', 'multiple'); // More direct attribute setting
-                selectElement.classList.add('form-control', 'form-control-sm', 'mb-2');
-                // Consider adding a specific class if a CSS framework's multi-select styling is needed e.g. 'form-multiselect'
-                selectElement.style.minHeight = '150px'; // Make it a bit taller for multi-select
+                const checkboxContainer = document.createElement('div');
+                checkboxContainer.classList.add('exempt-clubs-checkbox-container', 'mb-2');
+                checkboxContainer.style.maxHeight = '200px';
+                checkboxContainer.style.overflowY = 'auto';
+                checkboxContainer.style.border = '1px solid #ced4da'; // Standard Bootstrap border color
+                checkboxContainer.style.padding = '10px';
+                checkboxContainer.style.borderRadius = '.25rem'; // Standard Bootstrap border radius
+
 
                 allClubsForJS.forEach(club => {
-                    const option = document.createElement('option');
-                    option.value = club.uuid;
-                    option.textContent = club.club_name;
+                    const formCheckDiv = document.createElement('div');
+                    formCheckDiv.classList.add('form-check');
+
+                    const checkbox = document.createElement('input');
+                    checkbox.type = 'checkbox';
+                    checkbox.classList.add('form-check-input');
+                    checkbox.value = club.uuid;
+                    checkbox.id = `exempt-club-${club.uuid}`;
                     if (exemptedClubUuidsForJS.includes(club.uuid)) {
-                        option.selected = true;
+                        checkbox.checked = true;
                     }
-                    selectElement.appendChild(option);
+
+                    const label = document.createElement('label');
+                    label.classList.add('form-check-label');
+                    label.htmlFor = checkbox.id;
+                    label.textContent = club.club_name;
+
+                    formCheckDiv.appendChild(checkbox);
+                    formCheckDiv.appendChild(label);
+                    checkboxContainer.appendChild(formCheckDiv);
                 });
 
                 const buttonGroup = document.createElement('div');
@@ -657,12 +672,21 @@ document.addEventListener('DOMContentLoaded', function () {
                 buttonGroup.appendChild(saveButton);
                 buttonGroup.appendChild(cancelButton);
 
-                controlsWrapper.appendChild(selectElement);
+                controlsWrapper.appendChild(checkboxContainer);
                 controlsWrapper.appendChild(buttonGroup);
                 exemptClubsDd.appendChild(controlsWrapper);
 
                 saveButton.addEventListener('click', function() {
-                    const selectedClubUuids = Array.from(selectElement.selectedOptions).map(opt => opt.value);
+                    const selectedClubUuids = [];
+                    const selectedClubNames = [];
+                    checkboxContainer.querySelectorAll('input[type="checkbox"]:checked').forEach(cb => {
+                        selectedClubUuids.push(cb.value);
+                        // Find the label text for the name
+                        const label = checkboxContainer.querySelector(`label[for="${cb.id}"]`);
+                        if (label) {
+                            selectedClubNames.push(label.textContent);
+                        }
+                    });
 
                     const formData = new FormData();
                     formData.append('referee_uuid', refereeUUID);
@@ -676,13 +700,16 @@ document.addEventListener('DOMContentLoaded', function () {
                     })
                     .then(response => response.json())
                     .then(data => {
-                        const messagesDiv = document.getElementById('referee-details-messages'); // Assuming this div exists for messages
+                        const messagesDiv = document.getElementById('referee-details-messages');
                         if (data.status === 'success') {
-                            exemptedClubUuidsForJS = selectedClubUuids; // Update global JS variable
-                            const selectedClubNames = Array.from(selectElement.selectedOptions).map(opt => opt.textContent);
+                            exemptedClubUuidsForJS = selectedClubUuids; // Update global JS variable for subsequent edits
+                            // const selectedClubNames array is already populated from the saveButton click listener
                             displaySpanExemptClubs.textContent = selectedClubNames.length > 0 ? selectedClubNames.join(', ') : 'None';
                             if (messagesDiv) {
-                                messagesDiv.innerHTML = `<div class="alert alert-success">${data.message || 'Exempt clubs updated successfully.'}</div>`;
+                                messagesDiv.innerHTML = `<div class="alert alert-success alert-dismissible fade show" role="alert">
+                                    ${data.message || 'Exempt clubs updated successfully.'}
+                                    <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                                </div>`;
                             }
                             toggleExemptClubsToViewMode();
                         } else {
