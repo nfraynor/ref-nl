@@ -205,3 +205,44 @@ body {
     background-color: #e2e6ea;
     border-color: #ccc;
 }
+
+/* Inline editing styles for referee_detail.php */
+.editable-field .edit-icon,
+h1 .edit-icon { /* Targeting edit icons in h1 as well */
+    font-size: 0.9em; /* Slightly larger for better clickability */
+    margin-left: 8px;
+    cursor: pointer;
+    color: #007bff; /* Bootstrap primary color for edit icons */
+    vertical-align: middle; /* Align icons with text */
+}
+
+.editable-field .edit-icon:hover,
+h1 .edit-icon:hover {
+    color: #0056b3; /* Darker on hover */
+}
+
+.edit-controls {
+    display: flex;
+    align-items: center;
+}
+
+.edit-controls input.form-control-sm,
+.edit-controls select.form-control-sm {
+    flex-grow: 1; /* Allow input/select to take available space */
+    margin-right: 8px; /* Spacing before save icon */
+}
+
+.edit-controls .save-icon,
+.edit-controls .cancel-icon {
+    font-size: 1.2em; /* Make save/cancel icons a bit larger */
+    cursor: pointer;
+}
+
+.edit-controls .save-icon {
+    margin-right: 8px; /* Spacing between save and cancel */
+}
+
+/* Ensure messages div has some bottom margin if messages are shown */
+#referee-details-messages .alert {
+    margin-bottom: 1rem;
+}

@@ -148,31 +148,74 @@ if ($referee && isset($referee['uuid'])) { // Ensure $currentRefereeUuid is avai
     <section class="mb-4">
         <div class="card">
             <div class="card-header">
-                <h1>Referee Details: <?= htmlspecialchars($referee['first_name'] . ' ' . $referee['last_name']) ?></h1>
+                <h1>Referee Details:
+                    <span data-field="first_name" data-original-value="<?= htmlspecialchars($referee['first_name']) ?>"><?= htmlspecialchars($referee['first_name']) ?></span>
+                    <span data-field="last_name" data-original-value="<?= htmlspecialchars($referee['last_name']) ?>"><?= htmlspecialchars($referee['last_name']) ?></span>
+                    <i class="bi bi-pencil-square edit-icon" data-field="first_name" style="cursor:pointer; font-size:0.8em; margin-left: 5px;"></i>
+                    <i class="bi bi-pencil-square edit-icon" data-field="last_name" style="cursor:pointer; font-size:0.8em; margin-left: 5px;"></i>
+                </h1>
             </div>
             <div class="card-body">
+                <div id="referee-details-messages" class="mb-3"></div> <!-- For success/error messages -->
                 <dl class="row">
+                    <dt class="col-sm-3">Referee ID</dt>
+                    <dd class="col-sm-9"><?= htmlspecialchars($referee['referee_id']) ?></dd>
+
+                    <dt class="col-sm-3">First Name</dt>
+                    <dd class="col-sm-9 editable-field">
+                        <span class="display-value" data-field="first_name"><?= htmlspecialchars($referee['first_name']) ?></span>
+                        <i class="bi bi-pencil-square edit-icon" data-field="first_name" style="cursor:pointer; margin-left: 5px;"></i>
+                    </dd>
+
+                    <dt class="col-sm-3">Last Name</dt>
+                    <dd class="col-sm-9 editable-field">
+                        <span class="display-value" data-field="last_name"><?= htmlspecialchars($referee['last_name']) ?></span>
+                        <i class="bi bi-pencil-square edit-icon" data-field="last_name" style="cursor:pointer; margin-left: 5px;"></i>
+                    </dd>
+
                     <dt class="col-sm-3">Email</dt>
-                    <dd class="col-sm-9"><?= htmlspecialchars($referee['email']) ?></dd>
+                    <dd class="col-sm-9 editable-field">
+                        <span class="display-value" data-field="email"><?= htmlspecialchars($referee['email']) ?></span>
+                        <i class="bi bi-pencil-square edit-icon" data-field="email" style="cursor:pointer; margin-left: 5px;"></i>
+                    </dd>
 
                     <dt class="col-sm-3">Phone</dt>
-                    <dd class="col-sm-9"><?= htmlspecialchars($referee['phone']) ?></dd>
+                    <dd class="col-sm-9 editable-field">
+                        <span class="display-value" data-field="phone"><?= htmlspecialchars($referee['phone']) ?></span>
+                        <i class="bi bi-pencil-square edit-icon" data-field="phone" style="cursor:pointer; margin-left: 5px;"></i>
+                    </dd>
 
                     <dt class="col-sm-3">Club</dt>
-                    <dd class="col-sm-9"><?= htmlspecialchars($referee['club_name']) ?></dd>
+                    <dd class="col-sm-9 editable-field" data-current-club-id="<?= htmlspecialchars($referee['home_club_id']) ?>">
+                        <span class="display-value" data-field="home_club_id"><?= htmlspecialchars($referee['club_name']) ?></span>
+                        <i class="bi bi-pencil-square edit-icon" data-field="home_club_id" style="cursor:pointer; margin-left: 5px;"></i>
+                    </dd>
 
                     <dt class="col-sm-3">City</dt>
-                    <dd class="col-sm-9"><?= htmlspecialchars($referee['home_location_city']) ?></dd>
+                    <dd class="col-sm-9 editable-field">
+                        <span class="display-value" data-field="home_location_city"><?= htmlspecialchars($referee['home_location_city']) ?></span>
+                        <i class="bi bi-pencil-square edit-icon" data-field="home_location_city" style="cursor:pointer; margin-left: 5px;"></i>
+                    </dd>
 
                     <dt class="col-sm-3">Grade</dt>
-                    <dd class="col-sm-9"><?= htmlspecialchars($referee['grade']) ?></dd>
+                    <dd class="col-sm-9 editable-field">
+                        <span class="display-value" data-field="grade"><?= htmlspecialchars($referee['grade']) ?></span>
+                        <i class="bi bi-pencil-square edit-icon" data-field="grade" style="cursor:pointer; margin-left: 5px;"></i>
+                    </dd>
 
                     <dt class="col-sm-3">AR Grade</dt>
-                    <dd class="col-sm-9"><?= htmlspecialchars($referee['ar_grade']) ?></dd>
+                    <dd class="col-sm-9 editable-field">
+                        <span class="display-value" data-field="ar_grade"><?= htmlspecialchars($referee['ar_grade']) ?></span>
+                        <i class="bi bi-pencil-square edit-icon" data-field="ar_grade" style="cursor:pointer; margin-left: 5px;"></i>
+                    </dd>
                 </dl>
             </div>
         </div>
     </section>
+    <script>
+        // Store referee UUID for JS
+        const refereeUUID = "<?= htmlspecialchars($referee['uuid']) ?>";
+    </script>
 
     <section class="mb-4">
         <div class="card">
