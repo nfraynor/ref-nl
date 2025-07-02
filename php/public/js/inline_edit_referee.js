@@ -70,7 +70,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 inputElement = document.createElement('select');
                 inputElement.classList.add('form-control', 'form-control-sm', 'mr-2');
                 inputElement.style.flexGrow = '1';
-                const grades = ["A", "B", "C", "D", "E"];
+                const grades = ["A", "B", "C", "D", "E", ""]; // Added empty for clearing
 
                 const pleaseSelectOption = document.createElement('option');
                 pleaseSelectOption.value = '';
@@ -84,8 +84,18 @@ document.addEventListener('DOMContentLoaded', function () {
                     if (grade === currentValue) {
                         option.selected = true;
                     }
+                    if (grade === "") { // Handle empty option text
+                        option.textContent = "Clear selection";
+                    }
                     inputElement.appendChild(option);
                 });
+            } else if (fieldName === 'max_travel_distance') {
+                inputElement = document.createElement('input');
+                inputElement.type = 'number';
+                inputElement.value = currentValue;
+                inputElement.min = "0"; // Optional: prevent negative numbers on client side
+                inputElement.classList.add('form-control', 'form-control-sm', 'mr-2');
+                inputElement.style.flexGrow = '1';
             } else {
                 inputElement = document.createElement('input');
                 inputElement.type = (fieldName === 'email') ? 'email' : 'text';
@@ -120,12 +130,23 @@ document.addEventListener('DOMContentLoaded', function () {
                     displayMessage('Invalid email format.', 'danger');
                     return;
                 }
-                if (!newValue.trim() && (fieldName === 'first_name' || fieldName === 'last_name' || fieldName === 'grade' || fieldName === 'ar_grade' || fieldName === 'home_location_city')) {
+                // Allow empty for max_travel_distance, grade, ar_grade
+                if (!newValue.trim() && (fieldName === 'first_name' || fieldName === 'last_name' || fieldName === 'home_location_city')) {
                     displayMessage(fieldName.replace('_', ' ') + ' cannot be empty.', 'danger');
                     return;
                 }
+                 if ((fieldName === 'grade' || fieldName === 'ar_grade') && !newValue.trim()) {
+                    // This case is fine, means they are clearing the grade. Server will handle if it's not allowed.
+                    // Or, if you want to prevent clearing grades that are mandatory:
+                    // displayMessage(fieldName.replace('_', ' ') + ' cannot be empty. Select a grade or cancel.', 'danger');
+                    // return;
+                }
                 if (fieldName === 'home_club_id' && !newValue) {
                     displayMessage('Please select a club.', 'danger');
+                    return;
+                }
+                if (fieldName === 'max_travel_distance' && newValue.trim() !== '' && parseInt(newValue) < 0) {
+                    displayMessage('Max travel distance cannot be negative.', 'danger');
                     return;
                 }
 

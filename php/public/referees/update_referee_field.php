@@ -34,7 +34,8 @@ $allowedFields = [
     'home_club_id',
     'home_location_city',
     'grade',
-    'ar_grade'
+    'ar_grade',
+    'max_travel_distance' // Added new field
 ];
 
 if (!in_array($fieldName, $allowedFields)) {
@@ -50,6 +51,19 @@ if ($fieldName === 'email') {
         echo json_encode(['status' => 'error', 'message' => 'Invalid email format.']);
         exit;
     }
+} elseif ($fieldName === 'max_travel_distance') {
+    if (!is_numeric($fieldValue) && $fieldValue !== '') { // Allow empty string to clear the value
+        http_response_code(400);
+        echo json_encode(['status' => 'error', 'message' => 'Max travel distance must be a number.']);
+        exit;
+    }
+    if ($fieldValue !== '' && (int)$fieldValue < 0) {
+        http_response_code(400);
+        echo json_encode(['status' => 'error', 'message' => 'Max travel distance cannot be negative.']);
+        exit;
+    }
+    // Convert to integer or null if empty
+    $fieldValue = ($fieldValue === '') ? null : (int)$fieldValue;
 }
 
 // Specific validation for grade fields
@@ -65,8 +79,8 @@ if (($fieldName === 'grade' || $fieldName === 'ar_grade')) {
         echo json_encode(['status' => 'error', 'message' => 'Invalid ' . str_replace('_', ' ', $fieldName) . ' selected. Please choose from A-E.']);
         exit;
     }
-} elseif (in_array($fieldName, ['first_name', 'last_name', 'home_location_city']) && trim($fieldValue) === '') {
-    // Moved other required field checks here, excluding grade/ar_grade as they are handled above
+} elseif (in_array($fieldName, ['first_name', 'last_name', 'home_location_city']) && trim($fieldValue ?? '') === '') {
+    // Moved other required field checks here, ensure $fieldValue is treated as string for trim
      http_response_code(400);
      echo json_encode(['status' => 'error', 'message' => ucfirst(str_replace('_', ' ', $fieldName)) . ' cannot be empty.']);
      exit;

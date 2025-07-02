@@ -27,6 +27,23 @@ if (!$referee) {
     exit;
 }
 
+// Fetch all clubs for the exempt clubs dropdown
+$allClubsStmt = $pdo->query("SELECT uuid, club_name FROM clubs ORDER BY club_name ASC");
+$allClubs = $allClubsStmt->fetchAll(PDO::FETCH_ASSOC);
+
+// Fetch current exempt clubs for the referee
+$exemptClubsStmt = $pdo->prepare("
+    SELECT c.uuid, c.club_name
+    FROM referee_exempt_clubs rec
+    JOIN clubs c ON rec.club_uuid = c.uuid
+    WHERE rec.referee_uuid = ?
+    ORDER BY c.club_name ASC
+");
+$exemptClubsStmt->execute([$referee['uuid']]);
+$exemptedClubs = $exemptClubsStmt->fetchAll(PDO::FETCH_ASSOC);
+$exemptedClubUuids = array_column($exemptedClubs, 'uuid');
+
+
 // Fetch unavailability
 $unavailability = $pdo->prepare("
     SELECT * FROM referee_unavailability 
@@ -208,6 +225,26 @@ if ($referee && isset($referee['uuid'])) { // Ensure $currentRefereeUuid is avai
                         <span class="display-value" data-field="ar_grade"><?= htmlspecialchars($referee['ar_grade']) ?></span>
                         <i class="bi bi-pencil-square edit-icon" data-field="ar_grade" style="cursor:pointer; margin-left: 5px;"></i>
                     </dd>
+
+                    <dt class="col-sm-3">Max Travel Distance (km)</dt>
+                    <dd class="col-sm-9 editable-field">
+                        <span class="display-value" data-field="max_travel_distance"><?= htmlspecialchars($referee['max_travel_distance'] ?? '') ?></span>
+                        <i class="bi bi-pencil-square edit-icon" data-field="max_travel_distance" style="cursor:pointer; margin-left: 5px;"></i>
+                    </dd>
+
+                    <dt class="col-sm-3">Exempt Clubs</dt>
+                    <dd class="col-sm-9 editable-field" id="exempt-clubs-dd">
+                        <span class="display-value" data-field="exempt_clubs">
+                            <?php
+                            if (!empty($exemptedClubs)) {
+                                echo htmlspecialchars(implode(', ', array_column($exemptedClubs, 'club_name')));
+                            } else {
+                                echo 'None';
+                            }
+                            ?>
+                        </span>
+                        <i class="bi bi-pencil-square edit-icon" data-field="exempt_clubs" style="cursor:pointer; margin-left: 5px;"></i>
+                    </dd>
                 </dl>
             </div>
         </div>
@@ -215,6 +252,8 @@ if ($referee && isset($referee['uuid'])) { // Ensure $currentRefereeUuid is avai
     <script>
         // Store referee UUID for JS
         const refereeUUID = "<?= htmlspecialchars($referee['uuid']) ?>";
+        const allClubsForJS = <?= json_encode($allClubs) ?>;
+        const exemptedClubUuidsForJS = <?= json_encode($exemptedClubUuids) ?>;
     </script>
 
     <section class="mb-4">
@@ -449,7 +488,12 @@ document.addEventListener('DOMContentLoaded', function () {
         altInput: true,
         altFormat: "F j, Y",
     });
-    flatpickr("#unavailability_end_date", {
+    flatpickr("#unavailability_start_date", { // Ensure this ID is unique if you reuse flatpickr elsewhere
+        dateFormat: "Y-m-d",
+        altInput: true,
+        altFormat: "F j, Y",
+    });
+    flatpickr("#unavailability_end_date", { // Ensure this ID is unique
         dateFormat: "Y-m-d",
         altInput: true,
         altFormat: "F j, Y",
@@ -560,6 +604,127 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         });
     }
+
+    // --- Logic for Exempt Clubs Edit ---
+    const exemptClubsDd = document.getElementById('exempt-clubs-dd');
+    if (exemptClubsDd) {
+        const editIconExemptClubs = exemptClubsDd.querySelector('.edit-icon[data-field="exempt_clubs"]');
+        const displaySpanExemptClubs = exemptClubsDd.querySelector('.display-value[data-field="exempt_clubs"]');
+
+        if (editIconExemptClubs && displaySpanExemptClubs) {
+            editIconExemptClubs.addEventListener('click', function() {
+                // Hide display span and edit icon
+                displaySpanExemptClubs.style.display = 'none';
+                this.style.display = 'none';
+
+                // Remove any existing controls
+                const existingControls = exemptClubsDd.querySelector('.edit-controls-exempt-clubs');
+                if (existingControls) {
+                    existingControls.remove();
+                }
+
+                const controlsWrapper = document.createElement('div');
+                controlsWrapper.classList.add('edit-controls-exempt-clubs', 'd-flex', 'flex-column', 'align-items-start');
+
+                const selectElement = document.createElement('select');
+                selectElement.multiple = true;
+                selectElement.classList.add('form-control', 'form-control-sm', 'mb-2');
+                selectElement.style.minHeight = '150px'; // Make it a bit taller for multi-select
+
+                allClubsForJS.forEach(club => {
+                    const option = document.createElement('option');
+                    option.value = club.uuid;
+                    option.textContent = club.club_name;
+                    if (exemptedClubUuidsForJS.includes(club.uuid)) {
+                        option.selected = true;
+                    }
+                    selectElement.appendChild(option);
+                });
+
+                const buttonGroup = document.createElement('div');
+                buttonGroup.classList.add('mt-2');
+
+                const saveButton = document.createElement('button');
+                saveButton.classList.add('btn', 'btn-success', 'btn-sm', 'mr-2');
+                saveButton.textContent = 'Save';
+
+                const cancelButton = document.createElement('button');
+                cancelButton.classList.add('btn', 'btn-secondary', 'btn-sm');
+                cancelButton.textContent = 'Cancel';
+
+                buttonGroup.appendChild(saveButton);
+                buttonGroup.appendChild(cancelButton);
+
+                controlsWrapper.appendChild(selectElement);
+                controlsWrapper.appendChild(buttonGroup);
+                exemptClubsDd.appendChild(controlsWrapper);
+
+                saveButton.addEventListener('click', function() {
+                    const selectedClubUuids = Array.from(selectElement.selectedOptions).map(opt => opt.value);
+
+                    const formData = new FormData();
+                    formData.append('referee_uuid', refereeUUID);
+                    selectedClubUuids.forEach(uuid => {
+                        formData.append('club_uuids[]', uuid);
+                    });
+
+                    fetch('update_referee_exempt_clubs.php', {
+                        method: 'POST',
+                        body: formData
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        const messagesDiv = document.getElementById('referee-details-messages'); // Assuming this div exists for messages
+                        if (data.status === 'success') {
+                            exemptedClubUuidsForJS = selectedClubUuids; // Update global JS variable
+                            const selectedClubNames = Array.from(selectElement.selectedOptions).map(opt => opt.textContent);
+                            displaySpanExemptClubs.textContent = selectedClubNames.length > 0 ? selectedClubNames.join(', ') : 'None';
+                            if (messagesDiv) {
+                                messagesDiv.innerHTML = `<div class="alert alert-success">${data.message || 'Exempt clubs updated successfully.'}</div>`;
+                            }
+                            toggleExemptClubsToViewMode();
+                        } else {
+                            if (messagesDiv) {
+                                messagesDiv.innerHTML = `<div class="alert alert-danger">${data.message || 'Error updating exempt clubs.'}</div>`;
+                            }
+                        }
+                         // Auto-dismiss message
+                        setTimeout(() => {
+                            if (messagesDiv && messagesDiv.querySelector('.alert')) {
+                                messagesDiv.querySelector('.alert').remove();
+                            }
+                        }, 5000);
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        const messagesDiv = document.getElementById('referee-details-messages');
+                        if (messagesDiv) {
+                           messagesDiv.innerHTML = '<div class="alert alert-danger">An unexpected error occurred.</div>';
+                           setTimeout(() => {
+                                if (messagesDiv.querySelector('.alert')) messagesDiv.querySelector('.alert').remove();
+                           }, 5000);
+                        }
+                    });
+                });
+
+                cancelButton.addEventListener('click', function() {
+                    toggleExemptClubsToViewMode();
+                });
+            });
+        }
+    }
+
+    function toggleExemptClubsToViewMode() {
+        const controls = exemptClubsDd.querySelector('.edit-controls-exempt-clubs');
+        if (controls) {
+            controls.remove();
+        }
+        const displaySpan = exemptClubsDd.querySelector('.display-value[data-field="exempt_clubs"]');
+        const editIcon = exemptClubsDd.querySelector('.edit-icon[data-field="exempt_clubs"]');
+        if (displaySpan) displaySpan.style.display = '';
+        if (editIcon) editIcon.style.display = '';
+    }
+    // --- End of Logic for Exempt Clubs Edit ---
 });
 </script>
 

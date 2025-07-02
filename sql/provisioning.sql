@@ -29,7 +29,17 @@ CREATE TABLE IF NOT EXISTS referees (
                                         home_location_city VARCHAR(100),
                                         grade VARCHAR(50),
                                         ar_grade VARCHAR(50),
+                                        max_travel_distance INT, -- Added max_travel_distance
                                         FOREIGN KEY (home_club_id) REFERENCES clubs(uuid)
+);
+
+-- Referee Exempt Clubs Table
+CREATE TABLE IF NOT EXISTS referee_exempt_clubs (
+                                                    referee_uuid CHAR(36) NOT NULL,
+                                                    club_uuid CHAR(36) NOT NULL,
+                                                    PRIMARY KEY (referee_uuid, club_uuid),
+                                                    FOREIGN KEY (referee_uuid) REFERENCES referees(uuid) ON DELETE CASCADE,
+                                                    FOREIGN KEY (club_uuid) REFERENCES clubs(uuid) ON DELETE CASCADE
 );
 
 -- Ref Availability
