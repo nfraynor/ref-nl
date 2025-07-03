@@ -28,6 +28,9 @@ COPY ./sql /usr/src/app/sql
 # Set working directory
 WORKDIR /usr/src/app/php
 
+# Add VOLUME instruction for MySQL data persistence
+VOLUME /var/lib/mysql
+
 # Expose port 80 for Apache
 EXPOSE 80
 
