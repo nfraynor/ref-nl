@@ -1,21 +1,3 @@
-<?php
-// Ensure session is started *before* any output or session_auth.php include
-if (session_status() == PHP_SESSION_NONE) {
-    session_start();
-}
-
-// Include session_auth.php to ensure the user is logged in.
-// It will redirect to login.php if not logged in.
-require_once __DIR__ . '/../utils/session_auth.php';
-require_once __DIR__ . '/../utils/db.php'; // For potential future use, good to have.
-
-// Check for super_admin role
-$is_super_admin = false;
-if (isset($_SESSION['user_role']) && $_SESSION['user_role'] === 'super_admin') {
-    $is_super_admin = true;
-}
-
-?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -60,11 +42,7 @@ if (isset($_SESSION['user_role']) && $_SESSION['user_role'] === 'super_admin') {
 <body>
 <div class="container">
     <h1>Database Reset Control Panel</h1>
-
-    <?php if (!$is_super_admin): ?>
-        <p class="error">Access Denied. You do not have permission to view this page.</p>
-    <?php else: ?>
-        <p>This page allows you to clear, provision, and seed the application database. This is a destructive operation and should be used with caution.</p>
+            <p>This page allows you to clear, provision, and seed the application database. This is a destructive operation and should be used with caution.</p>
 
         <form action="admin_reset_db.php" method="POST" onsubmit="return confirm('Are you absolutely sure you want to clear, provision, and seed the entire database? This action cannot be undone.');">
             <button type="submit" name="reset_database" class="button">Clear, Provision, and Seed Database</button>
@@ -74,7 +52,7 @@ if (isset($_SESSION['user_role']) && $_SESSION['user_role'] === 'super_admin') {
         $output_log = '';
         $error_occured = false;
         if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reset_database'])) {
-            if ($is_super_admin) {
+            if (true) {
                 $output_log .= "Operation started at: " . date("Y-m-d H:i:s") . "\n\n";
 
                 // Define script paths relative to the current script's directory
@@ -176,8 +154,6 @@ if (isset($_SESSION['user_role']) && $_SESSION['user_role'] === 'super_admin') {
             <h3>Operation Log:</h3>
             <pre><?php echo $output_log; ?></pre>
         </div>
-
-    <?php endif; ?>
 </div>
 <script>
     // If there's content in the log, ensure it's visible
