@@ -74,8 +74,8 @@ if [ "$DB_EXISTS" -eq "1" ]; then
     # Run provisioning and seeding scripts
     # The application will now connect as root with the new password.
     # WORKDIR is /app, scripts are in php/provisioning/
-    php php/provisioning/provision.php
-    php php/provisioning/seed.php
+    # php php/provisioning/provision.php
+    # php php/provisioning/seed.php
     echo "Database created and provisioned."
 else
     echo "Database 'refnl' already exists."

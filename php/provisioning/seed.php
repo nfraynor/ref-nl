@@ -321,9 +321,9 @@ try {
 
 // ----- Additional Users -----
 $newUsers = [
-    ['username' => 'Antoine', 'password' => 'password', 'role' => 'user'],
-    ['username' => 'Celine', 'password' => 'password', 'role' => 'user'],
-    ['username' => 'Nathan', 'password' => 'password', 'role' => 'user'],
+    ['username' => 'Antoine', 'password' => 'password', 'role' => 'super_admin'],
+    ['username' => 'Celine', 'password' => 'password', 'role' => 'super_admin'],
+    ['username' => 'Nathan', 'password' => 'password', 'role' => 'super_admin'],
 ];
 
 foreach ($newUsers as $userData) {
