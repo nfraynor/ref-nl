@@ -34,6 +34,8 @@ try {
 }
 
 // Load SQL schema file
+// __DIR__ will be /app/php/provisioning/
+// Path should be ../../sql/provisioning.sql to reach /app/sql/provisioning.sql
 $schemaSql = file_get_contents(__DIR__ . '/../../sql/provisioning.sql');
 
 if ($schemaSql === false) {

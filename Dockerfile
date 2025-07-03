@@ -13,20 +13,22 @@ RUN apt-get update && apt-get install -y \
 # Install PHP extensions
 RUN docker-php-ext-install pdo pdo_mysql mysqli zip
 
+# Copy the entire project context to /app
+COPY . /app
+
 # Set up Apache
-COPY ./php/public /var/www/html/
-RUN chown -R www-data:www-data /var/www/html
+# Ownership will be set on /app, which includes php/public
+RUN chown -R www-data:www-data /app/php
 RUN a2enmod rewrite
 
-# Configure Apache virtual host to point to the public directory
+# Configure Apache virtual host (will point to /app/php/public)
+# Ensure 000-default.conf is copied from the new location if it's part of the project repo
+# If 000-default.conf is a standalone file managed by you, this copy is fine.
+# Assuming 000-default.conf is at the root of the build context (where Dockerfile is)
 COPY 000-default.conf /etc/apache2/sites-available/000-default.conf
 
-# Copy application code
-COPY ./php /usr/src/app/php
-COPY ./sql /usr/src/app/sql
-
-# Set working directory
-WORKDIR /usr/src/app/php
+# Set working directory to the project root within the container
+WORKDIR /app
 
 # Add VOLUME instruction for MySQL data persistence
 VOLUME /var/lib/mysql

@@ -1,9 +1,9 @@
 <?php
 
 return [
-    'host' => getenv('DB_HOST') ?: 'localhost',
+    'host' => getenv('DB_HOST') ?: '127.0.0.1', // Force TCP/IP connection
     'dbname' => getenv('DB_DATABASE') ?: 'refnl',
-    'username' => getenv('DB_USERNAME') ?: 'refnl_user', // Changed from root to refnl_user
-    'password' => getenv('DB_PASSWORD') ?: 'password', // Password for refnl_user
+    'username' => getenv('DB_USERNAME') ?: 'root',
+    'password' => getenv('DB_PASSWORD') ?: 'password',
     'charset' => 'utf8mb4'
 ];
