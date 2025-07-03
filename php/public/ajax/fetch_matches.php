@@ -22,8 +22,13 @@ error_log("[fetch_matches.php] Session Data: User Role: " . $userRole . ", User 
 $proceedWithQuery = true;
 $permissionConditions = []; // Stores "(m.division = ? AND m.district = ?)" strings
 
-if ($userRole !== 'super_admin' && $userId) {
-    // Fetch allowed division and district name pairs
+// Default to true, meaning public access if no specific user context restricts it.
+// $proceedWithQuery will be set to false if a user is logged in but lacks permissions,
+// or if a partial/invalid session state warrants restriction.
+
+if ($userId && $userRole !== 'super_admin') {
+    // User is logged in (has a user_id) and is not a super_admin.
+    // Fetch their specific permissions.
     $sqlPermissions = "
         SELECT d.name AS division_name, dist.name AS district_name
         FROM user_permissions up
@@ -35,29 +40,32 @@ if ($userRole !== 'super_admin' && $userId) {
     $stmtPermissions->execute([$userId]);
     $allowedPairs = $stmtPermissions->fetchAll(PDO::FETCH_ASSOC);
 
-    error_log("[fetch_matches.php] Allowed Division/District Pairs: " . print_r($allowedPairs, true));
+    error_log("[fetch_matches.php] User " . $userId . " (Role: " . $userRole . ") Allowed Division/District Pairs: " . print_r($allowedPairs, true));
 
     if (empty($allowedPairs)) {
-        $matches = []; // Prepare an empty result set
-        $proceedWithQuery = false; // Signal to skip the main match query
-        error_log("[fetch_matches.php] Permission Check: User has no specific division/district pairs. Proceed with query: false");
+        // User is logged in but has no assigned permissions. Restrict access.
+        $proceedWithQuery = false;
+        error_log("[fetch_matches.php] Permission Check: User " . $userId . " has no specific division/district pairs. Proceed with query: false");
     } else {
+        // User has permissions, build the WHERE clause for them.
         foreach ($allowedPairs as $pair) {
             $permissionConditions[] = "(m.division = ? AND m.district = ?)";
             $params[] = $pair['division_name'];
             $params[] = $pair['district_name'];
         }
-        // Combine all permission conditions with OR
         $whereClauses[] = "(" . implode(' OR ', $permissionConditions) . ")";
-        error_log("[fetch_matches.php] Permission Check: Constructed permission WHERE clause: " . end($whereClauses));
+        error_log("[fetch_matches.php] Permission Check: Constructed permission WHERE clause for user " . $userId . ": " . end($whereClauses));
     }
-} elseif ($userRole !== 'super_admin' && !$userId) {
-    // Non-super_admin without a user_id, should not see anything.
-    $matches = [];
+} elseif (!$userId && $userRole && $userRole !== 'super_admin') {
+    // A role is set in the session, but no user_id. This could be an unusual or intermediate session state.
+    // For safety, if a role is present but the user isn't fully identified, restrict access.
+    // Super_admin without a user_id is also odd, but super_admin check above covers them if $userId was present.
+    // This primarily targets non-super_admin roles appearing without a user_id.
     $proceedWithQuery = false;
-    error_log("[fetch_matches.php] Permission Check: Non-super_admin without user_id. Proceed with query: false");
+    error_log("[fetch_matches.php] Permission Check: Role '" . $userRole . "' exists in session but no User ID. Restricting access. Proceed with query: false");
 }
-// For super_admin, $proceedWithQuery remains true and no specific permission clauses are added, so they see all.
+// If $userRole is 'super_admin', $proceedWithQuery remains true (no restrictions applied here).
+// If $userId is not set AND $userRole is also not set (truly anonymous, clean session), $proceedWithQuery remains true (public access).
 
 if ($proceedWithQuery) {
     // Only add other filters and execute query if we are proceeding

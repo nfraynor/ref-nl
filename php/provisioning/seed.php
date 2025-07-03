@@ -319,4 +319,45 @@ try {
     }
 }
 
+// ----- Additional Users -----
+$newUsers = [
+    ['username' => 'Antoine', 'password' => 'password', 'role' => 'user'],
+    ['username' => 'Celine', 'password' => 'password', 'role' => 'user'],
+    ['username' => 'Nathan', 'password' => 'password', 'role' => 'user'],
+];
+
+foreach ($newUsers as $userData) {
+    $username = $userData['username'];
+    $password = $userData['password'];
+    $role = $userData['role'];
+
+    // Hash the password
+    $passwordHash = password_hash($password, PASSWORD_DEFAULT);
+
+    // Generate UUID for the user
+    $userUuid = generate_uuid_v4(); // Using the existing UUID generation function
+
+    try {
+        // Check if user already exists
+        $stmt = $pdo->prepare("SELECT uuid FROM users WHERE username = ?");
+        $stmt->execute([$username]);
+        $existingUser = $stmt->fetch();
+
+        if ($existingUser) {
+            echo "User '{$username}' already exists.\n";
+        } else {
+            // Insert the user
+            $stmt = $pdo->prepare("INSERT INTO users (uuid, username, password_hash, role) VALUES (?, ?, ?, ?)");
+            $stmt->execute([$userUuid, $username, $passwordHash, $role]);
+            echo "User '{$username}' created successfully.\n";
+        }
+    } catch (PDOException $e) {
+        if ($e->getCode() == '23000' || $e->errorInfo[1] == 1062) {
+            echo "User '{$username}' already exists (caught exception).\n";
+        } else {
+            echo "Error creating user '{$username}': " . $e->getMessage() . "\n";
+        }
+    }
+}
+
 ?>
