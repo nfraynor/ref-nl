@@ -40,8 +40,6 @@ if ($userRole !== 'super_admin') {
     // Fetch allowed division names
     if (!empty($userDivisionIds) && !(count($userDivisionIds) === 1 && $userDivisionIds[0] === '')) {
         $placeholders = implode(',', array_fill(0, count($userDivisionIds), '?'));
-        // Prepare and execute statement to prevent SQL injection if IDs were from unsafe source
-        // Though session IDs are generally safer, good practice.
         $stmtDiv = $pdo->prepare("SELECT name FROM divisions WHERE id IN ($placeholders)");
         $stmtDiv->execute($userDivisionIds);
         $allowedDivisionNames = $stmtDiv->fetchAll(PDO::FETCH_COLUMN);
@@ -85,7 +83,7 @@ if (!empty($_GET['end_date'])) {
     $whereClauses[] = "m.match_date <= ?";
     $params[] = $_GET['end_date'];
 }
-foreach (['division', 'district', 'poule'] as $filter) {
+foreach (['division', 'district', 'poule', 'location', 'referee_assigner'] as $filter) {
     if (!empty($_GET[$filter]) && is_array($_GET[$filter])) {
         $placeholders = implode(',', array_fill(0, count($_GET[$filter]), '?'));
         $whereClauses[] = "m.$filter IN ($placeholders)";
@@ -94,7 +92,6 @@ foreach (['division', 'district', 'poule'] as $filter) {
         }
     }
 }
-
 
 $whereSQL = count($whereClauses) ? 'WHERE ' . implode(' AND ', $whereClauses) : '';
 
@@ -131,9 +128,6 @@ if ($loadInitialMatches) {
 }
 
 // --- START: Pre-computation for Conflict & Availability for initial load ---
-// This logic mirrors what's in fetch_matches.php. Consider moving to a shared utility if structure allows.
-// Ensure $referees is already fetched. $matches here is the initial set (e.g., 20 matches).
-
 $refereeSchedule_initial = [];
 if ($loadInitialMatches) { // Only compute if matches were loaded
     foreach ($matches as $match_item_initial) { // Use unique var name
@@ -158,14 +152,12 @@ if ($loadInitialMatches) { // Only compute if matches were loaded
     }
 }
 
-
 $refereeAvailabilityCache_initial = [];
 if ($loadInitialMatches && !empty($referees)) { // Only compute if matches were loaded and referees exist
     $allRefereeIds_initial = array_map(function($ref) { return $ref['uuid']; }, $referees);
 
     if (!empty($allRefereeIds_initial)) {
         $placeholders_initial = implode(',', array_fill(0, count($allRefereeIds_initial), '?'));
-
         $unavailabilityStmt_initial = $pdo->prepare("SELECT referee_id, start_date, end_date FROM referee_unavailability WHERE referee_id IN ($placeholders_initial)");
         $unavailabilityStmt_initial->execute($allRefereeIds_initial);
         while ($row_initial = $unavailabilityStmt_initial->fetch(PDO::FETCH_ASSOC)) {
@@ -185,187 +177,197 @@ if ($loadInitialMatches && !empty($referees)) { // Only compute if matches were 
         }
     }
 }
-// Note: The helper functions isRefereeAvailable_Cached and get_assignment_details_for_referee
-// are expected to be available via the included 'components/referee_dropdown.php'.
-// The old checkConflict and getRefName functions in this file are now obsolete.
 // --- END: Pre-computation ---
-
 ?>
-<div class="container-fluid"> <!-- Use container-fluid for wider tables -->
-    <div class="content-card">
-        <h1>Matches</h1>
-        <script src="/js/referee_dropdown.js"></script>
-        <?php if (isset($_GET['saved'])): ?>
-            <div class="alert alert-success">Assignments saved successfully.</div>
-        <?php endif; ?>
+    <div class="container-fluid">
+        <div class="content-card">
+            <h1>Matches</h1>
+            <script src="/js/referee_dropdown.js"></script>
+            <?php if (isset($_GET['saved'])): ?>
+                <div class="alert alert-success">Assignments saved successfully.</div>
+            <?php endif; ?>
 
-        <?php if ($assignMode): ?>
-            <a href="matches.php?<?= buildQueryString(['assign_mode' => null]) ?>" class="false-a btn btn-sm btn-secondary-action mb-3">Disable Assign Mode</a>
-            <button type="button" id="suggestAssignments" class="btn btn-sm btn-main-action mb-3">Suggest Assignments</button> <!-- Changed to main-action from info -->
-            <button type="button" id="clearAssignments" class="btn btn-sm btn-destructive-action mb-3">Clear Assignments</button>
-        <?php else: ?>
-            <a href="matches.php?<?= buildQueryString(['assign_mode' => 1]) ?>" class="btn btn-sm btn-warning-action mb-3">Enable Assign Mode</a>
-        <?php endif; ?>
-        <a href="export_matches.php?<?= buildQueryString([]) ?>" class="btn btn-sm btn-info-action mb-3 ms-2">Export to Excel (CSV)</a>
+            <?php if ($assignMode): ?>
+                <a href="matches.php?<?= buildQueryString(['assign_mode' => null]) ?>" class="false-a btn btn-sm btn-secondary-action mb-3">Disable Assign Mode</a>
+                <button type="button" id="suggestAssignments" class="btn btn-sm btn-main-action mb-3">Suggest Assignments</button>
+                <button type="button" id="clearAssignments" class="btn btn-sm btn-destructive-action mb-3">Clear Assignments</button>
+            <?php else: ?>
+                <a href="matches.php?<?= buildQueryString(['assign_mode' => 1]) ?>" class="btn btn-sm btn-warning-action mb-3">Enable Assign Mode</a>
+            <?php endif; ?>
+            <a href="export_matches.php?<?= buildQueryString([]) ?>" class="btn btn-sm btn-info-action mb-3 ms-2">Export to Excel (CSV)</a>
 
-
-        <?php if ($assignMode): ?>
-            <button type="submit" class="btn btn-main-action sticky-assign-button">Save Assignments</button> <!-- Changed from btn-success -->
-        <?php endif; ?>
-        <div class="table-responsive-custom">
-
-            <table class="table table-bordered">
-                <thead>
-                <tr>
-                    <th style="position: relative;">
-                        Date
-                        <div class="d-flex flex-column mt-1">
-                            <div class="d-flex flex-column gap-1 mt-1">
-                                <input type="date" class="form-control form-control-sm" id="ajaxStartDate" value="<?= htmlspecialchars($_GET['start_date'] ?? '') ?>">
-                                <input type="date" class="form-control form-control-sm" id="ajaxEndDate" value="<?= htmlspecialchars($_GET['end_date'] ?? '') ?>">
-                            </div>
-                        </div>
-                    </th>
-                    <form method="POST" action="bulk_assign.php">
-
-                        <th>Kickoff</th>
-                        <th>Home Team</th>
-                        <th>Away Team</th>
-                        <th style="position: relative;">
-                            Division
-                            <button type="button" class="btn btn-sm btn-outline-secondary ms-1" id="divisionFilterToggle">
-                                <i class="bi bi-filter"></i>
-                            </button>
-
-                            <div id="divisionFilterBox" style="display: none; position: absolute; background: #fff; padding: 10px; border: 1px solid #ccc; z-index: 1000;" class="shadow rounded">
-                                <div id="divisionFilterOptions" class="d-flex flex-column gap-1" style="max-height: 200px; overflow-y: auto;">
-                                    <!-- checkboxes will load here via AJAX -->
-                                </div>
-                                <button type="button" id="clearDivisionFilter" class="btn btn-sm btn-light mt-2">Clear</button>
-                            </div>
-                        </th>
-
-                        <th style="position: relative;">
-                            District
-                            <button type="button" class="btn btn-sm btn-outline-secondary ms-1" id="districtFilterToggle">
-                                <i class="bi bi-filter"></i>
-                            </button>
-                            <div id="districtFilterBox" class="filter-box">
-                                <div id="districtFilterOptions" class="filter-options"></div>
-                                <button type="button" id="clearDistrictFilter" class="btn btn-sm btn-light mt-2">Clear</button>
-                            </div>
-                        </th>
-
-                        <th style="position: relative;">
-                            Poule
-                            <button type="button" class="btn btn-sm btn-outline-secondary ms-1" id="pouleFilterToggle">
-                                <i class="bi bi-filter"></i>
-                            </button>
-                            <div id="pouleFilterBox" class="filter-box">
-                                <div id="pouleFilterOptions" class="filter-options"></div>
-                                <button type="button" id="clearPouleFilter" class="btn btn-sm btn-light mt-2">Clear</button>
-                            </div>
-                        </th>
-                        <th style="position: relative;">
-                            Location
-                            <button type="button" class="btn btn-sm btn-outline-secondary ms-1" id="locationFilterToggle">
-                                <i class="bi bi-filter"></i>
-                            </button>
-                            <div id="locationFilterBox" class="filter-box">
-                                <div id="locationFilterOptions" class="filter-options"></div>
-                                <button type="button" id="clearLocationFilter" class="btn btn-sm btn-light mt-2">Clear</button>
-                            </div>
-                        </th>
-                        <th style="position: relative;">
-                            Referee Assigner
-                            <button type="button" class="btn btn-sm btn-outline-secondary ms-1" id="refereeAssignerFilterToggle">
-                                <i class="bi bi-filter"></i>
-                            </button>
-                            <div id="refereeAssignerFilterBox" class="filter-box">
-                                <div id="refereeAssignerFilterOptions" class="filter-options"></div>
-                                <button type="button" id="clearRefereeAssignerFilter" class="btn btn-sm btn-light mt-2">Clear</button>
-                            </div>
-                        </th>
-                        <th>Referee</th>
-                        <th>AR1</th>
-                        <th>AR2</th>
-                        <th>Commissioner</th>
-                </tr>
-                </thead>
-                <tbody id="matchesTableBody">
-                <?php foreach ($matches as $match): ?>
+            <?php if ($assignMode): ?>
+                <button type="submit" class="btn btn-main-action sticky-assign-button">Save Assignments</button>
+            <?php endif; ?>
+            <div class="table-responsive-custom">
+                <table class="table table-bordered">
+                    <thead>
                     <tr>
-                        <td><a href="match_detail.php?uuid=<?= htmlspecialchars($match['uuid']) ?>"><?= htmlspecialchars($match['match_date']) ?></a></td>
-                        <td><?= htmlspecialchars(substr($match['kickoff_time'], 0, 5)) ?></td>
-                        <td><?= htmlspecialchars($match['home_club_name'] . " - " . $match['home_team_name']) ?></td>
-                        <td><?= htmlspecialchars($match['away_club_name'] . " - " . $match['away_team_name']) ?></td>
-                        <td><?= htmlspecialchars($match['division']) ?></td>
-                        <td><?= htmlspecialchars($match['district']) ?></td>
-                        <td><?= htmlspecialchars($match['poule']) ?></td>
-                        <td class="editable-cell"
-                            data-match-uuid="<?= htmlspecialchars($match['uuid']) ?>"
-                            data-field-type="location"
-                            data-current-value="<?= htmlspecialchars($match['location_uuid'] ?? '') ?>">
-                    <span class="cell-value">
-                        <?php
-                        $locOutput = htmlspecialchars($match['location_name'] ?? 'N/A');
-                        if (!empty($match['location_address']) && $match['location_name'] !== $match['location_address'] && $match['location_name']) { // only add address if name exists
-                            $locOutput .= '<br><small>' . htmlspecialchars($match['location_address']) . '</small>';
-                        } elseif (empty($match['location_name']) && !empty($match['location_address'])) { // Show address if name is empty
-                            $locOutput = '<small>' . htmlspecialchars($match['location_address']) . '</small>';
-                        }
-                        echo $locOutput;
-                        ?>
-                    </span>
-                            <i class="bi bi-pencil-square edit-icon" style="display: none;"></i>
-                        </td>
-                        <td class="editable-cell"
-                            data-match-uuid="<?= htmlspecialchars($match['uuid']) ?>"
-                            data-field-type="referee_assigner"
-                            data-current-value="<?= htmlspecialchars($match['referee_assigner_uuid'] ?? '') ?>">
-                            <span class="cell-value"><?= htmlspecialchars($match['referee_assigner_username'] ?? 'N/A') ?></span>
-                            <i class="bi bi-pencil-square edit-icon" style="display: none;"></i>
-                        </td>
-                        <td><?php renderRefereeDropdown("referee_id", $match, $referees, $assignMode, $refereeSchedule_initial, $refereeAvailabilityCache_initial); ?></td>
-                        <td><?php renderRefereeDropdown("ar1_id", $match, $referees, $assignMode, $refereeSchedule_initial, $refereeAvailabilityCache_initial); ?></td>
-                        <td><?php renderRefereeDropdown("ar2_id", $match, $referees, $assignMode, $refereeSchedule_initial, $refereeAvailabilityCache_initial); ?></td>
-                        <td><?php renderRefereeDropdown("commissioner_id", $match, $referees, $assignMode, $refereeSchedule_initial, $refereeAvailabilityCache_initial); ?></td>
+                        <th style="position: relative;">
+                            Date
+                            <div class="d-flex flex-column mt-1">
+                                <div class="d-flex flex-column gap-1 mt-1">
+                                    <input type="date" class="form-control form-control-sm" id="ajaxStartDate" value="<?= htmlspecialchars($_GET['start_date'] ?? '') ?>">
+                                    <input type="date" class="form-control form-control-sm" id="ajaxEndDate" value="<?= htmlspecialchars($_GET['end_date'] ?? '') ?>">
+                                </div>
+                            </div>
+                        </th>
+                        <form method="POST" action="bulk_assign.php">
+                            <th>Kickoff</th>
+                            <th>Home Team</th>
+                            <th>Away Team</th>
+                            <th style="position: relative;">
+                                Division
+                                <div class="dropdown d-inline-block">
+                                    <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" id="divisionFilterToggle" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+                                        <i class="bi bi-filter"></i>
+                                    </button>
+                                    <ul id="divisionFilterBox" class="dropdown-menu scrollable shadow rounded" aria-labelledby="divisionFilterToggle">
+                                        <li id="divisionFilterOptions" class="px-3 py-2 d-flex flex-column gap-1">
+                                            <!-- checkboxes will load here via AJAX -->
+                                        </li>
+                                        <li class="dropdown-divider"></li>
+                                        <li class="px-3"><button type="button" id="clearDivisionFilter" class="btn btn-sm btn-light w-100">Clear</button></li>
+                                        <li class="px-3"><button type="button" id="applyDivisionFilter" class="btn btn-sm btn-primary w-100">Apply</button></li>
+                                    </ul>
+                                </div>
+                            </th>
+                            <th style="position: relative;">
+                                District
+                                <div class="dropdown d-inline-block">
+                                    <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" id="districtFilterToggle" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+                                        <i class="bi bi-filter"></i>
+                                    </button>
+                                    <ul id="districtFilterBox" class="dropdown-menu scrollable shadow rounded" aria-labelledby="districtFilterToggle">
+                                        <li id="districtFilterOptions" class="px-3 py-2 d-flex flex-column gap-1"></li>
+                                        <li class="dropdown-divider"></li>
+                                        <li class="px-3"><button type="button" id="clearDistrictFilter" class="btn btn-sm btn-light w-100">Clear</button></li>
+                                        <li class="px-3"><button type="button" id="applyDistrictFilter" class="btn btn-sm btn-primary w-100">Apply</button></li>
+                                    </ul>
+                                </div>
+                            </th>
+                            <th style="position: relative;">
+                                Poule
+                                <div class="dropdown d-inline-block">
+                                    <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" id="pouleFilterToggle" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+                                        <i class="bi bi-filter"></i>
+                                    </button>
+                                    <ul id="pouleFilterBox" class="dropdown-menu scrollable shadow rounded" aria-labelledby="pouleFilterToggle">
+                                        <li id="pouleFilterOptions" class="px-3 py-2 d-flex flex-column gap-1"></li>
+                                        <li class="dropdown-divider"></li>
+                                        <li class="px-3"><button type="button" id="clearPouleFilter" class="btn btn-sm btn-light w-100">Clear</button></li>
+                                        <li class="px-3"><button type="button" id="applyPouleFilter" class="btn btn-sm btn-primary w-100">Apply</button></li>
+                                    </ul>
+                                </div>
+                            </th>
+                            <th style="position: relative;">
+                                Location
+                                <div class="dropdown d-inline-block">
+                                    <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" id="locationFilterToggle" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+                                        <i class="bi bi-filter"></i>
+                                    </button>
+                                    <ul id="locationFilterBox" class="dropdown-menu scrollable shadow rounded" aria-labelledby="locationFilterToggle">
+                                        <li id="locationFilterOptions" class="px-3 py-2 d-flex flex-column gap-1"></li>
+                                        <li class="dropdown-divider"></li>
+                                        <li class="px-3"><button type="button" id="clearLocationFilter" class="btn btn-sm btn-light w-100">Clear</button></li>
+                                        <li class="px-3"><button type="button" id="applyLocationFilter" class="btn btn-sm btn-primary w-100">Apply</button></li>
+                                    </ul>
+                                </div>
+                            </th>
+                            <th style="position: relative;">
+                                Referee Assigner
+                                <div class="dropdown d-inline-block">
+                                    <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" id="refereeAssignerFilterToggle" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+                                        <i class="bi bi-filter"></i>
+                                    </button>
+                                    <ul id="refereeAssignerFilterBox" class="dropdown-menu scrollable shadow rounded" aria-labelledby="refereeAssignerFilterToggle">
+                                        <li id="refereeAssignerFilterOptions" class="px-3 py-2 d-flex flex-column gap-1"></li>
+                                        <li class="dropdown-divider"></li>
+                                        <li class="px-3"><button type="button" id="clearRefereeAssignerFilter" class="btn btn-sm btn-light w-100">Clear</button></li>
+                                        <li class="px-3"><button type="button" id="applyRefereeAssignerFilter" class="btn btn-sm btn-primary w-100">Apply</button></li>
+                                    </ul>
+                                </div>
+                            </th>
+                            <th>Referee</th>
+                            <th>AR1</th>
+                            <th>AR2</th>
+                            <th>Commissioner</th>
                     </tr>
-                <?php endforeach; ?>
-                </tbody>
-            </table>
-        </div>
-        <?php if ($assignMode): ?>
-            <button type="submit" class="btn btn-main-action" style="position: fixed; bottom: 20px; right: 20px; z-index: 999;">Save Assignments</button> <!-- Changed from btn-success -->
-        <?php endif; ?>
-        </form>
+                    </thead>
+                    <tbody id="matchesTableBody">
+                    <?php foreach ($matches as $match): ?>
+                        <tr>
+                            <td><a href="match_detail.php?uuid=<?= htmlspecialchars($match['uuid']) ?>"><?= htmlspecialchars($match['match_date']) ?></a></td>
+                            <td><?= htmlspecialchars(substr($match['kickoff_time'], 0, 5)) ?></td>
+                            <td><?= htmlspecialchars($match['home_club_name'] . " - " . $match['home_team_name']) ?></td>
+                            <td><?= htmlspecialchars($match['away_club_name'] . " - " . $match['away_team_name']) ?></td>
+                            <td><?= htmlspecialchars($match['division']) ?></td>
+                            <td><?= htmlspecialchars($match['district']) ?></td>
+                            <td><?= htmlspecialchars($match['poule']) ?></td>
+                            <td class="editable-cell"
+                                data-match-uuid="<?= htmlspecialchars($match['uuid']) ?>"
+                                data-field-type="location"
+                                data-current-value="<?= htmlspecialchars($match['location_uuid'] ?? '') ?>">
+                            <span class="cell-value">
+                                <?php
+                                $locOutput = htmlspecialchars($match['location_name'] ?? 'N/A');
+                                if (!empty($match['location_address']) && $match['location_name'] !== $match['location_address'] && $match['location_name']) {
+                                    $locOutput .= '<br><small>' . htmlspecialchars($match['location_address']) . '</small>';
+                                } elseif (empty($match['location_name']) && !empty($match['location_address'])) {
+                                    $locOutput = '<small>' . htmlspecialchars($match['location_address']) . '</small>';
+                                }
+                                echo $locOutput;
+                                ?>
+                            </span>
+                                <i class="bi bi-pencil-square edit-icon" style="display: none;"></i>
+                            </td>
+                            <td class="editable-cell"
+                                data-match-uuid="<?= htmlspecialchars($match['uuid']) ?>"
+                                data-field-type="referee_assigner"
+                                data-current-value="<?= htmlspecialchars($match['referee_assigner_uuid'] ?? '') ?>">
+                                <span class="cell-value"><?= htmlspecialchars($match['referee_assigner_username'] ?? 'N/A') ?></span>
+                                <i class="bi bi-pencil-square edit-icon" style="display: none;"></i>
+                            </td>
+                            <td><?php renderRefereeDropdown("referee_id", $match, $referees, $assignMode, $refereeSchedule_initial, $refereeAvailabilityCache_initial); ?></td>
+                            <td><?php renderRefereeDropdown("ar1_id", $match, $referees, $assignMode, $refereeSchedule_initial, $refereeAvailabilityCache_initial); ?></td>
+                            <td><?php renderRefereeDropdown("ar2_id", $match, $referees, $assignMode, $refereeSchedule_initial, $refereeAvailabilityCache_initial); ?></td>
+                            <td><?php renderRefereeDropdown("commissioner_id", $match, $referees, $assignMode, $refereeSchedule_initial, $refereeAvailabilityCache_initial); ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+            <?php if ($assignMode): ?>
+                <button type="submit" class="btn btn-main-action" style="position: fixed; bottom: 20px; right: 20px; z-index: 999;">Save Assignments</button>
+            <?php endif; ?>
+            </form>
 
-        <script>
-            const existingAssignments = <?= json_encode($matches); ?>;
-        </script>
+            <script>
+                const existingAssignments = <?= json_encode($matches); ?>;
+            </script>
 
-        <script src="/js/matches.js"></script>
-        <script src="/js/match_conflicts.js"></script>
+            <script src="/js/matches.js"></script>
+            <script src="/js/match_conflicts.js"></script>
 
-        <!-- Generic Edit Modal -->
-        <div class="modal fade" id="editMatchFieldModal" tabindex="-1" aria-labelledby="editMatchFieldModalLabel" aria-hidden="true">
-            <div class="modal-dialog">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title" id="editMatchFieldModalLabel">Edit Field</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                    </div>
-                    <div class="modal-body" id="editMatchFieldModalBody">
-                        <!-- Input field will be injected here by JavaScript -->
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary-action" data-bs-dismiss="modal">Close</button>
-                        <button type="button" class="btn btn-main-action" id="saveMatchFieldChange">Save changes</button>
+            <!-- Generic Edit Modal -->
+            <div class="modal fade" id="editMatchFieldModal" tabindex="-1" aria-labelledby="editMatchFieldModalLabel" aria-hidden="true">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="editMatchFieldModalLabel">Edit Field</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body" id="editMatchFieldModalBody">
+                            <!-- Input field will be injected here by JavaScript -->
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary-action" data-bs-dismiss="modal">Close</button>
+                            <button type="button" class="btn btn-main-action" id="saveMatchFieldChange">Save changes</button>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div> <!-- This is the closing div for "editMatchFieldModal" -->
-    </div> <!-- close content-card -->
-</div> <!-- close container-fluid -->
+        </div>
+    </div>
 
 <?php include 'includes/footer.php'; ?>

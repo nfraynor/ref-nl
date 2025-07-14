@@ -1,157 +1,117 @@
-.select2-container--default .select2-dropdown {
-    width: 500px !important;
-    background: #ffffff;
-    border: 2px solid #222;
-    border-radius: 12px;
-    box-shadow:
-            0 8px 20px rgba(0, 0, 0, 0.15),
-            0 4px 6px rgba(0, 0, 0, 0.1);
-    overflow: hidden;
-    padding: 8px 0;
-    z-index: 9999;
-    animation: dropdownPop 0.25s ease-out;
+/* Base dropdown menu enhancements */
+.dropdown-menu {
+    min-width: 200px;
+    padding: 0.5rem 0;
+    border-radius: 0.375rem;
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+    left: 0 !important;
+    margin-top: 0.25rem !important;
+    transform: none !important;
 }
 
-/* Filter section with more contrast */
-.dropdown-filters {
-    background: linear-gradient(to right, #f7f7f7, #eaeaea);
-    padding: 16px;
-    border-bottom: 1px solid #ccc;
-    font-size: 15px;
+/* Ensure dropdown container is positioned correctly in table headers */
+.table th .dropdown {
+    position: relative;
+    display: inline-block;
+}
+
+/* Scrollable menu */
+.dropdown-menu.scrollable {
+    max-height: 250px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #dee2e6 #f8f9fa;
+}
+
+/* Webkit scrollbar styling for Chrome/Safari */
+.dropdown-menu.scrollable::-webkit-scrollbar {
+    width: 6px;
+}
+.dropdown-menu.scrollable::-webkit-scrollbar-track {
+    background: #f8f9fa;
+}
+.dropdown-menu.scrollable::-webkit-scrollbar-thumb {
+    background: #dee2e6;
+    border-radius: 3px;
+}
+
+/* Checkbox items inside the menu */
+.dropdown-menu .form-check {
+    padding: 0.5rem 1rem;
+    margin: 0;
+}
+
+.dropdown-menu .form-check:hover {
+    background-color: #f8f9fa;
+    cursor: pointer;
+}
+
+.dropdown-menu .form-check-input {
+    margin-right: 0.5rem;
+}
+
+.dropdown-menu .form-check-label {
+    cursor: pointer;
+}
+
+/* Checked state styling */
+.dropdown-menu .form-check-input:checked {
+    background-color: #0d6efd;
+}
+
+.dropdown-menu .form-check-input:checked + .form-check-label {
     font-weight: 500;
-    border-top-left-radius: 12px;
-    border-top-right-radius: 12px;
+    color: #0d6efd;
 }
 
-/* Animate the dropdown */
-@keyframes dropdownPop {
-    from {
-        opacity: 0;
-        transform: translateY(-10px) scale(0.98);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0) scale(1);
-    }
+/* Clear and Apply buttons at the bottom */
+.dropdown-menu .btn-light,
+.dropdown-menu .btn-primary {
+    margin: 0.5rem;
+    font-size: 0.875rem;
 }
 
-/* Select2 options */
-.select2-results__option {
-    padding: 14px 20px;
-    font-size: 17px;
-    line-height: 1.5;
-    transition: background-color 0.15s;
+/* Active filter indicator on toggle button */
+.btn-outline-secondary.filter-active {
+    border-color: #0d6efd;
+    color: #0d6efd;
+    font-weight: bold;
 }
 
-/* Hover/highlight effect */
-.select2-results__option--highlighted {
-    background-color: #444 !important;
-    color: #fff !important;
+.btn-outline-secondary.filter-active .bi-filter {
+    color: #0d6efd;
 }
 
-/* Selection input field */
-.select2-selection--single {
-    border: 2px solid #222;
-    border-radius: 8px;
-    padding: 8px 12px;
-    font-size: 17px;
-    min-height: 46px;
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
-    transition: border 0.2s ease-in-out, box-shadow 0.2s;
-}
-.sticky-assign-button {
-    position: sticky;
-    bottom: 20px;
-    right: 20px;
-    float: right;
-    z-index: 100;
+/* Optional: Style as switches */
+.dropdown-menu .form-switch .form-check-input {
+    width: 2em;
+    margin-left: 0.5rem;
 }
 
-/* Focus effect */
-.select2-container--open .select2-selection--single {
-    border-color: #0057ff;
-    box-shadow: 0 0 0 3px rgba(0, 87, 255, 0.2);
-}
+/* Additional styles for the matches page */
 .table-responsive-custom {
     overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    max-width: 100%;
 }
 
-.filter-box {
-    display: none;
-    position: absolute;
-    background: #ffffff;
-    padding: 12px;
-    border: 1px solid #bbb;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+.sticky-assign-button {
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+}
+
+.content-card {
+    background: #fff;
+    border: 1px solid #ddd;
     border-radius: 8px;
-    z-index: 999;
-    min-width: 180px;
+    padding: 1rem;
 }
 
-.filter-options label {
-    font-size: 14px;
-    padding: 4px 6px;
-}
-
-th {
-    vertical-align: top;
-}
-
-/* table stuff */
-table th,
-table td {
-    white-space: nowrap;
-    min-width: 120px;
-}
-
-th:nth-child(1), td:nth-child(1) { min-width: 140px; } /* Date */
-th:nth-child(2), td:nth-child(2) { min-width: 100px; } /* Kickoff */
-th:nth-child(3), td:nth-child(3),
-th:nth-child(4), td:nth-child(4) { min-width: 200px; } /* Teams */
-th:nth-child(5), td:nth-child(5),
-th:nth-child(6), td:nth-child(6),
-th:nth-child(7), td:nth-child(7) { min-width: 160px; } /* Division, District, Poule */
-th:nth-child(8), td:nth-child(8),
-th:nth-child(9), td:nth-child(9),
-th:nth-child(10), td:nth-child(10),
-th:nth-child(11), td:nth-child(11) { min-width: 180px; } /* Ref roles */
-
-.select2-container {
-    width: 350px !important;
-}
-
-/* Styling for editable cells in the matches table */
-.editable-cell {
-    position: relative;
-}
-
-/* Ensure cell content aligns well and doesn't overlap with the icon if cell is narrow */
-.editable-cell .cell-value {
-    display: inline-block;
-    vertical-align: middle;
-    /* Ensure margin is appropriate for icon on the right, or remove if padding on cell is used */
-    margin-right: 22px; /* Space for the icon on the right, adjusted for padding on icon */
-}
-
-.editable-cell:hover {
-    /* Consider a subtle background change if desired for hover UX, e.g. background-color: #f9f9f9; */
-}
-
-.editable-cell .edit-icon {
-    position: absolute;
-    right: 5px; /* Icon on the right */
-    top: 50%;
-    transform: translateY(-50%);
-    display: none !important; /* Hidden by default, ensuring override */
-    cursor: pointer;
-    color: #007bff; /* Bootstrap primary color */
-    padding: 2px;
-    font-size: 0.9em; /* Reset to original size or adjust as needed */
-}
-
+/* Editable cell styles */
 .editable-cell:hover .edit-icon {
-    display: inline-block !important; /* Show on hover, ensuring override */
-    /* Removed extra background/border from debug */
+    display: inline !important;
+}
+
+.edit-icon {
+    cursor: pointer;
+    margin-left: 5px;
 }
