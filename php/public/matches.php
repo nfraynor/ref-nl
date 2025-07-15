@@ -204,7 +204,7 @@ if ($loadInitialMatches && !empty($referees)) { // Only compute if matches were 
                 <table class="table table-bordered">
                     <thead>
                     <tr>
-                        <th style="position: relative;">
+                        <th>
                             Date
                             <div class="d-flex flex-column mt-1">
                                 <div class="d-flex flex-column gap-1 mt-1">
@@ -217,7 +217,7 @@ if ($loadInitialMatches && !empty($referees)) { // Only compute if matches were 
                             <th>Kickoff</th>
                             <th>Home Team</th>
                             <th>Away Team</th>
-                            <th style="position: relative;">
+                            <th>
                                 Division
                                 <div class="dropdown d-inline-block">
                                     <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" id="divisionFilterToggle" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
@@ -233,7 +233,7 @@ if ($loadInitialMatches && !empty($referees)) { // Only compute if matches were 
                                     </ul>
                                 </div>
                             </th>
-                            <th style="position: relative;">
+                            <th>
                                 District
                                 <div class="dropdown d-inline-block">
                                     <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" id="districtFilterToggle" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
@@ -247,7 +247,7 @@ if ($loadInitialMatches && !empty($referees)) { // Only compute if matches were 
                                     </ul>
                                 </div>
                             </th>
-                            <th style="position: relative;">
+                            <th>
                                 Poule
                                 <div class="dropdown d-inline-block">
                                     <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" id="pouleFilterToggle" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
@@ -261,7 +261,7 @@ if ($loadInitialMatches && !empty($referees)) { // Only compute if matches were 
                                     </ul>
                                 </div>
                             </th>
-                            <th style="position: relative;">
+                            <th>
                                 Location
                                 <div class="dropdown d-inline-block">
                                     <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" id="locationFilterToggle" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
@@ -275,7 +275,7 @@ if ($loadInitialMatches && !empty($referees)) { // Only compute if matches were 
                                     </ul>
                                 </div>
                             </th>
-                            <th style="position: relative;">
+                            <th>
                                 Referee Assigner
                                 <div class="dropdown d-inline-block">
                                     <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" id="refereeAssignerFilterToggle" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
