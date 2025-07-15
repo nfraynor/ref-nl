@@ -67,16 +67,36 @@ foreach ($assignments as $matchId => $roles) {
             $stmtRef->execute([$refId]);
             $refLoc = $stmtRef->fetch(PDO::FETCH_ASSOC);
 
-            if ($matchLoc['location_lat'] && $refLoc['lat']) {
-                $distance = haversine($refLoc['lat'], $refLoc['lon'], $matchLoc['location_lat'], $matchLoc['location_lon']);
+            // Debug: Log why we're skipping or proceeding
+            if (!$matchLoc || !$refLoc) {
+                error_log("Skipping travel log for ref $refId match $matchId: No location data fetched (matchLoc=" . var_export($matchLoc, true) . ", refLoc=" . var_export($refLoc, true) . ")");
+                continue;
+            }
 
-                // Store in log
-                $stmtLog = $pdo->prepare("
-                    INSERT INTO referee_travel_log (uuid, referee_id, match_id, distance_km) 
-                    VALUES (UUID(), ?, ?, ?) 
-                    ON DUPLICATE KEY UPDATE distance_km = ?
-                ");
-                $stmtLog->execute([$refId, $matchId, $distance, $distance]);
+            if (!isset($matchLoc['location_lat']) || !isset($matchLoc['location_lon']) || !isset($refLoc['lat']) || !isset($refLoc['lon']) ||
+                $matchLoc['location_lat'] === null || $matchLoc['location_lon'] === null || $refLoc['lat'] === null || $refLoc['lon'] === null) {
+                error_log("Skipping travel log for ref $refId match $matchId: Missing coordinates (match_lat={$matchLoc['location_lat']}, match_lon={$matchLoc['location_lon']}, ref_lat={$refLoc['lat']}, ref_lon={$refLoc['lon']})");
+                continue;
+            }
+
+            $distance = haversine($refLoc['lat'], $refLoc['lon'], $matchLoc['location_lat'], $matchLoc['location_lon']);
+
+            // Debug: Log insertion attempt
+            error_log("Inserting travel log for ref $refId match $matchId distance $distance");
+
+            // Store in log
+            $stmtLog = $pdo->prepare("
+                INSERT INTO referee_travel_log (uuid, referee_id, match_id, distance_km) 
+                VALUES (UUID(), ?, ?, ?) 
+                ON DUPLICATE KEY UPDATE distance_km = ?
+            ");
+            $stmtLog->execute([$refId, $matchId, $distance, $distance]);
+
+            // Debug: Check if insertion succeeded
+            if ($stmtLog->rowCount() > 0) {
+                error_log("Successfully inserted/updated travel log for ref $refId match $matchId");
+            } else {
+                error_log("No rows affected for travel log insert/update for ref $refId match $matchId (possible duplicate with no change)");
             }
         }
     }

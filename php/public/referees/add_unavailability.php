@@ -13,17 +13,27 @@ $isAjax = isset($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_
 
 if ($refereeUuid && $startDate && $endDate) {
     try {
+        // Generate UUID v4 in PHP (RFC 4122 compliant)
+        $uuid = sprintf('%04x%04x-%04x-%04x-%04x-%04x%04x%04x',
+            mt_rand(0, 0xffff), mt_rand(0, 0xffff),
+            mt_rand(0, 0xffff),
+            mt_rand(0, 0x0fff) | 0x4000,
+            mt_rand(0, 0x3fff) | 0x8000,
+            mt_rand(0, 0xffff), mt_rand(0, 0xffff), mt_rand(0, 0xffff)
+        );
+
         $insertStmt = $pdo->prepare("
             INSERT INTO referee_unavailability (uuid, referee_id, start_date, end_date, reason)
-            VALUES (UUID(), ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?)
         ");
-        $insertStmt->execute([$refereeUuid, $startDate, $endDate, $reason]);
+        $insertStmt->execute([$uuid, $refereeUuid, $startDate, $endDate, $reason]);
 
         if ($isAjax) {
             header('Content-Type: application/json');
             echo json_encode([
                 "status" => "success",
                 "data" => [
+                    "uuid" => $uuid,  // Add this
                     "start_date" => $startDate,
                     "end_date" => $endDate,
                     "reason" => $reason

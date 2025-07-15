@@ -555,30 +555,33 @@ if ($referee && isset($referee['uuid'])) { // Ensure $currentRefereeUuid is avai
 
                     const formData = new FormData(addUnavailabilityForm);
 
-                    // Log FormData content for debugging
-                    // for (var pair of formData.entries()) {
-                    //     console.log(pair[0]+ ', ' + pair[1]);
-                    // }
-
                     fetch('add_unavailability.php', {
                         method: 'POST',
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest'  // Keep this if not already added from previous fixes
+                        },
                         body: formData
                     })
-                        .then(response => response.json())
+                        .then(response => {
+                            if (!response.ok) {
+                                throw new Error(`HTTP error! status: ${response.status}`);
+                            }
+                            return response.json();
+                        })
                         .then(data => {
                             if (data.status === 'success') {
                                 // Clear form fields
                                 addUnavailabilityForm.reset();
                                 // Clear Flatpickr fields
-                                if(startDatePicker) startDatePicker.clear();
-                                if(endDatePicker) endDatePicker.clear();
-
+                                if (startDatePicker) startDatePicker.clear();
+                                if (endDatePicker) endDatePicker.clear();
 
                                 // Add new row to the table
                                 const newRow = unavailabilityListBody.insertRow(0); // Insert at the top like current list
                                 const cell1 = newRow.insertCell(0);
                                 const cell2 = newRow.insertCell(1);
                                 const cell3 = newRow.insertCell(2);
+                                const cell4 = newRow.insertCell(3);  // Add this for Actions
 
                                 cell1.textContent = data.data.start_date;
                                 cell2.textContent = data.data.end_date;
@@ -586,6 +589,8 @@ if ($referee && isset($referee['uuid'])) { // Ensure $currentRefereeUuid is avai
                                 let reasonText = data.data.reason || "";
                                 cell3.innerHTML = reasonText.replace(/\r\n|\r|\n/g, '<br>');
 
+                                // Add the Remove button using the returned UUID
+                                cell4.innerHTML = `<button class="btn btn-danger btn-sm remove-unavailability-btn" data-unavailability-uuid="${data.data.uuid}">Remove</button>`;
 
                                 formFeedback.innerHTML = '<div class="alert alert-success">Unavailability added successfully.</div>';
                             } else {
