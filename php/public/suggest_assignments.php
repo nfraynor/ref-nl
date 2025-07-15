@@ -28,7 +28,7 @@ $pdo = Database::getConnection();
 
 // Constants for configuration
 const MAX_GAMES_PER_DAY = 2;
-const MAX_GAMES_PER_WEEK = 4; // Weekly cap
+const MAX_GAMES_PER_WEEK = 9999; // Weekly cap
 const MATCH_DURATION_MINUTES = 90;
 const BUFFER_MINUTES = 30;
 const ROLES = ['referee_id', 'ar1_id', 'ar2_id']; // Removed commissioner_id
