@@ -35,7 +35,8 @@ if (!function_exists('get_assignment_details_for_referee')) {
         $refereeIdToCheck,
         $currentMatchContext, // ['uuid', 'match_date', 'kickoff_time', 'location_uuid', 'assigned_roles' => [...], 'current_role_being_rendered' => 'role_name']
         $refereeSchedule,     // Precomputed schedule of other matches from DB
-        $refereeAvailabilityCache // Precomputed availability from DB
+        $refereeAvailabilityCache, // Precomputed availability from DB
+        $refereeDistanceCache
     ) {
         $availability = isRefereeAvailable_Cached(
             $refereeIdToCheck,
@@ -44,8 +45,10 @@ if (!function_exists('get_assignment_details_for_referee')) {
             $refereeAvailabilityCache
         );
 
+        $distance = $refereeDistanceCache[$refereeIdToCheck] ?? null;
+
         if (!$availability) {
-            return ['conflict_type' => null, 'is_available' => false];
+            return ['conflict_type' => null, 'is_available' => false, 'distance' => $distance];
         }
 
         $conflictLevel = null;
@@ -59,7 +62,7 @@ if (!function_exists('get_assignment_details_for_referee')) {
         foreach ($currentMatchContext['assigned_roles'] as $roleInSameMatch => $assignedRefIdInSameMatch) {
             if ($roleInSameMatch !== $currentMatchContext['current_role_being_rendered'] && // Must be a *different* role than the one we're rendering for
                 $assignedRefIdInSameMatch === $refereeIdToCheck) { // And the referee is the one we're checking
-                return ['conflict_type' => 'red', 'is_available' => true]; // Red conflict: already assigned to another role in this match
+                return ['conflict_type' => 'red', 'is_available' => true, 'distance' => $distance]; // Red conflict: already assigned to another role in this match
             }
         }
 
@@ -104,7 +107,7 @@ if (!function_exists('get_assignment_details_for_referee')) {
                 }
             }
         }
-        return ['conflict_type' => $conflictLevel, 'is_available' => true];
+        return ['conflict_type' => $conflictLevel, 'is_available' => true, 'distance' => $distance];
     }
 }
 
@@ -125,7 +128,8 @@ function renderRefereeDropdown(
     $all_referees_list,           // The full list of referee objects/arrays for options
     $assignMode,                  // Boolean
     $refereeSchedule_precomputed, // Precomputed schedule from fetch_matches.php
-    $refereeAvailabilityCache_precomputed // Precomputed availability from fetch_matches.php
+    $refereeAvailabilityCache_precomputed, // Precomputed availability from fetch_matches.php
+    $refereeDistanceCache
 ) {
     $currently_assigned_ref_id_for_this_role = $match_details_for_dropdown[$role_being_rendered] ?? null;
 
@@ -154,7 +158,8 @@ function renderRefereeDropdown(
             $currently_assigned_ref_id_for_this_role,
             $details_for_conflict_check,
             $refereeSchedule_precomputed,
-            $refereeAvailabilityCache_precomputed
+            $refereeAvailabilityCache_precomputed,
+            $refereeDistanceCache
         );
 
         if (!$assignmentInfo['is_available']) {
@@ -188,7 +193,8 @@ function renderRefereeDropdown(
                 $ref_option['uuid'],
                 $details_for_conflict_check,
                 $refereeSchedule_precomputed,
-                $refereeAvailabilityCache_precomputed
+                $refereeAvailabilityCache_precomputed,
+                $refereeDistanceCache
             );
 
             $option_style_parts = [];
@@ -215,19 +221,29 @@ function renderRefereeDropdown(
             if ($option_style_str) $option_style_str .= ';';
 
 
+            $distance_text = isset($optionInfo['distance']) ? ' (' . $optionInfo['distance'] . ' km)' : ' (Dist. N/A)';
+
             echo '<option value="' . htmlspecialchars($ref_option['uuid']) . '" ' . $selected_attr . ' 
                   style="' . $option_style_str . '"
                   data-grade="' . htmlspecialchars($ref_option['grade']) . '" 
                   data-availability="' . $availability_data_attr . '">'
-                . htmlspecialchars($ref_option['first_name'] . ' ' . $ref_option['last_name']) .
+                . htmlspecialchars($ref_option['first_name'] . ' ' . $ref_option['last_name']) . $distance_text .
                 '</option>';
         }
         echo '</select>';
     } else { // Display mode
         if ($currently_assigned_ref_id_for_this_role) {
+            $assignmentInfo = get_assignment_details_for_referee(
+                $currently_assigned_ref_id_for_this_role,
+                $details_for_conflict_check,
+                $refereeSchedule_precomputed,
+                $refereeAvailabilityCache_precomputed,
+                $refereeDistanceCache
+            );
+            $distance_text = isset($assignmentInfo['distance']) ? ' (' . $assignmentInfo['distance'] . ' km)' : '';
             // $overall_style is already calculated from $assignmentInfo above
             $refName = get_ref_name_from_list($all_referees_list, $currently_assigned_ref_id_for_this_role);
-            echo '<span style="' . $overall_style . '">' . htmlspecialchars($refName) . '</span>';
+            echo '<span style="' . $overall_style . '">' . htmlspecialchars($refName) . $distance_text . '</span>';
         } else {
             echo '<a href="assign.php?match_id=' . htmlspecialchars($match_details_for_dropdown['uuid']) . '&role=' . htmlspecialchars($role_being_rendered) . '" class="false-a btn btn-sm btn-primary">Assign</a>';
         }

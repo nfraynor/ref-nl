@@ -6,6 +6,7 @@ if (session_status() == PHP_SESSION_NONE) {
 error_log("[fetch_matches.php] Script started. Session status: " . session_status());
 
 require_once __DIR__ . '/../../utils/db.php';
+require_once __DIR__ . '/../../utils/geo.php';
 include __DIR__ . '/../components/referee_dropdown.php';
 
 $pdo = Database::getConnection();
@@ -110,6 +111,8 @@ if ($proceedWithQuery) {
         at.team_name AS away_team_name,
         l.name AS location_name,
         l.address_text AS location_address,
+        l.latitude AS location_lat,
+        l.longitude AS location_lon,
         assigner_user.username AS referee_assigner_username
     FROM matches m
     JOIN teams ht ON m.home_team_id = ht.uuid
@@ -131,7 +134,17 @@ if ($proceedWithQuery) {
     error_log("[fetch_matches.php] SQL Query Skipped. Proceed with query was false.");
 } // End of if ($proceedWithQuery)
 
-$referees = $pdo->query("SELECT uuid, first_name, last_name, grade FROM referees ORDER BY first_name")->fetchAll();
+$referees = $pdo->query("
+    SELECT
+        r.uuid,
+        r.first_name,
+        r.last_name,
+        r.grade,
+        r.home_location_lat,
+        r.home_location_lon
+    FROM referees r
+    ORDER BY r.first_name
+")->fetchAll();
 
 // --- START: Pre-computation for Conflict & Availability ---
 $refereeSchedule = [];
@@ -208,7 +221,8 @@ function get_assignment_details_for_referee(
     $refereeIdToCheck,
     $currentMatchContext, // ['uuid', 'match_date', 'kickoff_time', 'location_uuid', 'assigned_roles' => [...], 'current_role_being_rendered' => 'role_name']
     $refereeSchedule,     // Precomputed schedule of other matches
-    $refereeAvailabilityCache
+    $refereeAvailabilityCache,
+    $refereeDistanceCache
 ) {
     $availability = isRefereeAvailable_Cached(
         $refereeIdToCheck,
@@ -217,8 +231,10 @@ function get_assignment_details_for_referee(
         $refereeAvailabilityCache
     );
 
+    $distance = $refereeDistanceCache[$refereeIdToCheck] ?? null;
+
     if (!$availability) {
-        return ['conflict_type' => null, 'is_available' => false];
+        return ['conflict_type' => null, 'is_available' => false, 'distance' => $distance];
     }
 
     $conflictLevel = null;
@@ -231,7 +247,7 @@ function get_assignment_details_for_referee(
     foreach ($currentMatchContext['assigned_roles'] as $roleInSameMatch => $assignedRefIdInSameMatch) {
         if ($roleInSameMatch !== $currentMatchContext['current_role_being_rendered'] && // Not the role we are currently populating
             $assignedRefIdInSameMatch === $refereeIdToCheck) { // And the referee is the same
-            return ['conflict_type' => 'red', 'is_available' => true]; // Red conflict: assigned to another role in the same match
+            return ['conflict_type' => 'red', 'is_available' => true, 'distance' => $distance]; // Red conflict: assigned to another role in the same match
         }
     }
 
@@ -284,11 +300,28 @@ function get_assignment_details_for_referee(
             }
         }
     }
-    return ['conflict_type' => $conflictLevel, 'is_available' => true];
+    return ['conflict_type' => $conflictLevel, 'is_available' => true, 'distance' => $distance];
 }
 // --- END: Pre-computation ---
 
-foreach ($matches as $match): ?>
+foreach ($matches as $match):
+    $matchLat = $match['location_lat'];
+    $matchLon = $match['location_lon'];
+    $refereeDistanceCache = [];
+
+    if ($matchLat && $matchLon) {
+        foreach ($referees as $ref) {
+            $refLat = $ref['home_location_lat'];
+            $refLon = $ref['home_location_lon'];
+            if ($refLat && $refLon) {
+                $distance = get_distance($matchLat, $matchLon, $refLat, $refLon);
+                $refereeDistanceCache[$ref['uuid']] = round($distance);
+            } else {
+                $refereeDistanceCache[$ref['uuid']] = null;
+            }
+        }
+    }
+    ?>
     <tr>
         <td><a href="match_detail.php?uuid=<?= htmlspecialchars($match['uuid']) ?>"><?= htmlspecialchars($match['match_date']) ?></a></td>
         <td><?= htmlspecialchars(substr($match['kickoff_time'], 0, 5)) ?></td>
@@ -321,9 +354,9 @@ foreach ($matches as $match): ?>
             <span class="cell-value"><?= htmlspecialchars($match['referee_assigner_username'] ?? 'N/A') ?></span>
             <i class="bi bi-pencil-square edit-icon" style="display: none;"></i>
         </td>
-        <td><?php renderRefereeDropdown("referee_id", $match, $referees, $assignMode, $refereeSchedule, $refereeAvailabilityCache); ?></td>
-        <td><?php renderRefereeDropdown("ar1_id", $match, $referees, $assignMode, $refereeSchedule, $refereeAvailabilityCache); ?></td>
-        <td><?php renderRefereeDropdown("ar2_id", $match, $referees, $assignMode, $refereeSchedule, $refereeAvailabilityCache); ?></td>
-        <td><?php renderRefereeDropdown("commissioner_id", $match, $referees, $assignMode, $refereeSchedule, $refereeAvailabilityCache); ?></td>
+        <td><?php renderRefereeDropdown("referee_id", $match, $referees, $assignMode, $refereeSchedule, $refereeAvailabilityCache, $refereeDistanceCache); ?></td>
+        <td><?php renderRefereeDropdown("ar1_id", $match, $referees, $assignMode, $refereeSchedule, $refereeAvailabilityCache, $refereeDistanceCache); ?></td>
+        <td><?php renderRefereeDropdown("ar2_id", $match, $referees, $assignMode, $refereeSchedule, $refereeAvailabilityCache, $refereeDistanceCache); ?></td>
+        <td><?php renderRefereeDropdown("commissioner_id", $match, $referees, $assignMode, $refereeSchedule, $refereeAvailabilityCache, $refereeDistanceCache); ?></td>
     </tr>
 <?php endforeach; ?>
