@@ -145,7 +145,8 @@ if ($loadInitialMatches) { // Only compute if matches were loaded
                     'match_id' => $match_uuid_initial,
                     'match_date_str' => $match_date_for_schedule_initial,
                     'kickoff_time_str' => $kickoff_time_for_schedule_initial,
-                    'role' => $role_key_initial
+                    'role' => $role_key_initial,
+                    'location_uuid' => $match_item_initial['location_uuid']
                 ];
             }
         }
