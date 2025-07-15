@@ -187,6 +187,77 @@ if ($loadInitialMatches && !empty($referees)) { // Only compute if matches were 
                 <div class="alert alert-success">Assignments saved successfully.</div>
             <?php endif; ?>
 
+            <div class="filters-container">
+                <button class="btn btn-primary" type="button" data-bs-toggle="collapse" data-bs-target="#filters" aria-expanded="false" aria-controls="filters">
+                    Show Filters
+                </button>
+                <div class="collapse" id="filters">
+                    <div class="d-flex flex-column mt-1">
+                        <div class="d-flex flex-column gap-1 mt-1">
+                            <input type="date" class="form-control form-control-sm" id="ajaxStartDate" value="<?= htmlspecialchars($_GET['start_date'] ?? '') ?>">
+                            <input type="date" class="form-control form-control-sm" id="ajaxEndDate" value="<?= htmlspecialchars($_GET['end_date'] ?? '') ?>">
+                        </div>
+                    </div>
+                    <div class="dropdown d-inline-block">
+                        <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" id="divisionFilterToggle" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+                            <i class="bi bi-filter"></i> Division
+                        </button>
+                        <ul id="divisionFilterBox" class="dropdown-menu scrollable shadow rounded" aria-labelledby="divisionFilterToggle">
+                            <li id="divisionFilterOptions" class="px-3 py-2 d-flex flex-column gap-1">
+                                <!-- checkboxes will load here via AJAX -->
+                            </li>
+                            <li class="dropdown-divider"></li>
+                            <li class="px-3"><button type="button" id="clearDivisionFilter" class="btn btn-sm btn-light w-100">Clear</button></li>
+                            <li class="px-3"><button type="button" id="applyDivisionFilter" class="btn btn-sm btn-primary w-100">Apply</button></li>
+                        </ul>
+                    </div>
+                    <div class="dropdown d-inline-block">
+                        <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" id="districtFilterToggle" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+                            <i class="bi bi-filter"></i> District
+                        </button>
+                        <ul id="districtFilterBox" class="dropdown-menu scrollable shadow rounded" aria-labelledby="districtFilterToggle">
+                            <li id="districtFilterOptions" class="px-3 py-2 d-flex flex-column gap-1"></li>
+                            <li class="dropdown-divider"></li>
+                            <li class="px-3"><button type="button" id="clearDistrictFilter" class="btn btn-sm btn-light w-100">Clear</button></li>
+                            <li class="px-3"><button type="button" id="applyDistrictFilter" class="btn btn-sm btn-primary w-100">Apply</button></li>
+                        </ul>
+                    </div>
+                    <div class="dropdown d-inline-block">
+                        <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" id="pouleFilterToggle" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+                            <i class="bi bi-filter"></i> Poule
+                        </button>
+                        <ul id="pouleFilterBox" class="dropdown-menu scrollable shadow rounded" aria-labelledby="pouleFilterToggle">
+                            <li id="pouleFilterOptions" class="px-3 py-2 d-flex flex-column gap-1"></li>
+                            <li class="dropdown-divider"></li>
+                            <li class="px-3"><button type="button" id="clearPouleFilter" class="btn btn-sm btn-light w-100">Clear</button></li>
+                            <li class="px-3"><button type="button" id="applyPouleFilter" class="btn btn-sm btn-primary w-100">Apply</button></li>
+                        </ul>
+                    </div>
+                    <div class="dropdown d-inline-block">
+                        <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" id="locationFilterToggle" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+                            <i class="bi bi-filter"></i> Location
+                        </button>
+                        <ul id="locationFilterBox" class="dropdown-menu scrollable shadow rounded" aria-labelledby="locationFilterToggle">
+                            <li id="locationFilterOptions" class="px-3 py-2 d-flex flex-column gap-1"></li>
+                            <li class="dropdown-divider"></li>
+                            <li class="px-3"><button type="button" id="clearLocationFilter" class="btn btn-sm btn-light w-100">Clear</button></li>
+                            <li class="px-3"><button type="button" id="applyLocationFilter" class="btn btn-sm btn-primary w-100">Apply</button></li>
+                        </ul>
+                    </div>
+                    <div class="dropdown d-inline-block">
+                        <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" id="refereeAssignerFilterToggle" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+                            <i class="bi bi-filter"></i> Referee Assigner
+                        </button>
+                        <ul id="refereeAssignerFilterBox" class="dropdown-menu scrollable shadow rounded" aria-labelledby="refereeAssignerFilterToggle">
+                            <li id="refereeAssignerFilterOptions" class="px-3 py-2 d-flex flex-column gap-1"></li>
+                            <li class="dropdown-divider"></li>
+                            <li class="px-3"><button type="button" id="clearRefereeAssignerFilter" class="btn btn-sm btn-light w-100">Clear</button></li>
+                            <li class="px-3"><button type="button" id="applyRefereeAssignerFilter" class="btn btn-sm btn-primary w-100">Apply</button></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
             <?php if ($assignMode): ?>
                 <a href="matches.php?<?= buildQueryString(['assign_mode' => null]) ?>" class="false-a btn btn-sm btn-secondary-action mb-3">Disable Assign Mode</a>
                 <button type="button" id="suggestAssignments" class="btn btn-sm btn-main-action mb-3">Suggest Assignments</button>
@@ -196,146 +267,47 @@ if ($loadInitialMatches && !empty($referees)) { // Only compute if matches were 
             <?php endif; ?>
             <a href="export_matches.php?<?= buildQueryString([]) ?>" class="btn btn-sm btn-info-action mb-3 ms-2">Export to Excel (CSV)</a>
 
-            <?php if ($assignMode): ?>
-                <button type="submit" class="btn btn-main-action sticky-assign-button">Save Assignments</button>
-            <?php endif; ?>
-            <div class="table-responsive-custom">
-                <table class="table table-bordered">
-                    <thead>
-                    <tr>
-                        <th style="position: relative;">
-                            Date
-                            <div class="d-flex flex-column mt-1">
-                                <div class="d-flex flex-column gap-1 mt-1">
-                                    <input type="date" class="form-control form-control-sm" id="ajaxStartDate" value="<?= htmlspecialchars($_GET['start_date'] ?? '') ?>">
-                                    <input type="date" class="form-control form-control-sm" id="ajaxEndDate" value="<?= htmlspecialchars($_GET['end_date'] ?? '') ?>">
+            <div class="match-cards-container">
+                <?php foreach ($matches as $match): ?>
+                    <div class="match-card" data-match-uuid="<?= htmlspecialchars($match['uuid']) ?>">
+                        <div class="match-card-header">
+                            <a href="match_detail.php?uuid=<?= htmlspecialchars($match['uuid']) ?>">
+                                <?= htmlspecialchars($match['match_date']) ?> - <?= htmlspecialchars(substr($match['kickoff_time'], 0, 5)) ?>
+                            </a>
+                        </div>
+                        <div class="match-card-body">
+                            <div class="team-info">
+                                <p><?= htmlspecialchars($match['home_club_name'] . " - " . $match['home_team_name']) ?></p>
+                                <p class="vs">vs</p>
+                                <p><?= htmlspecialchars($match['away_club_name'] . " - " . $match['away_team_name']) ?></p>
+                            </div>
+                            <div class="match-details">
+                                <p><strong>Division:</strong> <?= htmlspecialchars($match['division']) ?></p>
+                                <p><strong>District:</strong> <?= htmlspecialchars($match['district']) ?></p>
+                                <p><strong>Poule:</strong> <?= htmlspecialchars($match['poule']) ?></p>
+                                <p><strong>Location:</strong> <?= htmlspecialchars($match['location_name'] ?? 'N/A') ?></p>
+                            </div>
+                            <div class="referee-assignments">
+                                <div class="referee-slot">
+                                    <label>Referee:</label>
+                                    <?php renderRefereeDropdown("referee_id", $match, $referees, $assignMode, $refereeSchedule_initial, $refereeAvailabilityCache_initial); ?>
+                                </div>
+                                <div class="referee-slot">
+                                    <label>AR1:</label>
+                                    <?php renderRefereeDropdown("ar1_id", $match, $referees, $assignMode, $refereeSchedule_initial, $refereeAvailabilityCache_initial); ?>
+                                </div>
+                                <div class="referee-slot">
+                                    <label>AR2:</label>
+                                    <?php renderRefereeDropdown("ar2_id", $match, $referees, $assignMode, $refereeSchedule_initial, $refereeAvailabilityCache_initial); ?>
+                                </div>
+                                <div class="referee-slot">
+                                    <label>Commissioner:</label>
+                                    <?php renderRefereeDropdown("commissioner_id", $match, $referees, $assignMode, $refereeSchedule_initial, $refereeAvailabilityCache_initial); ?>
                                 </div>
                             </div>
-                        </th>
-                        <form method="POST" action="bulk_assign.php">
-                            <th>Kickoff</th>
-                            <th>Home Team</th>
-                            <th>Away Team</th>
-                            <th style="position: relative;">
-                                Division
-                                <div class="dropdown d-inline-block">
-                                    <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" id="divisionFilterToggle" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
-                                        <i class="bi bi-filter"></i>
-                                    </button>
-                                    <ul id="divisionFilterBox" class="dropdown-menu scrollable shadow rounded" aria-labelledby="divisionFilterToggle">
-                                        <li id="divisionFilterOptions" class="px-3 py-2 d-flex flex-column gap-1">
-                                            <!-- checkboxes will load here via AJAX -->
-                                        </li>
-                                        <li class="dropdown-divider"></li>
-                                        <li class="px-3"><button type="button" id="clearDivisionFilter" class="btn btn-sm btn-light w-100">Clear</button></li>
-                                        <li class="px-3"><button type="button" id="applyDivisionFilter" class="btn btn-sm btn-primary w-100">Apply</button></li>
-                                    </ul>
-                                </div>
-                            </th>
-                            <th style="position: relative;">
-                                District
-                                <div class="dropdown d-inline-block">
-                                    <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" id="districtFilterToggle" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
-                                        <i class="bi bi-filter"></i>
-                                    </button>
-                                    <ul id="districtFilterBox" class="dropdown-menu scrollable shadow rounded" aria-labelledby="districtFilterToggle">
-                                        <li id="districtFilterOptions" class="px-3 py-2 d-flex flex-column gap-1"></li>
-                                        <li class="dropdown-divider"></li>
-                                        <li class="px-3"><button type="button" id="clearDistrictFilter" class="btn btn-sm btn-light w-100">Clear</button></li>
-                                        <li class="px-3"><button type="button" id="applyDistrictFilter" class="btn btn-sm btn-primary w-100">Apply</button></li>
-                                    </ul>
-                                </div>
-                            </th>
-                            <th style="position: relative;">
-                                Poule
-                                <div class="dropdown d-inline-block">
-                                    <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" id="pouleFilterToggle" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
-                                        <i class="bi bi-filter"></i>
-                                    </button>
-                                    <ul id="pouleFilterBox" class="dropdown-menu scrollable shadow rounded" aria-labelledby="pouleFilterToggle">
-                                        <li id="pouleFilterOptions" class="px-3 py-2 d-flex flex-column gap-1"></li>
-                                        <li class="dropdown-divider"></li>
-                                        <li class="px-3"><button type="button" id="clearPouleFilter" class="btn btn-sm btn-light w-100">Clear</button></li>
-                                        <li class="px-3"><button type="button" id="applyPouleFilter" class="btn btn-sm btn-primary w-100">Apply</button></li>
-                                    </ul>
-                                </div>
-                            </th>
-                            <th style="position: relative;">
-                                Location
-                                <div class="dropdown d-inline-block">
-                                    <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" id="locationFilterToggle" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
-                                        <i class="bi bi-filter"></i>
-                                    </button>
-                                    <ul id="locationFilterBox" class="dropdown-menu scrollable shadow rounded" aria-labelledby="locationFilterToggle">
-                                        <li id="locationFilterOptions" class="px-3 py-2 d-flex flex-column gap-1"></li>
-                                        <li class="dropdown-divider"></li>
-                                        <li class="px-3"><button type="button" id="clearLocationFilter" class="btn btn-sm btn-light w-100">Clear</button></li>
-                                        <li class="px-3"><button type="button" id="applyLocationFilter" class="btn btn-sm btn-primary w-100">Apply</button></li>
-                                    </ul>
-                                </div>
-                            </th>
-                            <th style="position: relative;">
-                                Referee Assigner
-                                <div class="dropdown d-inline-block">
-                                    <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" id="refereeAssignerFilterToggle" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
-                                        <i class="bi bi-filter"></i>
-                                    </button>
-                                    <ul id="refereeAssignerFilterBox" class="dropdown-menu scrollable shadow rounded" aria-labelledby="refereeAssignerFilterToggle">
-                                        <li id="refereeAssignerFilterOptions" class="px-3 py-2 d-flex flex-column gap-1"></li>
-                                        <li class="dropdown-divider"></li>
-                                        <li class="px-3"><button type="button" id="clearRefereeAssignerFilter" class="btn btn-sm btn-light w-100">Clear</button></li>
-                                        <li class="px-3"><button type="button" id="applyRefereeAssignerFilter" class="btn btn-sm btn-primary w-100">Apply</button></li>
-                                    </ul>
-                                </div>
-                            </th>
-                            <th>Referee</th>
-                            <th>AR1</th>
-                            <th>AR2</th>
-                            <th>Commissioner</th>
-                    </tr>
-                    </thead>
-                    <tbody id="matchesTableBody">
-                    <?php foreach ($matches as $match): ?>
-                        <tr>
-                            <td><a href="match_detail.php?uuid=<?= htmlspecialchars($match['uuid']) ?>"><?= htmlspecialchars($match['match_date']) ?></a></td>
-                            <td><?= htmlspecialchars(substr($match['kickoff_time'], 0, 5)) ?></td>
-                            <td><?= htmlspecialchars($match['home_club_name'] . " - " . $match['home_team_name']) ?></td>
-                            <td><?= htmlspecialchars($match['away_club_name'] . " - " . $match['away_team_name']) ?></td>
-                            <td><?= htmlspecialchars($match['division']) ?></td>
-                            <td><?= htmlspecialchars($match['district']) ?></td>
-                            <td><?= htmlspecialchars($match['poule']) ?></td>
-                            <td class="editable-cell"
-                                data-match-uuid="<?= htmlspecialchars($match['uuid']) ?>"
-                                data-field-type="location"
-                                data-current-value="<?= htmlspecialchars($match['location_uuid'] ?? '') ?>">
-                            <span class="cell-value">
-                                <?php
-                                $locOutput = htmlspecialchars($match['location_name'] ?? 'N/A');
-                                if (!empty($match['location_address']) && $match['location_name'] !== $match['location_address'] && $match['location_name']) {
-                                    $locOutput .= '<br><small>' . htmlspecialchars($match['location_address']) . '</small>';
-                                } elseif (empty($match['location_name']) && !empty($match['location_address'])) {
-                                    $locOutput = '<small>' . htmlspecialchars($match['location_address']) . '</small>';
-                                }
-                                echo $locOutput;
-                                ?>
-                            </span>
-                                <i class="bi bi-pencil-square edit-icon" style="display: none;"></i>
-                            </td>
-                            <td class="editable-cell"
-                                data-match-uuid="<?= htmlspecialchars($match['uuid']) ?>"
-                                data-field-type="referee_assigner"
-                                data-current-value="<?= htmlspecialchars($match['referee_assigner_uuid'] ?? '') ?>">
-                                <span class="cell-value"><?= htmlspecialchars($match['referee_assigner_username'] ?? 'N/A') ?></span>
-                                <i class="bi bi-pencil-square edit-icon" style="display: none;"></i>
-                            </td>
-                            <td class="<?= $assignMode ? 'referee-select-cell' : '' ?>"><?php renderRefereeDropdown("referee_id", $match, $referees, $assignMode, $refereeSchedule_initial, $refereeAvailabilityCache_initial); ?></td>
-                            <td class="<?= $assignMode ? 'referee-select-cell' : '' ?>"><?php renderRefereeDropdown("ar1_id", $match, $referees, $assignMode, $refereeSchedule_initial, $refereeAvailabilityCache_initial); ?></td>
-                            <td class="<?= $assignMode ? 'referee-select-cell' : '' ?>"><?php renderRefereeDropdown("ar2_id", $match, $referees, $assignMode, $refereeSchedule_initial, $refereeAvailabilityCache_initial); ?></td>
-                            <td class="<?= $assignMode ? 'referee-select-cell' : '' ?>"><?php renderRefereeDropdown("commissioner_id", $match, $referees, $assignMode, $refereeSchedule_initial, $refereeAvailabilityCache_initial); ?></td>
-                        </tr>
-                    <?php endforeach; ?>
-                    </tbody>
-                </table>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
             </div>
             <?php if ($assignMode): ?>
                 <button type="submit" class="btn btn-main-action" style="position: fixed; bottom: 20px; right: 20px; z-index: 999;">Save Assignments</button>
