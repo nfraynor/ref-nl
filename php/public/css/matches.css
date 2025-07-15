@@ -7,6 +7,7 @@
     left: 0 !important;
     margin-top: 0.25rem !important;
     transform: none !important;
+    z-index: 1021;
 }
 
 /* Ensure dropdown container is positioned correctly in table headers */
@@ -152,7 +153,7 @@
     position: sticky;
     top: 0;
     background-color: #fff;
-    z-index: 1;
+    z-index: 1020;
 }
 
 .table tbody tr {
