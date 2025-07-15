@@ -224,13 +224,14 @@ function renderRefereeDropdown(
         }
         echo '</select>';
     } else { // Display mode
+        echo '<select class="referee-select form-control" disabled style="' . $overall_style . '">';
         if ($currently_assigned_ref_id_for_this_role) {
-            // $overall_style is already calculated from $assignmentInfo above
             $refName = get_ref_name_from_list($all_referees_list, $currently_assigned_ref_id_for_this_role);
-            echo '<span style="' . $overall_style . '">' . htmlspecialchars($refName) . '</span>';
+            echo '<option selected>' . htmlspecialchars($refName . ' (Grade: ' . $ref_option['grade'] . ')') . '</option>';
         } else {
-            echo '<a href="assign.php?match_id=' . htmlspecialchars($match_details_for_dropdown['uuid']) . '&role=' . htmlspecialchars($role_being_rendered) . '" class="false-a btn btn-sm btn-primary">Assign</a>';
+            echo '<option>-- Not Assigned --</option>';
         }
+        echo '</select>';
     }
 }
 ?>

@@ -118,9 +118,17 @@
 }
 
 /* Make referee dropdowns wider in assign mode */
-.referee-select-cell .select2-container {
+.referee-select-cell .select2-container,
+.referee-select-cell .form-control[disabled] {
     min-width: 250px; /* Adjust as needed */
     width: 100% !important;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    background-color: #fff;
+    border: 1px solid #ced4da;
+    border-radius: .25rem;
+    padding: .375rem .75rem;
 }
 
 /* Improved table styles */
