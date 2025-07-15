@@ -107,13 +107,14 @@
 }
 
 /* Editable cell styles */
-.editable-cell:hover .edit-icon {
-    display: inline !important;
-}
-
 .edit-icon {
+    visibility: hidden;
     cursor: pointer;
     margin-left: 5px;
+}
+
+.editable-cell:hover .edit-icon {
+    visibility: visible;
 }
 
 /* Make referee dropdowns wider in assign mode */
