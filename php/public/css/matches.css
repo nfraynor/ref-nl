@@ -134,6 +134,10 @@
     vertical-align: middle;
 }
 
+.table .location-cell {
+    font-size: 0.9em;
+}
+
 .table thead th {
     border-bottom: 2px solid #dee2e6;
     position: sticky;

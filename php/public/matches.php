@@ -305,19 +305,19 @@ if ($loadInitialMatches && !empty($referees)) { // Only compute if matches were 
                             <td><?= htmlspecialchars($match['division']) ?></td>
                             <td><?= htmlspecialchars($match['district']) ?></td>
                             <td><?= htmlspecialchars($match['poule']) ?></td>
-                            <td class="editable-cell"
+                            <td class="editable-cell location-cell"
                                 data-match-uuid="<?= htmlspecialchars($match['uuid']) ?>"
                                 data-field-type="location"
                                 data-current-value="<?= htmlspecialchars($match['location_uuid'] ?? '') ?>">
                             <span class="cell-value">
                                 <?php
-                                $locOutput = htmlspecialchars($match['location_name'] ?? 'N/A');
-                                if (!empty($match['location_address']) && $match['location_name'] !== $match['location_address'] && $match['location_name']) {
-                                    $locOutput .= '<br><small>' . htmlspecialchars($match['location_address']) . '</small>';
-                                } elseif (empty($match['location_name']) && !empty($match['location_address'])) {
-                                    $locOutput = '<small>' . htmlspecialchars($match['location_address']) . '</small>';
+                                $locationName = htmlspecialchars($match['location_name'] ?? 'N/A');
+                                $locationAddress = htmlspecialchars($match['location_address'] ?? '');
+                                $tooltip = '';
+                                if (!empty($locationAddress) && $locationName !== $locationAddress) {
+                                    $tooltip = 'title="' . $locationAddress . '"';
                                 }
-                                echo $locOutput;
+                                echo '<span ' . $tooltip . '>' . $locationName . '</span>';
                                 ?>
                             </span>
                                 <i class="bi bi-pencil-square edit-icon" style="display: none;"></i>
