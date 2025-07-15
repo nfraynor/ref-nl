@@ -150,7 +150,8 @@ foreach ($matches as $match_item) {
                 'match_id' => $match_uuid,
                 'match_date_str' => $match_date_for_schedule, // Store date string
                 'kickoff_time_str' => $kickoff_time_for_schedule, // Store time string
-                'role' => $role_key
+                'role' => $role_key,
+                'location_uuid' => $match_item['location_uuid']
             ];
         }
     }
@@ -205,7 +206,7 @@ function isRefereeAvailable_Cached($refId, $matchDateStr, $kickoffTimeStr, $cach
 
 function get_assignment_details_for_referee(
     $refereeIdToCheck,
-    $currentMatchContext, // ['uuid', 'match_date', 'kickoff_time', 'assigned_roles' => [...], 'current_role_being_rendered' => 'role_name']
+    $currentMatchContext, // ['uuid', 'match_date', 'kickoff_time', 'location_uuid', 'assigned_roles' => [...], 'current_role_being_rendered' => 'role_name']
     $refereeSchedule,     // Precomputed schedule of other matches
     $refereeAvailabilityCache
 ) {
@@ -266,10 +267,17 @@ function get_assignment_details_for_referee(
                 $scheduledMatchStartTimestamp = strtotime("1970-01-01T" . $scheduledMatch['kickoff_time_str']);
                 $scheduledMatchEndTimestamp = $scheduledMatchStartTimestamp + (90 * 60);
                 if ($currentMatchStartTimestamp < $scheduledMatchEndTimestamp && $scheduledMatchStartTimestamp < $currentMatchEndTimestamp) {
-                    $conflictLevel = 'red';
+                    $conflictLevel = 'red'; // Time overlap is always red
                     break;
-                } else {
-                    if ($conflictLevel !== 'red') $conflictLevel = 'orange';
+                } else { // Same day, no time overlap
+                    // If locations are different, it's a travel conflict, so red.
+                    // If locations are the same, it's just a tight schedule, so orange.
+                    if ($scheduledMatch['location_uuid'] !== $currentMatchContext['location_uuid']) {
+                        $conflictLevel = 'red';
+                        break;
+                    } else {
+                        if ($conflictLevel !== 'red') $conflictLevel = 'orange';
+                    }
                 }
             } elseif (abs($daysBetween) <= 2) {
                 if ($conflictLevel !== 'red' && $conflictLevel !== 'orange') $conflictLevel = 'yellow';

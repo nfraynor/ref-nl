@@ -33,7 +33,7 @@ if (!function_exists('isRefereeAvailable_Cached')) {
 if (!function_exists('get_assignment_details_for_referee')) {
     function get_assignment_details_for_referee(
         $refereeIdToCheck,
-        $currentMatchContext, // ['uuid', 'match_date', 'kickoff_time', 'assigned_roles' => [...], 'current_role_being_rendered' => 'role_name']
+        $currentMatchContext, // ['uuid', 'match_date', 'kickoff_time', 'location_uuid', 'assigned_roles' => [...], 'current_role_being_rendered' => 'role_name']
         $refereeSchedule,     // Precomputed schedule of other matches from DB
         $refereeAvailabilityCache // Precomputed availability from DB
     ) {
@@ -89,10 +89,15 @@ if (!function_exists('get_assignment_details_for_referee')) {
                     $scheduledMatchStartTimestamp = strtotime("1970-01-01T" . $scheduledMatch['kickoff_time_str']);
                     $scheduledMatchEndTimestamp = $scheduledMatchStartTimestamp + (90 * 60);
                     if ($currentMatchStartTimestamp < $scheduledMatchEndTimestamp && $scheduledMatchStartTimestamp < $currentMatchEndTimestamp) {
-                        $conflictLevel = 'red'; // Time overlap
-                        break; // Max conflict for this ref
+                        $conflictLevel = 'red'; // Time overlap is always red
+                        break;
                     } else { // Same day, no time overlap
-                        if ($conflictLevel !== 'red') $conflictLevel = 'orange';
+                        if ($scheduledMatch['location_uuid'] !== $currentMatchContext['location_uuid']) {
+                            $conflictLevel = 'red';
+                            break;
+                        } else {
+                            if ($conflictLevel !== 'red') $conflictLevel = 'orange';
+                        }
                     }
                 } elseif (abs($daysBetween) <= 2) { // Within +/- 2 days (but not same day)
                     if ($conflictLevel !== 'red' && $conflictLevel !== 'orange') $conflictLevel = 'yellow';
@@ -137,6 +142,7 @@ function renderRefereeDropdown(
         'uuid'           => $match_details_for_dropdown['uuid'],
         'match_date'     => $match_details_for_dropdown['match_date'],
         'kickoff_time'   => $match_details_for_dropdown['kickoff_time'],
+        'location_uuid'  => $match_details_for_dropdown['location_uuid'],
         'assigned_roles' => $current_match_existing_assignments,
         'current_role_being_rendered' => $role_being_rendered
     ];

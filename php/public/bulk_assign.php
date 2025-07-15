@@ -44,8 +44,14 @@ foreach ($assignments as $matchId => $roles) {
     // Calculate travel distance for each assigned referee
     foreach ($roles as $role => $refId) {
         if (!empty($refId)) {
-            // Fetch match location
-            $stmtMatch = $pdo->prepare("SELECT location_lat, location_lon FROM matches WHERE uuid = ?");
+            // Fetch match location (prefer locations table via location_uuid, fallback to legacy match fields)
+            $stmtMatch = $pdo->prepare("
+                SELECT COALESCE(l.latitude, m.location_lat) AS location_lat, 
+                       COALESCE(l.longitude, m.location_lon) AS location_lon 
+                FROM matches m 
+                LEFT JOIN locations l ON m.location_uuid = l.uuid 
+                WHERE m.uuid = ?
+            ");
             $stmtMatch->execute([$matchId]);
             $matchLoc = $stmtMatch->fetch(PDO::FETCH_ASSOC);
 
