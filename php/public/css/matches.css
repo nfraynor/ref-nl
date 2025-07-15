@@ -14,6 +14,7 @@
 .table th .dropdown {
     position: relative;
     display: inline-block;
+    z-index: 1030;
 }
 
 /* Scrollable menu */
