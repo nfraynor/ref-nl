@@ -320,14 +320,14 @@ if ($loadInitialMatches && !empty($referees)) { // Only compute if matches were 
                                 echo '<span ' . $tooltip . '>' . $locationName . '</span>';
                                 ?>
                             </span>
-                                <i class="bi bi-pencil-square edit-icon" style="display: none;"></i>
+                                <i class="bi bi-pencil-square edit-icon"></i>
                             </td>
                             <td class="editable-cell"
                                 data-match-uuid="<?= htmlspecialchars($match['uuid']) ?>"
                                 data-field-type="referee_assigner"
                                 data-current-value="<?= htmlspecialchars($match['referee_assigner_uuid'] ?? '') ?>">
                                 <span class="cell-value"><?= htmlspecialchars($match['referee_assigner_username'] ?? 'N/A') ?></span>
-                                <i class="bi bi-pencil-square edit-icon" style="display: none;"></i>
+                                <i class="bi bi-pencil-square edit-icon"></i>
                             </td>
                             <td class="<?= $assignMode ? 'referee-select-cell' : '' ?>"><?php renderRefereeDropdown("referee_id", $match, $referees, $assignMode, $refereeSchedule_initial, $refereeAvailabilityCache_initial); ?></td>
                             <td class="<?= $assignMode ? 'referee-select-cell' : '' ?>"><?php renderRefereeDropdown("ar1_id", $match, $referees, $assignMode, $refereeSchedule_initial, $refereeAvailabilityCache_initial); ?></td>
