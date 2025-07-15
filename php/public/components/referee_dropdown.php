@@ -219,7 +219,7 @@ function renderRefereeDropdown(
                   style="' . $option_style_str . '"
                   data-grade="' . htmlspecialchars($ref_option['grade']) . '" 
                   data-availability="' . $availability_data_attr . '">'
-                . htmlspecialchars($ref_option['first_name'] . ' ' . $ref_option['last_name']) .
+                . htmlspecialchars($ref_option['first_name'] . ' ' . $ref_option['last_name'] . ' (Grade: ' . $ref_option['grade'] . ')') .
                 '</option>';
         }
         echo '</select>';
