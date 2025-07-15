@@ -29,7 +29,9 @@ CREATE TABLE IF NOT EXISTS referees (
     home_location_city VARCHAR(100),
     grade VARCHAR(50),
     ar_grade VARCHAR(50),
-    max_travel_distance INT, -- Added max_travel_distance
+    home_lat DECIMAL(10, 8) DEFAULT NULL,
+    home_lon DECIMAL(11, 8) DEFAULT NULL,
+    max_travel_distance INT,
     FOREIGN KEY (home_club_id) REFERENCES clubs(uuid)
     );
 
@@ -79,14 +81,14 @@ CREATE TABLE IF NOT EXISTS users (
 
 -- Divisions Table
 CREATE TABLE IF NOT EXISTS divisions (
-                                         id INT AUTO_INCREMENT PRIMARY KEY,
-                                         name VARCHAR(255) UNIQUE NOT NULL
+     id INT AUTO_INCREMENT PRIMARY KEY,
+     name VARCHAR(255) UNIQUE NOT NULL
     );
 
 -- Districts Table
 CREATE TABLE IF NOT EXISTS districts (
-                                         id INT AUTO_INCREMENT PRIMARY KEY,
-                                         name VARCHAR(255) NOT NULL,
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
     division_id INT NOT NULL,
     FOREIGN KEY (division_id) REFERENCES divisions(id),
     UNIQUE (name, division_id) -- Ensure district names are unique within a division

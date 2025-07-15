@@ -231,6 +231,17 @@ if ($referee && isset($referee['uuid'])) { // Ensure $currentRefereeUuid is avai
                         <span class="display-value" data-field="max_travel_distance"><?= htmlspecialchars($referee['max_travel_distance'] ?? '') ?></span>
                         <i class="bi bi-pencil-square edit-icon" data-field="max_travel_distance" style="cursor:pointer; margin-left: 5px;"></i>
                     </dd>
+                    <dt class="col-sm-3">Home Latitude</dt>
+                    <dd class="col-sm-9 editable-field">
+                        <span class="display-value" data-field="home_lat"><?= htmlspecialchars($referee['home_lat'] ?? 'N/A') ?></span>
+                        <i class="bi bi-pencil-square edit-icon" data-field="home_lat" style="cursor:pointer; margin-left: 5px;"></i>
+                    </dd>
+
+                    <dt class="col-sm-3">Home Longitude</dt>
+                    <dd class="col-sm-9 editable-field">
+                        <span class="display-value" data-field="home_lon"><?= htmlspecialchars($referee['home_lon'] ?? 'N/A') ?></span>
+                        <i class="bi bi-pencil-square edit-icon" data-field="home_lon" style="cursor:pointer; margin-left: 5px;"></i>
+                    </dd>
 
                     <dt class="col-sm-3">Exempt Clubs</dt>
                     <dd class="col-sm-9 editable-field" id="exempt-clubs-dd">

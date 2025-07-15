@@ -131,13 +131,15 @@ foreach ($referee_names as $index => $name) {
         'home_club_id' => $club['uuid'],
         'home_location_city' => $club['club_name'], // Assuming city is same as club name for dummy data
         'grade' => $grades[array_rand($grades)],
-        'ar_grade' => $grades[array_rand($grades)]
+        'ar_grade' => $grades[array_rand($grades)],
+        'home_lat' => $club['precise_location_lat'] + (mt_rand(-100, 100) / 10000), // Slight random variation for demo
+        'home_lon' => $club['precise_location_lon'] + (mt_rand(-100, 100) / 10000)
     ];
     $referees_data[] = $ref;
 
-    $stmt = $pdo->prepare("INSERT IGNORE INTO referees (uuid, referee_id, first_name, last_name, email, phone, home_club_id, home_location_city, grade, ar_grade) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+    $stmt = $pdo->prepare("INSERT IGNORE INTO referees (uuid, referee_id, first_name, last_name, email, phone, home_club_id, home_location_city, grade, ar_grade, home_lat, home_lon) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
     // Assuming ar_grade is the same as grade for initial seeding
-    $stmt->execute([$ref['uuid'], $ref['referee_id'], $ref['first_name'], $ref['last_name'], $ref['email'], $ref['phone'], $ref['home_club_id'], $ref['home_location_city'], $ref['grade'], $ref['ar_grade']]);
+    $stmt->execute([$ref['uuid'], $ref['referee_id'], $ref['first_name'], $ref['last_name'], $ref['email'], $ref['phone'], $ref['home_club_id'], $ref['home_location_city'], $ref['grade'], $ref['ar_grade'], $ref['home_lat'], $ref['home_lon']]);
 }
 
 echo "Referees seeded.\n";
@@ -219,7 +221,7 @@ $matches = [];
 $districts = ['Noord', 'Zuid', 'Oost', 'West', 'Midden'];
 $poules = ['Cup', 'Plate', 'Bowl', 'Shield'];
 
-for ($i = 1; $i <= 2500; $i++) {
+for ($i = 1; $i <= 400; $i++) {
     $homeTeam = $teams[array_rand($teams)];
     $awayTeam = $teams[array_rand($teams)];
 
@@ -230,7 +232,7 @@ for ($i = 1; $i <= 2500; $i++) {
 
     // Generate random Saturday or Sunday within the next 6 months
     $startDate = strtotime("next Saturday");
-    $endDate = strtotime("+6 months", $startDate);
+    $endDate = strtotime("+8 months", $startDate);
     $randomTimestamp = rand($startDate, $endDate); // Use a more descriptive variable name
 
     // Ensure it's Saturday or Sunday

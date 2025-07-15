@@ -1,286 +1,453 @@
 <?php
+/**
+ * suggest_assignments.php
+ *
+ * Suggests referee assignments for filtered matches, avoiding red conflicts (time overlaps, different locations)
+ * and minimizing orange conflicts (same-day non-overlapping). Enforces daily/weekly limits, prioritizes higher-grade
+ * referees with fewer assignments, and respects availability and max travel distance.
+ *
+ * If no perfect fit, relaxes to allow orange and selects the "best" referee based on score (grade, distance, load).
+ * Never allows red conflicts.
+ *
+ * Input: GET filters (e.g., dates, divisions) for matches.
+ * Output: JSON of suggestions {match_uuid: {role: ref_uuid}}.
+ *
+ * Limitations:
+ * - Suggestions only for filtered matches; conflicts consider all existing assignments.
+ * - Distance is straight-line (Haversine); no driving routes.
+ * - Weekly limit is hard cap; no soft preferences.
+ * - "Best" is scored; may not always be optimal without full optimization.
+ *
+ * Usage: Call via AJAX from matches.js with current filters.
+ */
+
 require_once __DIR__ . '/../utils/session_auth.php';
 require_once __DIR__ . '/../utils/db.php';
 
 $pdo = Database::getConnection();
 
-// Function copied from php/public/components/referee_dropdown.php
-function isRefereeAvailable($refId, $matchDate, $kickoffTime, $pdo) {
-    // 1. Check for hard-blocked dates
-    $stmt = $pdo->prepare("
-        SELECT 1 FROM referee_unavailability
-        WHERE referee_id = :refId AND :matchDate BETWEEN start_date AND end_date
-        LIMIT 1
-    ");
-    $stmt->execute(['refId' => $refId, 'matchDate' => $matchDate]);
-    if ($stmt->fetch()) return false;
+// Constants for configuration
+const MAX_GAMES_PER_DAY = 2;
+const MAX_GAMES_PER_WEEK = 4; // Weekly cap
+const MATCH_DURATION_MINUTES = 90;
+const BUFFER_MINUTES = 30;
+const ROLES = ['referee_id', 'ar1_id', 'ar2_id']; // Removed commissioner_id
 
-    // 2. Check weekly availability
-    $weekday = date('w', strtotime($matchDate)); // Sunday = 0 ... Saturday = 6
-    $time = strtotime($kickoffTime);
-    $hour = (int)date('H', $time);
+// Grade order for non-numeric grades
+const GRADE_ORDER = ['A' => 4, 'B' => 3, 'C' => 2, 'D' => 1, '' => 0];
 
-    // Determine slot
-    if ($hour < 12) $slot = 'morning_available';
-    elseif ($hour < 17) $slot = 'afternoon_available';
-    else $slot = 'evening_available';
+$testingMode = isset($_GET['testing']) && $_GET['testing'] === 'true';
 
-    $stmt = $pdo->prepare("
-        SELECT $slot FROM referee_weekly_availability
-        WHERE referee_id = :refId AND weekday = :weekday
-        LIMIT 1
-    ");
-    $stmt->execute(['refId' => $refId, 'weekday' => $weekday]);
+// Build WHERE clause for filtered matches (role-based + GET filters)
+$whereClauses = [];
+$params = [];
 
-    $row = $stmt->fetch();
-    return $row && $row[$slot]; // true if set
+$userRole = $_SESSION['user_role'] ?? null;
+$userDivisionIds = $_SESSION['division_ids'] ?? [];
+$userDistrictIds = $_SESSION['district_ids'] ?? [];
+
+$allowedDivisionNames = [];
+$allowedDistrictNames = [];
+$loadMatches = true;
+
+if ($userRole !== 'super_admin') {
+    if (!empty($userDivisionIds) && !(count($userDivisionIds) === 1 && $userDivisionIds[0] === '')) {
+        $placeholders = implode(',', array_fill(0, count($userDivisionIds), '?'));
+        $stmtDiv = $pdo->prepare("SELECT name FROM divisions WHERE id IN ($placeholders)");
+        $stmtDiv->execute($userDivisionIds);
+        $allowedDivisionNames = $stmtDiv->fetchAll(PDO::FETCH_COLUMN);
+    }
+
+    if (!empty($userDistrictIds) && !(count($userDistrictIds) === 1 && $userDistrictIds[0] === '')) {
+        $placeholders = implode(',', array_fill(0, count($userDistrictIds), '?'));
+        $stmtDist = $pdo->prepare("SELECT name FROM districts WHERE id IN ($placeholders)");
+        $stmtDist->execute($userDistrictIds);
+        $allowedDistrictNames = $stmtDist->fetchAll(PDO::FETCH_COLUMN);
+    }
+
+    if (empty($allowedDivisionNames) || empty($allowedDistrictNames)) {
+        $loadMatches = false;
+    } else {
+        $divisionPlaceholders = implode(',', array_fill(0, count($allowedDivisionNames), '?'));
+        $whereClauses[] = "division IN ($divisionPlaceholders)";
+        $params = array_merge($params, $allowedDivisionNames);
+
+        $districtPlaceholders = implode(',', array_fill(0, count($allowedDistrictNames), '?'));
+        $whereClauses[] = "district IN ($districtPlaceholders)";
+        $params = array_merge($params, $allowedDistrictNames);
+    }
 }
 
-$testingMode = false; // Changed default to false
+if (!empty($_GET['start_date'])) {
+    $whereClauses[] = "match_date >= ?";
+    $params[] = $_GET['start_date'];
+}
 
-// Load referees
-$referees = $pdo->query("SELECT uuid, grade FROM referees ORDER BY grade DESC")->fetchAll(PDO::FETCH_ASSOC);
+if (!empty($_GET['end_date'])) {
+    $whereClauses[] = "match_date <= ?";
+    $params[] = $_GET['end_date'];
+}
 
-// Load matches
-$matches = $pdo->query("
+foreach (['division', 'district', 'poule', 'location', 'referee_assigner'] as $filter) {
+    if (!empty($_GET[$filter]) && is_array($_GET[$filter])) {
+        $placeholders = implode(',', array_fill(0, count($_GET[$filter]), '?'));
+        $whereClauses[] = "$filter IN ($placeholders)";
+        $params = array_merge($params, $_GET[$filter]);
+    }
+}
+
+$whereSQL = count($whereClauses) ? 'WHERE ' . implode(' AND ', $whereClauses) : '';
+
+// Load filtered matches
+$matches = [];
+if ($loadMatches) {
+    $stmt = $pdo->prepare("
+        SELECT 
+            uuid,
+            match_date,
+            kickoff_time,
+            location_lat,
+            location_lon,
+            division
+        FROM matches
+        $whereSQL
+        ORDER BY match_date ASC, kickoff_time ASC
+    ");
+    $stmt->execute($params);
+    $matches = $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+error_log('Number of matches loaded: ' . count($matches));
+
+if (empty($matches)) {
+    header('Content-Type: application/json');
+    echo json_encode(['error' => 'No matches found in filtered view']);
+    exit;
+}
+
+// Pre-compute kickoff_minutes and week_key
+foreach ($matches as &$match) {
+    list($h, $m) = explode(':', $match['kickoff_time']);
+    $match['kickoff_minutes'] = (int)$h * 60 + (int)$m;
+    $match['week_key'] = date('oW', strtotime($match['match_date'])); // ISO week
+}
+unset($match);
+
+// Load ALL existing assignments for conflicts
+$existingAssignments = [];
+if (!$testingMode) {
+    $existingAssignments = $pdo->query("
+        SELECT 
+            uuid AS match_id, match_date, kickoff_time, location_lat, location_lon,
+            referee_id, ar1_id, ar2_id, commissioner_id
+        FROM matches
+        WHERE referee_id IS NOT NULL OR ar1_id IS NOT NULL OR ar2_id IS NOT NULL OR commissioner_id IS NOT NULL
+    ")->fetchAll(PDO::FETCH_ASSOC);
+
+    foreach ($existingAssignments as &$assign) {
+        list($h, $m) = explode(':', $assign['kickoff_time']);
+        $assign['kickoff_minutes'] = (int)$h * 60 + (int)$m;
+        $assign['week_key'] = date('oW', strtotime($assign['match_date']));
+    }
+    unset($assign);
+}
+
+error_log('Number of existing assignments: ' . count($existingAssignments));
+
+// Process existing for per-ref per-date/week
+$existingAssignmentsByDateRef = [];
+$existingAssignmentsByWeekRef = [];
+$existingMatchDetailsByDateRef = [];
+foreach ($existingAssignments as $assignment) {
+    $date = $assignment['match_date'];
+    $week = $assignment['week_key'];
+    foreach (ROLES as $role) {
+        $refId = $assignment[$role] ?? null;
+        if ($refId) {
+            $existingAssignmentsByDateRef[$date][$refId] = ($existingAssignmentsByDateRef[$date][$refId] ?? 0) + 1;
+            $existingAssignmentsByWeekRef[$week][$refId] = ($existingAssignmentsByWeekRef[$week][$refId] ?? 0) + 1;
+
+            $existingMatchDetailsByDateRef[$date][$refId][] = [
+                'kickoff_minutes' => $assignment['kickoff_minutes'],
+                'location_lat' => $assignment['location_lat'],
+                'location_lon' => $assignment['location_lon']
+            ];
+        }
+    }
+}
+
+// Load referees with travel data (fixed UUID ambiguity)
+$referees = $pdo->query("
     SELECT 
-        m.uuid,
-        m.match_date,
-        m.kickoff_time,
-        m.location_lat,
-        m.location_lon,
-        m.division
-    FROM matches m
-    ORDER BY m.match_date ASC, m.kickoff_time ASC
+        r.uuid, 
+        r.grade, 
+        IFNULL(r.home_lat, c.precise_location_lat) AS home_lat, 
+        IFNULL(r.home_lon, c.precise_location_lon) AS home_lon, 
+        r.max_travel_distance 
+    FROM referees r 
+    LEFT JOIN clubs c ON r.home_club_id = c.uuid 
+    ORDER BY r.grade DESC
 ")->fetchAll(PDO::FETCH_ASSOC);
 
-// Load existing assignments
-$dbExistingAssignments = [];
-if (!$testingMode) {
-    $dbExistingAssignments = $pdo->query("
-        SELECT uuid AS match_id, match_date, referee_id, ar1_id, ar2_id
-        FROM matches
-        WHERE referee_id IS NOT NULL OR ar1_id IS NOT NULL OR ar2_id IS NOT NULL
-    ")->fetchAll(PDO::FETCH_ASSOC);
+error_log('Number of referees loaded: ' . count($referees));
+
+// Pre-fetch unavailability/weekly
+$unavailability = [];
+$stmt = $pdo->query("SELECT referee_id, start_date, end_date FROM referee_unavailability");
+while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+    $unavailability[$row['referee_id']][] = $row;
 }
 
-// Process existing assignments to count games per ref per day
-$existingAssignmentsByDateRef = [];
-foreach ($dbExistingAssignments as $assignment) {
-    $date = $assignment['match_date'];
-    foreach (['referee_id', 'ar1_id', 'ar2_id'] as $role) {
-        $refId = $assignment[$role];
-        if ($refId) {
-            if (!isset($existingAssignmentsByDateRef[$date][$refId])) {
-                $existingAssignmentsByDateRef[$date][$refId] = 0;
-            }
-            $existingAssignmentsByDateRef[$date][$refId]++;
-        }
+$weekly = [];
+$stmt = $pdo->query("SELECT referee_id, weekday, morning_available, afternoon_available, evening_available FROM referee_weekly_availability");
+while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+    $weekly[$row['referee_id']][$row['weekday']] = $row;
+}
+
+// Cache availability
+$availabilityCache = [];
+foreach ($referees as $ref) {
+    $refId = $ref['uuid'];
+    $availabilityCache[$refId] = [];
+    foreach ($matches as $match) {
+        $availabilityCache[$refId][$match['uuid']] = isRefereeAvailable($refId, $match['match_date'], $match['kickoff_time'], $unavailability, $weekly);
     }
 }
 
-// Keeps track of how many games a referee has been *suggested* in this run
-$suggestedAssignmentsCountThisRun = array_fill_keys(array_map(function($r){ return $r['uuid']; }, $referees), 0);
-
-
-function canAssign($refId, $matchId, $matchDate, $kickoffTime, $locationLat, $locationLon, &$suggestions, $matches, $currentRole, $existingAssignmentsOnDateForRef) {
-    // $existingAssignmentsOnDateForRef is the count of existing assignments for $refId on $matchDate
-
-    $rolesInMatch = ['referee_id', 'ar1_id', 'ar2_id'];
-    $maxGamesPerDay = 2;
-
-    foreach ($rolesInMatch as $role) {
-        if ($role === $currentRole) continue;
-        if (!empty($suggestions[$matchId][$role]) && $suggestions[$matchId][$role] === $refId) {
-            return false;
-        }
-    }
-
-    // Define match duration and buffer in minutes
-    $matchDurationMinutes = 90;
-    $bufferMinutes = 30;
-    $totalMatchTimeMinutes = $matchDurationMinutes + $bufferMinutes;
-
-    // Convert current match kickoff time to a comparable format (minutes from midnight)
-    list($currentHours, $currentMinutes) = explode(':', $kickoffTime);
-    $currentMatchStartTimeMinutes = $currentHours * 60 + $currentMinutes;
-    $currentMatchEndTimeMinutes = $currentMatchStartTimeMinutes + $matchDurationMinutes;
-
-    // Count games for this referee on this specific day from current suggestions
-    $suggestedGamesThisDay = 0;
-    foreach ($suggestions as $s_matchId => $s_assignedRoles) {
-        if ($s_matchId === $matchId) continue; // Don't count the match currently being assigned against itself here
-
-        $s_matchDetails = null;
-        foreach($matches as $m_detail) {
-            if ($m_detail['uuid'] === $s_matchId) {
-                $s_matchDetails = $m_detail;
-                break;
-            }
-        }
-        if ($s_matchDetails && $s_matchDetails['match_date'] === $matchDate) {
-            foreach ($rolesInMatch as $role) {
-                if (!empty($s_assignedRoles[$role]) && $s_assignedRoles[$role] === $refId) {
-                    $suggestedGamesThisDay++;
-                    break; // count match only once even if ref has multiple roles (should be prevented by first check)
-                }
-            }
-        }
-    }
-
-    $totalGamesThisDayByThisRef = $existingAssignmentsOnDateForRef + $suggestedGamesThisDay;
-
-    if ($totalGamesThisDayByThisRef >= $maxGamesPerDay) {
-        return false; // Already at or over daily limit
-    }
-
-    // This loop checks for conflicts with *other suggested* assignments for the same ref on the same day.
-    foreach ($suggestions as $otherMatchId => $assignedRoles) {
-        // Check if the referee is assigned to any role in this other suggested match
-        // This check is vital for location and time conflict for the *next* potential game.
-        $isRefAssignedToOtherMatch = false;
-        foreach ($rolesInMatch as $role) {
-            if (!empty($assignedRoles[$role]) && $assignedRoles[$role] === $refId) {
-                $isRefAssignedToOtherMatch = true;
-                break;
-            }
-        }
-
-        if (!$isRefAssignedToOtherMatch) {
-            continue;
-        }
-
-        // Find the details of this other match
-        $otherMatchDetails = null;
-        foreach ($matches as $m) {
-            if ($m['uuid'] === $otherMatchId) {
-                $otherMatchDetails = $m;
-                break;
-            }
-        }
-
-        if (!$otherMatchDetails) continue; // Should not happen if suggestions are clean
-
-        // Check for same day conflict
-        if ($otherMatchDetails['match_date'] === $matchDate) {
-            // If locations are different, cannot assign
-            if ($otherMatchDetails['location_lat'] != $locationLat || $otherMatchDetails['location_lon'] != $locationLon) {
-                return false; // Different location on the same day
-            } else {
-                // Same location, same day: Check for time overlap
-                list($otherHours, $otherMinutes) = explode(':', $otherMatchDetails['kickoff_time']);
-                $otherAssignedMatchStartTimeMinutes = $otherHours * 60 + $otherMinutes;
-                $otherAssignedMatchEndTimeMinutes = $otherAssignedMatchStartTimeMinutes + $matchDurationMinutes;
-
-                // Check for overlap:
-                // New match starts during or too close to other match:
-                // current_start is between (other_start - buffer) and (other_end + buffer)
-                // Other match starts during or too close to new match:
-                // other_start is between (current_start - buffer) and (current_end + buffer)
-
-                $currentStartCheck = $currentMatchStartTimeMinutes;
-                $currentEndCheck = $currentMatchEndTimeMinutes;
-                $otherStartCheck = $otherAssignedMatchStartTimeMinutes;
-                $otherEndCheck = $otherAssignedMatchEndTimeMinutes;
-
-                // Condition for overlap:
-                // (current_start < other_end + buffer) AND (other_start < current_end + buffer)
-                if ($currentStartCheck < ($otherEndCheck + $bufferMinutes) && $otherStartCheck < ($currentEndCheck + $bufferMinutes)) {
-                    return false; // Time overlap
-                }
-            }
-        }
-    }
-
-    return true;
-}
-
-// Group matches by date
+// Group filtered matches by date
 $matchesByDate = [];
 foreach ($matches as $match) {
     $matchesByDate[$match['match_date']][] = $match;
 }
 
-// Initialize suggestions structure
+// Initialize suggestions
 $suggestions = [];
 foreach ($matches as $match) {
-    $suggestions[$match['uuid']] = [
-        'referee_id' => null,
-        'ar1_id' => null,
-        'ar2_id' => null
-    ];
+    $suggestions[$match['uuid']] = array_fill_keys(ROLES, null);
 }
 
-// Helper function to attempt assignment for a role, match, and pass
-function attemptAssignment(
-    string $roleToAssign, // 'referee_id', 'ar1_id', 'ar2_id'
-    array &$matchDetails, // current match being processed
-    array $referees,      // list of all referees
-    &$suggestions,         // all suggestions
-    &$suggestedAssignmentsCountThisRun, // games suggested in this run per ref
-    $matches, // all matches (for canAssign context)
-    $existingAssignmentsByDateRef, // existing assignments grouped by date and ref
-    $pdo,                  // DB connection
-    int $pass             // 1 for first game, 2 for second game
-) {
-    if ($suggestions[$matchDetails['uuid']][$roleToAssign] !== null) {
-        return; // Role already filled
+// Suggested counts this run (global, since weekly spans multiple days)
+$suggestedAssignmentsCountThisRun = array_fill_keys(array_column($referees, 'uuid'), 0);
+
+// Suggested details by date by ref
+$suggestedMatchDetailsByDateRef = [];
+
+// Availability function
+function isRefereeAvailable($refId, $matchDate, $kickoffTime, $unavailability, $weekly) {
+    if (isset($unavailability[$refId])) {
+        foreach ($unavailability[$refId] as $u) {
+            if ($matchDate >= $u['start_date'] && $matchDate <= $u['end_date']) {
+                return false;
+            }
+        }
     }
 
-    $matchDate = $matchDetails['match_date'];
+    $weekday = date('w', strtotime($matchDate));
+    $hour = (int)date('H', strtotime($kickoffTime));
+    $slot = $hour < 12 ? 'morning_available' : ($hour < 17 ? 'afternoon_available' : 'evening_available');
 
+    return isset($weekly[$refId][$weekday]) && (bool)$weekly[$refId][$weekday][$slot];
+}
+
+// Haversine for distance
+function haversine($lat1, $lon1, $lat2, $lon2) {
+    $R = 6371; // km
+    $dlat = deg2rad($lat2 - $lat1);
+    $dlon = deg2rad($lon2 - $lon1);
+    $a = sin($dlat / 2) * sin($dlat / 2) + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin($dlon / 2) * sin($dlon / 2);
+    $c = 2 * atan2(sqrt($a), sqrt(1 - $a));
+    return $R * $c;
+}
+
+// canAssign function (returns false or score; higher score = better)
+function canAssign($refId, $matchId, $matchDate, $matchWeek, $kickoffMinutes, $locationLat, $locationLon, $currentRole, $existingAssignmentsByDateRef, $existingMatchDetailsByDateRef, $existingAssignmentsByWeekRef, $suggestedAssignmentsCountThisRun, $suggestedMatchDetailsByDateRef, $allowOrange, $referees) {
+    // Find ref data
+    $refData = null;
+    foreach ($referees as $r) {
+        if ($r['uuid'] === $refId) {
+            $refData = $r;
+            break;
+        }
+    }
+    if (!$refData) return false;
+
+    // Check travel distance
+    $distance = INF;
+    if ($locationLat && $refData['home_lat']) {
+        $distance = haversine($refData['home_lat'], $refData['home_lon'], $locationLat, $locationLon);
+        if ($distance > ($refData['max_travel_distance'] ?? INF)) {
+            error_log("Ref $refId skipped for match $matchId: Distance $distance > max " . $refData['max_travel_distance']);
+            return false;
+        }
+    }
+
+    // Weekly limit (hard)
+    $existingGamesThisWeek = $existingAssignmentsByWeekRef[$matchWeek][$refId] ?? 0;
+    $totalGamesThisWeek = $existingGamesThisWeek + $suggestedAssignmentsCountThisRun[$refId] + 1;
+    if ($totalGamesThisWeek > MAX_GAMES_PER_WEEK) {
+        error_log("Ref $refId skipped for match $matchId: Weekly limit exceeded (total $totalGamesThisWeek)");
+        return false;
+    }
+
+    // Daily limit (hard)
+    $existingGamesThisDay = $existingAssignmentsByDateRef[$matchDate][$refId] ?? 0;
+    $suggestedGamesThisDay = count($suggestedMatchDetailsByDateRef[$matchDate][$refId] ?? []);
+    $totalGamesThisDay = $existingGamesThisDay + $suggestedGamesThisDay + 1;
+    if ($totalGamesThisDay > MAX_GAMES_PER_DAY) {
+        error_log("Ref $refId skipped for match $matchId: Daily limit exceeded (total $totalGamesThisDay)");
+        return false;
+    }
+
+    $currentEndMinutes = $kickoffMinutes + MATCH_DURATION_MINUTES;
+
+    $isOrange = false;
+
+    // Check suggested conflicts
+    $suggestedDetails = $suggestedMatchDetailsByDateRef[$matchDate][$refId] ?? [];
+    foreach ($suggestedDetails as $sDetail) {
+        if (($locationLat !== null || $sDetail['location_lat'] !== null) && ($locationLat !== $sDetail['location_lat'] || $locationLon !== $sDetail['location_lon'])) {
+            error_log("Ref $refId skipped for match $matchId: Red - Different location");
+            return false; // Red
+        }
+
+        $otherEndMinutes = $sDetail['kickoff_minutes'] + MATCH_DURATION_MINUTES;
+        if ($kickoffMinutes < ($otherEndMinutes + BUFFER_MINUTES) && $sDetail['kickoff_minutes'] < ($currentEndMinutes + BUFFER_MINUTES)) {
+            error_log("Ref $refId skipped for match $matchId: Red - Time overlap (suggested)");
+            return false; // Red
+        }
+
+        $isOrange = true;
+    }
+
+    // Check existing conflicts
+    $existingDetails = $existingMatchDetailsByDateRef[$matchDate][$refId] ?? [];
+    foreach ($existingDetails as $eDetail) {
+        if (($locationLat !== null || $eDetail['location_lat'] !== null) && ($locationLat !== $eDetail['location_lat'] || $locationLon !== $eDetail['location_lon'])) {
+            error_log("Ref $refId skipped for match $matchId: Red - Different location (existing)");
+            return false; // Red
+        }
+
+        $otherEndMinutes = $eDetail['kickoff_minutes'] + MATCH_DURATION_MINUTES;
+        if ($kickoffMinutes < ($otherEndMinutes + BUFFER_MINUTES) && $eDetail['kickoff_minutes'] < ($currentEndMinutes + BUFFER_MINUTES)) {
+            error_log("Ref $refId skipped for match $matchId: Red - Time overlap (existing)");
+            return false; // Red
+        }
+
+        $isOrange = true;
+    }
+
+    if ($isOrange && !$allowOrange) {
+        error_log("Ref $refId skipped for match $matchId: Orange not allowed");
+        return false;
+    }
+
+    // Calculate score for "best" (higher = better)
+    $gradeScore = is_numeric($refData['grade']) ? (int)$refData['grade'] : (GRADE_ORDER[$refData['grade']] ?? 0);
+    $loadScore = MAX_GAMES_PER_WEEK - $suggestedAssignmentsCountThisRun[$refId]; // Prefer less loaded
+    $distanceScore = $distance === INF ? 0 : (1 / (1 + $distance)); // Prefer closer (0-1 normalized)
+
+    $score = $gradeScore * 10 + $loadScore * 5 + $distanceScore; // Weighted score
+    error_log("Ref $refId eligible for match $matchId: Score $score (grade $gradeScore, load $loadScore, distance $distance)");
+
+    return $score;
+}
+
+// attemptAssignment function (updated for best match)
+function attemptAssignment(
+    $role,
+    &$match,
+    $referees,
+    &$suggestions,
+    &$suggestedAssignmentsCountThisRun,
+    $existingAssignmentsByDateRef,
+    $existingMatchDetailsByDateRef,
+    $existingAssignmentsByWeekRef,
+    $availabilityCache,
+    $pass,
+    &$suggestedMatchDetailsByDateRef,
+    $allowOrange = false
+) {
+    $matchId = $match['uuid'];
+    if ($suggestions[$matchId][$role] !== null) return;
+
+    $matchDate = $match['match_date'];
+    $matchWeek = $match['week_key'];
+
+    error_log("Attempting assignment for match $matchId, role $role, pass $pass, allowOrange " . ($allowOrange ? 'true' : 'false'));
+
+    // Collect eligible refs with scores
+    $eligibleRefs = [];
     foreach ($referees as $ref) {
         $refId = $ref['uuid'];
 
-        // Rule 3: "One game per referee before second"
-        $gamesSuggestedThisRunForRef = $suggestedAssignmentsCountThisRun[$refId] ?? 0;
+        if ($pass === 1 && $suggestedAssignmentsCountThisRun[$refId] > 0) continue;
 
-        if ($pass === 1 && $gamesSuggestedThisRunForRef > 0) {
-            continue; // In pass 1, only assign to refs with 0 games suggested in this run
-        }
-        // In pass 2, we allow assignment if they have 0 or 1 game from this run.
-        // canAssign will handle the overall daily limit (max 2, considering existing and current suggestions).
-
-        if (!isRefereeAvailable($refId, $matchDate, $matchDetails['kickoff_time'], $pdo)) {
+        if (!$availabilityCache[$refId][$matchId]) {
+            error_log("Ref $refId skipped for match $matchId: Not available");
             continue;
         }
 
-        // This is the crucial 10th argument for canAssign
-        $existingGamesCountOnDateForRef = $existingAssignmentsByDateRef[$matchDate][$refId] ?? 0;
-
-        // Ensure all 10 arguments are passed to canAssign:
-        if (canAssign($refId, $matchDetails['uuid'], $matchDate, $matchDetails['kickoff_time'], $matchDetails['location_lat'], $matchDetails['location_lon'], $suggestions, $matches, $roleToAssign, $existingGamesCountOnDateForRef)) {
-            $suggestions[$matchDetails['uuid']][$roleToAssign] = $refId;
-            $suggestedAssignmentsCountThisRun[$refId]++;
-            break; // Referee found for this role in this match
+        $score = canAssign($refId, $matchId, $matchDate, $matchWeek, $match['kickoff_minutes'], $match['location_lat'], $match['location_lon'], $role, $existingAssignmentsByDateRef, $existingMatchDetailsByDateRef, $existingAssignmentsByWeekRef, $suggestedAssignmentsCountThisRun, $suggestedMatchDetailsByDateRef, $allowOrange, $referees);
+        if ($score !== false) {
+            $eligibleRefs[] = ['refId' => $refId, 'score' => $score];
         }
+    }
+
+    error_log("Eligible refs for match $matchId, role $role: " . count($eligibleRefs));
+
+    if (!empty($eligibleRefs)) {
+        // Sort by score descending
+        usort($eligibleRefs, function($a, $b) {
+            return $b['score'] - $a['score'];
+        });
+
+        $bestRefId = $eligibleRefs[0]['refId'];
+        $bestScore = $eligibleRefs[0]['score'];
+        error_log("Best ref for match $matchId, role $role: $bestRefId with score $bestScore");
+
+        $suggestions[$matchId][$role] = $bestRefId;
+        $suggestedAssignmentsCountThisRun[$bestRefId]++;
+
+        if (!isset($suggestedMatchDetailsByDateRef[$matchDate][$bestRefId])) $suggestedMatchDetailsByDateRef[$matchDate][$bestRefId] = [];
+        $suggestedMatchDetailsByDateRef[$matchDate][$bestRefId][] = [
+            'kickoff_minutes' => $match['kickoff_minutes'],
+            'location_lat' => $match['location_lat'],
+            'location_lon' => $match['location_lon']
+        ];
+    } else {
+        error_log("No eligible refs for match $matchId, role $role");
     }
 }
 
 // Process day by day
-foreach ($matchesByDate as $date => &$dayMatches) { // Use reference to sort in place
-    // Sort matches by division (alphabetically - limitation acknowledged)
+foreach ($matchesByDate as $date => &$dayMatches) {
     usort($dayMatches, function($a, $b) {
+        $aNum = preg_match('/\d+/', $a['division'], $m) ? (int)$m[0] : 0;
+        $bNum = preg_match('/\d+/', $b['division'], $m) ? (int)$m[0] : 0;
+        if ($aNum !== $bNum) return $bNum - $aNum;
         return strcmp($a['division'], $b['division']);
     });
 
-    $rolesToAssignInOrder = ['referee_id', 'ar1_id', 'ar2_id'];
-
-    foreach ($rolesToAssignInOrder as $role) {
-        // Pass 1: Assign first game for this role
-        foreach ($dayMatches as &$match) {
-            attemptAssignment($role, $match, $referees, $suggestions, $suggestedAssignmentsCountThisRun, $matches, $existingAssignmentsByDateRef, $pdo, 1);
+    foreach (ROLES as $role) {
+        for ($pass = 1; $pass <= 2; $pass++) {
+            foreach ($dayMatches as &$match) {
+                attemptAssignment($role, $match, $referees, $suggestions, $suggestedAssignmentsCountThisRun, $existingAssignmentsByDateRef, $existingMatchDetailsByDateRef, $existingAssignmentsByWeekRef, $availabilityCache, $pass, $suggestedMatchDetailsByDateRef, false);
+            }
+            unset($match);
         }
-        unset($match); // release reference
 
-        // Pass 2: Assign second game for this role (respecting daily limits via canAssign)
         foreach ($dayMatches as &$match) {
-            attemptAssignment($role, $match, $referees, $suggestions, $suggestedAssignmentsCountThisRun, $matches, $existingAssignmentsByDateRef, $pdo, 2);
+            if ($suggestions[$match['uuid']][$role] === null) {
+                attemptAssignment($role, $match, $referees, $suggestions, $suggestedAssignmentsCountThisRun, $existingAssignmentsByDateRef, $existingMatchDetailsByDateRef, $existingAssignmentsByWeekRef, $availabilityCache, 3, $suggestedMatchDetailsByDateRef, true);
+            }
         }
-        unset($match); // release reference
+        unset($match);
     }
 }
-unset($dayMatches); // release reference
+unset($dayMatches);
+
+error_log('Final suggestions: ' . json_encode($suggestions));
 
 header('Content-Type: application/json');
 echo json_encode($suggestions, JSON_PRETTY_PRINT);
+?>

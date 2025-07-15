@@ -1,5 +1,8 @@
+// matches.js (Full Updated File with Full Conflict Refresh on Suggestions)
+
 let currentFilters = {};
-let tempSelected = {}; // Temporary selections per filter
+let tempSelected = {};
+let suggestedAssignments = {};
 
 function initializeCurrentFiltersFromURL() {
     const params = new URLSearchParams(window.location.search);
@@ -52,6 +55,8 @@ function fetchAndUpdateMatches() {
             if (tableBody) {
                 tableBody.innerHTML = html;
                 initializeSelect2AndEvents();
+                reapplySuggestions();
+                window.fullRefreshConflicts(); // Ensure conflicts are rechecked
             } else {
                 console.error('Error: matchesTableBody element not found.');
             }
@@ -59,6 +64,20 @@ function fetchAndUpdateMatches() {
         .catch(error => {
             console.error('Error fetching or updating matches:', error);
         });
+}
+
+function reapplySuggestions() {
+    for (const matchId in suggestedAssignments) {
+        for (const role in suggestedAssignments[matchId]) {
+            const refId = suggestedAssignments[matchId][role];
+            const select = document.querySelector(`select[name="assignments[${matchId}][${role}]"]`);
+            if (select) {
+                select.value = refId ?? "";
+                const event = new Event('change', { bubbles: true });
+                select.dispatchEvent(event);
+            }
+        }
+    }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -223,6 +242,8 @@ document.getElementById('clearAssignments')?.addEventListener('click', () => {
         const event = new Event('change', { bubbles: true });
         select.dispatchEvent(event);
     });
+    suggestedAssignments = {};
+    window.fullRefreshConflicts(); // Full refresh after clearing
 });
 
 document.getElementById('suggestAssignments')?.addEventListener('click', (event) => {
@@ -231,7 +252,10 @@ document.getElementById('suggestAssignments')?.addEventListener('click', (event)
     suggestButton.disabled = true;
     suggestButton.textContent = 'Suggesting...';
 
-    fetch('suggest_assignments.php')
+    const params = buildParamsFromCurrentFilters();
+    const queryString = params.toString();
+
+    fetch(`suggest_assignments.php${queryString ? '?' + queryString : ''}`)
         .then(response => {
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
@@ -239,10 +263,21 @@ document.getElementById('suggestAssignments')?.addEventListener('click', (event)
             return response.json();
         })
         .then(data => {
+            if (data.error) {
+                alert(data.error);
+                return;
+            }
+            // Apply to dropdowns and store in global object
             for (const matchId in data) {
+                if (!suggestedAssignments[matchId]) {
+                    suggestedAssignments[matchId] = {};
+                }
                 const matchSuggestions = data[matchId];
+
                 for (const role in matchSuggestions) {
                     const refId = matchSuggestions[role];
+                    suggestedAssignments[matchId][role] = refId;
+
                     const select = document.querySelector(`select[name="assignments[${matchId}][${role}]"]`);
                     if (select) {
                         select.value = refId ?? "";
@@ -251,6 +286,7 @@ document.getElementById('suggestAssignments')?.addEventListener('click', (event)
                     }
                 }
             }
+            window.fullRefreshConflicts(); // Full refresh after suggestions
         })
         .catch(error => {
             console.error('Error fetching suggestions:', error);
@@ -311,35 +347,6 @@ function applyFilter(paramName) {
         delete currentFilters[paramName];
     }
     fetchAndUpdateMatches();
-
-    const toggleId = `${paramName}FilterToggle`;
-    const toggleBtn = document.getElementById(toggleId);
-    if (toggleBtn) {
-        if (currentFilters[paramName] && currentFilters[paramName].length > 0) {
-            toggleBtn.classList.add('filter-active');
-        } else {
-            toggleBtn.classList.remove('filter-active');
-        }
-    }
-
-    const box = document.getElementById(`${paramName}FilterBox`);
-    if (box) {
-        box.classList.remove('show');
-    }
-}
-
-function loadFilterOptions(type, targetBoxId, targetHtmlId, checkboxClass, paramName) {
-    const selected = new URLSearchParams(window.location.search).getAll(paramName + '[]');
-    fetch(`/ajax/${type}_options.php?${new URLSearchParams({ [paramName + '[]']: selected })}`)
-        .then(res => res.text())
-        .then(html => {
-            document.getElementById(targetHtmlId).innerHTML = html;
-            document.querySelectorAll('.' + checkboxClass).forEach(cb => {
-                cb.addEventListener('change', () => {
-                    updateTempSelected(paramName, checkboxClass);
-                });
-            });
-        });
 }
 
 function initializeSelect2AndEvents() {
