@@ -32,7 +32,9 @@ CREATE TABLE IF NOT EXISTS referees (
     home_lat DECIMAL(10, 8) DEFAULT NULL,
     home_lon DECIMAL(11, 8) DEFAULT NULL,
     max_travel_distance INT,
-    FOREIGN KEY (home_club_id) REFERENCES clubs(uuid)
+    district_id INT,
+    FOREIGN KEY (home_club_id) REFERENCES clubs(uuid),
+    FOREIGN KEY (district_id) REFERENCES districts(id)
     );
 
 -- Referee Exempt Clubs Table
