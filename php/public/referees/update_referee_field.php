@@ -35,7 +35,8 @@ $allowedFields = [
     'home_location_city',
     'grade',
     'ar_grade',
-    'max_travel_distance' // Added new field
+    'max_travel_distance', // Added new field
+    'district_id'
 ];
 
 if (!in_array($fieldName, $allowedFields)) {
@@ -103,6 +104,22 @@ if ($fieldName === 'home_club_id') {
     if ($stmt->rowCount() === 0) {
         http_response_code(400);
         echo json_encode(['status' => 'error', 'message' => 'Invalid club selected.']);
+        exit;
+    }
+}
+
+// Further validation for district_id (check if district exists)
+if ($fieldName === 'district_id') {
+    if (empty($fieldValue)) {
+        http_response_code(400);
+        echo json_encode(['status' => 'error', 'message' => 'District cannot be empty.']);
+        exit;
+    }
+    $stmt = $pdo->prepare("SELECT id FROM districts WHERE id = ?");
+    $stmt->execute([$fieldValue]);
+    if ($stmt->rowCount() === 0) {
+        http_response_code(400);
+        echo json_encode(['status' => 'error', 'message' => 'Invalid district selected.']);
         exit;
     }
 }

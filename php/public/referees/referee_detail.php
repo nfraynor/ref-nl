@@ -14,9 +14,10 @@ if (!$refereeId) {
 
 // Fetch referee info
 $stmt = $pdo->prepare("
-    SELECT r.*, c.club_name 
+    SELECT r.*, c.club_name, d.name as district_name
     FROM referees r 
     LEFT JOIN clubs c ON r.home_club_id = c.uuid 
+    LEFT JOIN districts d ON r.district_id = d.id
     WHERE r.referee_id = ?
 ");
 $stmt->execute([$refereeId]);
@@ -233,6 +234,12 @@ if ($referee && isset($referee['uuid'])) { // Ensure $currentRefereeUuid is avai
                         <dd class="col-sm-9 editable-field">
                             <span class="display-value" data-field="home_location_city"><?= htmlspecialchars($referee['home_location_city']) ?></span>
                             <i class="bi bi-pencil-square edit-icon" data-field="home_location_city" style="cursor:pointer; margin-left: 5px;"></i>
+                        </dd>
+
+                        <dt class="col-sm-3">District</dt>
+                        <dd class="col-sm-9 editable-field" data-current-district-id="<?= htmlspecialchars($referee['district_id']) ?>">
+                            <span class="display-value" data-field="district_id"><?= htmlspecialchars($referee['district_name'] ?? 'N/A') ?></span>
+                            <i class="bi bi-pencil-square edit-icon" data-field="district_id" style="cursor:pointer; margin-left: 5px;"></i>
                         </dd>
 
                         <dt class="col-sm-3">Grade</dt>

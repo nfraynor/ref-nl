@@ -330,9 +330,14 @@ $referee_names = [
 echo "Seeding Referees...\n";
 $seeded_referees_count = 0;
 $existing_referees_count = 0;
+// Fetch districts for assignment
+$districts_stmt = $pdo->query("SELECT id FROM districts");
+$district_ids = $districts_stmt->fetchAll(PDO::FETCH_COLUMN);
+
 foreach ($referee_names as $index => $name) {
     $club = array_values($club_map)[array_rand(array_keys($club_map))];
     $ref_uuid = generate_uuid_v4();
+    $district_id = $district_ids[array_rand($district_ids)];
     $ref = [
         'uuid' => $ref_uuid,
         'referee_id' => 'REF' . str_pad($index + 1, 3, '0', STR_PAD_LEFT),
@@ -345,7 +350,8 @@ foreach ($referee_names as $index => $name) {
         'grade' => $grades[array_rand($grades)],
         'ar_grade' => $grades[array_rand($grades)],
         'home_lat' => $club['precise_location_lat'] + (mt_rand(-100, 100) / 10000),
-        'home_lon' => $club['precise_location_lon'] + (mt_rand(-100, 100) / 10000)
+        'home_lon' => $club['precise_location_lon'] + (mt_rand(-100, 100) / 10000),
+        'district_id' => $district_id
     ];
     $referees_data[] = $ref;
 
@@ -354,7 +360,7 @@ foreach ($referee_names as $index => $name) {
     if ($stmt_check_referee->fetch()) {
         $existing_referees_count++;
     } else {
-        $stmt_insert_referee = $pdo->prepare("INSERT IGNORE INTO referees (uuid, referee_id, first_name, last_name, email, phone, home_club_id, home_location_city, grade, ar_grade, home_lat, home_lon) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        $stmt_insert_referee = $pdo->prepare("INSERT IGNORE INTO referees (uuid, referee_id, first_name, last_name, email, phone, home_club_id, home_location_city, grade, ar_grade, home_lat, home_lon, district_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
         $stmt_insert_referee->execute([
             $ref['uuid'],
             $ref['referee_id'],
@@ -367,7 +373,8 @@ foreach ($referee_names as $index => $name) {
             $ref['grade'],
             $ref['ar_grade'],
             $ref['home_lat'],
-            $ref['home_lon']
+            $ref['home_lon'],
+            $ref['district_id']
         ]);
         $seeded_referees_count++;
     }

@@ -72,6 +72,41 @@ document.addEventListener('DOMContentLoaded', function () {
                         inputElement.innerHTML = '<option>Error loading clubs</option>';
                         displayMessage('Error loading clubs. Please try again.', 'danger');
                     });
+            } else if (fieldName === 'district_id') {
+                inputElement = document.createElement('select');
+                inputElement.classList.add('form-control', 'form-control-sm', 'mr-2');
+                inputElement.style.flexGrow = '1';
+                const currentDistrictId = ddElement.dataset.currentDistrictId;
+
+                // Add a default "loading" option
+                const loadingOption = document.createElement('option');
+                loadingOption.textContent = 'Loading districts...';
+                inputElement.appendChild(loadingOption);
+
+                fetch('../ajax/district_options.php')
+                    .then(response => response.json())
+                    .then(districts => {
+                        inputElement.innerHTML = ''; // Clear loading option
+                        const pleaseSelectOption = document.createElement('option');
+                        pleaseSelectOption.value = '';
+                        pleaseSelectOption.textContent = 'Please select a district';
+                        inputElement.appendChild(pleaseSelectOption);
+
+                        districts.forEach(district => {
+                            const option = document.createElement('option');
+                            option.value = district.id;
+                            option.textContent = district.name;
+                            if (district.id === currentDistrictId) {
+                                option.selected = true;
+                            }
+                            inputElement.appendChild(option);
+                        });
+                    })
+                    .catch(error => {
+                        console.error('Error fetching districts:', error);
+                        inputElement.innerHTML = '<option>Error loading districts</option>';
+                        displayMessage('Error loading districts. Please try again.', 'danger');
+                    });
             } else if (fieldName === 'grade' || fieldName === 'ar_grade') {
                 inputElement = document.createElement('select');
                 inputElement.classList.add('form-control', 'form-control-sm', 'mr-2');
@@ -151,6 +186,10 @@ document.addEventListener('DOMContentLoaded', function () {
                     displayMessage('Please select a club.', 'danger');
                     return;
                 }
+                if (fieldName === 'district_id' && !newValue) {
+                    displayMessage('Please select a district.', 'danger');
+                    return;
+                }
                 if (fieldName === 'max_travel_distance' && newValue.trim() !== '' && parseInt(newValue) < 0) {
                     displayMessage('Max travel distance cannot be negative.', 'danger');
                     return;
@@ -169,10 +208,17 @@ document.addEventListener('DOMContentLoaded', function () {
                     .then(response => response.json())
                     .then(data => {
                         if (data.status === 'success') {
-                            displayValueSpan.textContent = (fieldName === 'home_club_id' && inputElement.selectedIndex > 0) ? inputElement.options[inputElement.selectedIndex].text : newValue;
+                            if ((fieldName === 'home_club_id' || fieldName === 'district_id') && inputElement.selectedIndex > 0) {
+                                displayValueSpan.textContent = inputElement.options[inputElement.selectedIndex].text;
+                            } else {
+                                displayValueSpan.textContent = newValue;
+                            }
                             displayValueSpan.dataset.originalValue = newValue; // Update original value store
                             if(fieldName === 'home_club_id') {
                                 ddElement.dataset.currentClubId = newValue; // Update current club ID for next edit
+                            }
+                            if(fieldName === 'district_id') {
+                                ddElement.dataset.currentDistrictId = newValue;
                             }
                             displayMessage(data.message || 'Field updated successfully.', 'success');
                             toggleToViewMode();

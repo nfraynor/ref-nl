@@ -17,6 +17,31 @@ CREATE TABLE IF NOT EXISTS teams (
     FOREIGN KEY (club_id) REFERENCES clubs(uuid)
     );
 
+-- Users Table (Moved before Matches)
+CREATE TABLE IF NOT EXISTS users (
+    uuid CHAR(36) PRIMARY KEY,
+    username VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    role VARCHAR(50) DEFAULT NULL, -- e.g., 'super_admin', 'user_admin', or NULL/general_user if using specific permissions
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    );
+
+-- Divisions Table
+CREATE TABLE IF NOT EXISTS divisions (
+     id INT AUTO_INCREMENT PRIMARY KEY,
+     name VARCHAR(255) UNIQUE NOT NULL
+    );
+
+-- Districts Table
+CREATE TABLE IF NOT EXISTS districts (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    division_id INT NOT NULL,
+    FOREIGN KEY (division_id) REFERENCES divisions(id),
+    UNIQUE (name, division_id) -- Ensure district names are unique within a division
+    );
+
 -- Referees
 CREATE TABLE IF NOT EXISTS referees (
     uuid CHAR(36) PRIMARY KEY,
@@ -32,7 +57,9 @@ CREATE TABLE IF NOT EXISTS referees (
     home_lat DECIMAL(10, 8) DEFAULT NULL,
     home_lon DECIMAL(11, 8) DEFAULT NULL,
     max_travel_distance INT,
-    FOREIGN KEY (home_club_id) REFERENCES clubs(uuid)
+    district_id INT,
+    FOREIGN KEY (home_club_id) REFERENCES clubs(uuid),
+    FOREIGN KEY (district_id) REFERENCES districts(id)
     );
 
 -- Referee Exempt Clubs Table
@@ -67,31 +94,6 @@ CREATE TABLE IF NOT EXISTS referee_unavailability (
     created_by CHAR(36), -- optionally track who blocked it
 
     FOREIGN KEY (referee_id) REFERENCES referees(uuid)
-    );
-
--- Users Table (Moved before Matches)
-CREATE TABLE IF NOT EXISTS users (
-    uuid CHAR(36) PRIMARY KEY,
-    username VARCHAR(255) UNIQUE NOT NULL,
-    password_hash VARCHAR(255) NOT NULL,
-    role VARCHAR(50) DEFAULT NULL, -- e.g., 'super_admin', 'user_admin', or NULL/general_user if using specific permissions
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-    );
-
--- Divisions Table
-CREATE TABLE IF NOT EXISTS divisions (
-     id INT AUTO_INCREMENT PRIMARY KEY,
-     name VARCHAR(255) UNIQUE NOT NULL
-    );
-
--- Districts Table
-CREATE TABLE IF NOT EXISTS districts (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(255) NOT NULL,
-    division_id INT NOT NULL,
-    FOREIGN KEY (division_id) REFERENCES divisions(id),
-    UNIQUE (name, division_id) -- Ensure district names are unique within a division
     );
 
 -- User Permissions Table
