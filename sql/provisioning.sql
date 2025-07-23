@@ -1,3 +1,18 @@
+-- Divisions Table
+CREATE TABLE IF NOT EXISTS divisions (
+     id INT AUTO_INCREMENT PRIMARY KEY,
+     name VARCHAR(255) UNIQUE NOT NULL
+);
+
+-- Districts Table
+CREATE TABLE IF NOT EXISTS districts (
+     id INT AUTO_INCREMENT PRIMARY KEY,
+     name VARCHAR(255) NOT NULL,
+     division_id INT NOT NULL,
+     FOREIGN KEY (division_id) REFERENCES divisions(id),
+     UNIQUE (name, division_id) -- Ensure district names are unique within a division
+);
+
 -- Clubs
 CREATE TABLE IF NOT EXISTS clubs (
     uuid CHAR(36) PRIMARY KEY,
@@ -81,20 +96,6 @@ CREATE TABLE IF NOT EXISTS users (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     );
 
--- Divisions Table
-CREATE TABLE IF NOT EXISTS divisions (
-     id INT AUTO_INCREMENT PRIMARY KEY,
-     name VARCHAR(255) UNIQUE NOT NULL
-    );
-
--- Districts Table
-CREATE TABLE IF NOT EXISTS districts (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(255) NOT NULL,
-    division_id INT NOT NULL,
-    FOREIGN KEY (division_id) REFERENCES divisions(id),
-    UNIQUE (name, division_id) -- Ensure district names are unique within a division
-    );
 
 -- User Permissions Table
 CREATE TABLE IF NOT EXISTS user_permissions (
