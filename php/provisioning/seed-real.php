@@ -15,7 +15,8 @@ function generate_uuid_v4() {
 // ----- Seed Divisions and Districts -----
 echo "Seeding Divisions and Districts...\n";
 $divisions_districts_data = [
-    'Ereklasse' => ['National']
+    'Ereklasse' => ['National'],
+    '3e Klasse' => ['Noordwest', 'Zuidwest']
 ];
 
 $seeded_divisions_count = 0;
@@ -58,65 +59,136 @@ foreach ($divisions_districts_data as $division_name => $districts_array) {
 echo "Divisions: {$seeded_divisions_count} seeded, {$existing_divisions_count} already existed.\n";
 echo "Districts: {$seeded_districts_count} seeded, {$existing_districts_count} already existed.\n";
 
-// ----- Extract Data from Ereklasse Sheet -----
+// ----- Extract Data from Sheets -----
 $clubs_data = [];
 $locations_data = [];
 $teams_data = [];
 $matches_data = [];
 
-$ereklasse_matches = [
-    ['date' => '2025-09-06', 'time' => 0.625, 'location' => 'RC DIOK', 'home' => 'RC DIOK 1', 'away' => 'RC The Dukes 1'],
-    ['date' => '2025-09-06', 'time' => 0.625, 'location' => 'Sportpark Wouterland', 'home' => 'Cas RC 1', 'away' => 'RRC 1'],
-    ['date' => '2025-09-06', 'time' => 0.625, 'location' => 'Sportpark de Eendracht', 'home' => 'AAC 1', 'away' => 'BRC 1'],
-    ['date' => '2025-09-06', 'time' => 0.6666666666666666, 'location' => 'Sportpark de Bokkeduinen', 'home' => 'RC Eemland 1', 'away' => 'RC Hoek van Holland 1'],
-    ['date' => '2025-09-06', 'time' => 0.6666666666666666, 'location' => 'RC \'t Gooi', 'home' => 'RC \'t Gooi 1', 'away' => 'RFC Oisterwijk Oysters 1'],
-    ['date' => '2025-09-06', 'time' => 0.75, 'location' => 'Haagsche RC', 'home' => 'Haagsche RC 1', 'away' => 'RFC Haarlem 1'],
-    ['date' => '2025-09-13', 'time' => 0.625, 'location' => 'Sportboulevard Wisselaar', 'home' => 'BRC 1', 'away' => 'RC \'t Gooi 1'],
-    ['date' => '2025-09-13', 'time' => 0.625, 'location' => 'Sportpark de Wolfsputten', 'home' => 'RFC Oisterwijk Oysters 1', 'away' => 'Haagsche RC 1'],
-    ['date' => '2025-09-13', 'time' => 0.6666666666666666, 'location' => 'RC Hoek van Holland', 'home' => 'RC Hoek van Holland 1', 'away' => 'Cas RC 1'],
-    ['date' => '2025-09-13', 'time' => 0.6666666666666666, 'location' => 'Sportcomplex Duivensteijn', 'home' => 'RRC 1', 'away' => 'RC DIOK 1'],
-    ['date' => '2025-09-13', 'time' => 0.7083333333333334, 'location' => 'Van der Aart Sportpark', 'home' => 'RFC Haarlem 1', 'away' => 'RC Eemland 1'],
-    ['date' => '2025-09-13', 'time' => 0.7083333333333334, 'location' => 'RC The Dukes', 'home' => 'RC The Dukes 1', 'away' => 'AAC 1'],
-    ['date' => '2025-09-20', 'time' => 0.625, 'location' => 'Sportpark Wouterland', 'home' => 'Cas RC 1', 'away' => 'RFC Haarlem 1'],
-    ['date' => '2025-09-20', 'time' => 0.6666666666666666, 'location' => 'RC DIOK', 'home' => 'RC DIOK 1', 'away' => 'RC Hoek van Holland 1'],
-    ['date' => '2025-09-20', 'time' => 0.6666666666666666, 'location' => 'Sportpark de Bokkeduinen', 'home' => 'RC Eemland 1', 'away' => 'RFC Oisterwijk Oysters 1'],
-    ['date' => '2025-09-20', 'time' => 0.6666666666666666, 'location' => 'RC \'t Gooi', 'home' => 'RC \'t Gooi 1', 'away' => 'AAC 1'],
-    ['date' => '2025-09-20', 'time' => 0.6666666666666666, 'location' => 'Sportcomplex Duivensteijn', 'home' => 'RRC 1', 'away' => 'RC The Dukes 1'],
-    ['date' => '2025-09-20', 'time' => 0.6875, 'location' => 'Haagsche RC', 'home' => 'Haagsche RC 1', 'away' => 'BRC 1'],
-    ['date' => '2025-09-27', 'time' => 0.625, 'location' => 'Sportpark de Eendracht', 'home' => 'AAC 1', 'away' => 'Haagsche RC 1'],
-    ['date' => '2025-09-27', 'time' => 0.625, 'location' => 'Sportboulevard Wisselaar', 'home' => 'BRC 1', 'away' => 'RC Eemland 1'],
-    ['date' => '2025-09-27', 'time' => 0.625, 'location' => 'Sportpark de Wolfsputten', 'home' => 'RFC Oisterwijk Oysters 1', 'away' => 'Cas RC 1'],
-    ['date' => '2025-09-27', 'time' => 0.6666666666666666, 'location' => 'Van der Aart Sportpark', 'home' => 'RFC Haarlem 1', 'away' => 'RC DIOK 1'],
-    ['date' => '2025-09-27', 'time' => 0.6666666666666666, 'location' => 'RC Hoek van Holland', 'home' => 'RC Hoek van Holland 1', 'away' => 'RRC 1'],
-    ['date' => '2025-09-27', 'time' => 0.7083333333333334, 'location' => 'RC The Dukes', 'home' => 'RC The Dukes 1', 'away' => 'RC \'t Gooi 1'],
-    ['date' => '2025-10-11', 'time' => 0.625, 'location' => 'RC DIOK', 'home' => 'RC DIOK 1', 'away' => 'RFC Oisterwijk Oysters 1'],
-    ['date' => '2025-10-11', 'time' => 0.625, 'location' => 'Sportpark Wouterland', 'home' => 'Cas RC 1', 'away' => 'BRC 1'],
-    ['date' => '2025-10-11', 'time' => 0.6666666666666666, 'location' => 'Sportpark de Bokkeduinen', 'home' => 'RC Eemland 1', 'away' => 'AAC 1'],
-    ['date' => '2025-10-11', 'time' => 0.6666666666666666, 'location' => 'RC Hoek van Holland', 'home' => 'RC Hoek van Holland 1', 'away' => 'RC The Dukes 1'],
-    ['date' => '2025-10-11', 'time' => 0.6666666666666666, 'location' => 'Sportcomplex Duivensteijn', 'home' => 'RRC 1', 'away' => 'RFC Haarlem 1'],
-    ['date' => '2025-10-11', 'time' => 0.6875, 'location' => 'Haagsche RC', 'home' => 'Haagsche RC 1', 'away' => 'RC \'t Gooi 1'],
-    ['date' => '2025-10-18', 'time' => 0.625, 'location' => 'Sportboulevard Wisselaar', 'home' => 'BRC 1', 'away' => 'RC DIOK 1'],
-    ['date' => '2025-10-18', 'time' => 0.625, 'location' => 'Sportpark de Wolfsputten', 'home' => 'RFC Oisterwijk Oysters 1', 'away' => 'RRC 1'],
-    ['date' => '2025-10-18', 'time' => 0.625, 'location' => 'RC The Dukes', 'home' => 'RC The Dukes 1', 'away' => 'Haagsche RC 1'],
-    ['date' => '2025-10-18', 'time' => 0.6458333333333334, 'location' => 'Sportpark de Eendracht', 'home' => 'AAC 1', 'away' => 'Cas RC 1'],
-    ['date' => '2025-10-18', 'time' => 0.6666666666666666, 'location' => 'Van der Aart Sportpark', 'home' => 'RFC Haarlem 1', 'away' => 'RC Hoek van Holland 1'],
-    ['date' => '2025-10-25', 'time' => 0.625, 'location' => 'RC DIOK', 'home' => 'RC DIOK 1', 'away' => 'AAC 1'],
-    ['date' => '2025-10-25', 'time' => 0.625, 'location' => 'Sportpark Wouterland', 'home' => 'Cas RC 1', 'away' => 'RC \'t Gooi 1'],
-    ['date' => '2025-10-25', 'time' => 0.6666666666666666, 'location' => 'Sportpark de Bokkeduinen', 'home' => 'RC Eemland 1', 'away' => 'Haagsche RC 1'],
-    ['date' => '2025-10-25', 'time' => 0.6666666666666666, 'location' => 'Van der Aart Sportpark', 'home' => 'RFC Haarlem 1', 'away' => 'RC The Dukes 1'],
-    ['date' => '2025-10-25', 'time' => 0.6666666666666666, 'location' => 'RC Hoek van Holland', 'home' => 'RC Hoek van Holland 1', 'away' => 'RFC Oisterwijk Oysters 1'],
-    ['date' => '2025-10-25', 'time' => 0.6666666666666666, 'location' => 'Sportcomplex Duivensteijn', 'home' => 'RRC 1', 'away' => 'BRC 1'],
-    ['date' => '2025-11-01', 'time' => 0.625, 'location' => 'RC \'t Gooi', 'home' => 'RC \'t Gooi 1', 'away' => 'RC DIOK 1'],
-    ['date' => '2025-11-01', 'time' => 0.625, 'location' => 'Sportpark de Eendracht', 'home' => 'AAC 1', 'away' => 'RRC 1'],
-    ['date' => '2025-11-01', 'time' => 0.625, 'location' => 'Sportboulevard Wisselaar', 'home' => 'BRC 1', 'away' => 'RC Hoek van Holland 1'],
-    ['date' => '2025-11-01', 'time' => 0.625, 'location' => 'Sportpark de Wolfsputten', 'home' => 'RFC Oisterwijk Oysters 1', 'away' => 'RFC Haarlem 1'],
-    ['date' => '2025-11-01', 'time' => 0.625, 'location' => 'RC The Dukes', 'home' => 'RC The Dukes 1', 'away' => 'RC Eemland 1'],
-    ['date' => '2025-11-01', 'time' => 0.6875, 'location' => 'Haagsche RC', 'home' => 'Haagsche RC 1', 'away' => 'Cas RC 1'],
-    ['date' => '2025-11-08', 'time' => 0.625, 'location' => 'RC \'t Gooi', 'home' => 'RC \'t Gooi 1', 'away' => 'RC Eemland 1'],
-    ['date' => '2025-11-22', 'time' => 0.625, 'location' => 'RC DIOK', 'home' => 'RC DIOK 1', 'away' => 'Haagsche RC 1'],
-    ['date' => '2025-11-22', 'time' => 0.625, 'location' => 'RC The Dukes', 'home' => 'RC The Dukes 1', 'away' => 'RFC Oisterwijk Oysters 1'],
-    ['date' => '2025-11-22', 'time' => 0.6666666666666666, 'location' => 'Van der Aart Sportpark', 'home' => 'RFC Haarlem 1', 'away' => 'BRC 1'],
-    ['date' => '2025-11-22', 'time' => 0.6666666666666666, 'location' => 'RC Hoek van Holland', 'home' => 'RC Hoek van Holland 1', 'away' => 'AAC 1']
+$sheets = [
+    'Ereklasse' => [
+        ['date' => '2025-09-06', 'time' => 0.625, 'location' => 'RC DIOK', 'home' => 'RC DIOK 1', 'away' => 'RC The Dukes 1'],
+        ['date' => '2025-09-06', 'time' => 0.625, 'location' => 'Sportpark Wouterland', 'home' => 'Cas RC 1', 'away' => 'RRC 1'],
+        ['date' => '2025-09-06', 'time' => 0.625, 'location' => 'Sportpark de Eendracht', 'home' => 'AAC 1', 'away' => 'BRC 1'],
+        ['date' => '2025-09-06', 'time' => 0.6666666666666666, 'location' => 'Sportpark de Bokkeduinen', 'home' => 'RC Eemland 1', 'away' => 'RC Hoek van Holland 1'],
+        ['date' => '2025-09-06', 'time' => 0.6666666666666666, 'location' => 'RC \'t Gooi', 'home' => 'RC \'t Gooi 1', 'away' => 'RFC Oisterwijk Oysters 1'],
+        ['date' => '2025-09-06', 'time' => 0.75, 'location' => 'Haagsche RC', 'home' => 'Haagsche RC 1', 'away' => 'RFC Haarlem 1'],
+        ['date' => '2025-09-13', 'time' => 0.625, 'location' => 'Sportboulevard Wisselaar', 'home' => 'BRC 1', 'away' => 'RC \'t Gooi 1'],
+        ['date' => '2025-09-13', 'time' => 0.625, 'location' => 'Sportpark de Wolfsputten', 'home' => 'RFC Oisterwijk Oysters 1', 'away' => 'Haagsche RC 1'],
+        ['date' => '2025-09-13', 'time' => 0.6666666666666666, 'location' => 'RC Hoek van Holland', 'home' => 'RC Hoek van Holland 1', 'away' => 'Cas RC 1'],
+        ['date' => '2025-09-13', 'time' => 0.6666666666666666, 'location' => 'Sportcomplex Duivensteijn', 'home' => 'RRC 1', 'away' => 'RC DIOK 1'],
+        ['date' => '2025-09-13', 'time' => 0.7083333333333334, 'location' => 'Van der Aart Sportpark', 'home' => 'RFC Haarlem 1', 'away' => 'RC Eemland 1'],
+        ['date' => '2025-09-13', 'time' => 0.7083333333333334, 'location' => 'RC The Dukes', 'home' => 'RC The Dukes 1', 'away' => 'AAC 1'],
+        ['date' => '2025-09-20', 'time' => 0.625, 'location' => 'Sportpark Wouterland', 'home' => 'Cas RC 1', 'away' => 'RFC Haarlem 1'],
+        ['date' => '2025-09-20', 'time' => 0.6666666666666666, 'location' => 'RC DIOK', 'home' => 'RC DIOK 1', 'away' => 'RC Hoek van Holland 1'],
+        ['date' => '2025-09-20', 'time' => 0.6666666666666666, 'location' => 'Sportpark de Bokkeduinen', 'home' => 'RC Eemland 1', 'away' => 'RFC Oisterwijk Oysters 1'],
+        ['date' => '2025-09-20', 'time' => 0.6666666666666666, 'location' => 'RC \'t Gooi', 'home' => 'RC \'t Gooi 1', 'away' => 'AAC 1'],
+        ['date' => '2025-09-20', 'time' => 0.6666666666666666, 'location' => 'Sportcomplex Duivensteijn', 'home' => 'RRC 1', 'away' => 'RC The Dukes 1'],
+        ['date' => '2025-09-20', 'time' => 0.6875, 'location' => 'Haagsche RC', 'home' => 'Haagsche RC 1', 'away' => 'BRC 1'],
+        ['date' => '2025-09-27', 'time' => 0.625, 'location' => 'Sportpark de Eendracht', 'home' => 'AAC 1', 'away' => 'Haagsche RC 1'],
+        ['date' => '2025-09-27', 'time' => 0.625, 'location' => 'Sportboulevard Wisselaar', 'home' => 'BRC 1', 'away' => 'RC Eemland 1'],
+        ['date' => '2025-09-27', 'time' => 0.625, 'location' => 'Sportpark de Wolfsputten', 'home' => 'RFC Oisterwijk Oysters 1', 'away' => 'Cas RC 1'],
+        ['date' => '2025-09-27', 'time' => 0.6666666666666666, 'location' => 'Van der Aart Sportpark', 'home' => 'RFC Haarlem 1', 'away' => 'RC DIOK 1'],
+        ['date' => '2025-09-27', 'time' => 0.6666666666666666, 'location' => 'RC Hoek van Holland', 'home' => 'RC Hoek van Holland 1', 'away' => 'RRC 1'],
+        ['date' => '2025-09-27', 'time' => 0.7083333333333334, 'location' => 'RC The Dukes', 'home' => 'RC The Dukes 1', 'away' => 'RC \'t Gooi 1'],
+        ['date' => '2025-10-11', 'time' => 0.625, 'location' => 'RC DIOK', 'home' => 'RC DIOK 1', 'away' => 'RFC Oisterwijk Oysters 1'],
+        ['date' => '2025-10-11', 'time' => 0.625, 'location' => 'Sportpark Wouterland', 'home' => 'Cas RC 1', 'away' => 'BRC 1'],
+        ['date' => '2025-10-11', 'time' => 0.6666666666666666, 'location' => 'Sportpark de Bokkeduinen', 'home' => 'RC Eemland 1', 'away' => 'AAC 1'],
+        ['date' => '2025-10-11', 'time' => 0.6666666666666666, 'location' => 'RC Hoek van Holland', 'home' => 'RC Hoek van Holland 1', 'away' => 'RC The Dukes 1'],
+        ['date' => '2025-10-11', 'time' => 0.6666666666666666, 'location' => 'Sportcomplex Duivensteijn', 'home' => 'RRC 1', 'away' => 'RFC Haarlem 1'],
+        ['date' => '2025-10-11', 'time' => 0.6875, 'location' => 'Haagsche RC', 'home' => 'Haagsche RC 1', 'away' => 'RC \'t Gooi 1'],
+        ['date' => '2025-10-18', 'time' => 0.625, 'location' => 'Sportboulevard Wisselaar', 'home' => 'BRC 1', 'away' => 'RC DIOK 1'],
+        ['date' => '2025-10-18', 'time' => 0.625, 'location' => 'Sportpark de Wolfsputten', 'home' => 'RFC Oisterwijk Oysters 1', 'away' => 'RRC 1'],
+        ['date' => '2025-10-18', 'time' => 0.625, 'location' => 'RC The Dukes', 'home' => 'RC The Dukes 1', 'away' => 'Haagsche RC 1'],
+        ['date' => '2025-10-18', 'time' => 0.6458333333333334, 'location' => 'Sportpark de Eendracht', 'home' => 'AAC 1', 'away' => 'Cas RC 1'],
+        ['date' => '2025-10-18', 'time' => 0.6666666666666666, 'location' => 'Van der Aart Sportpark', 'home' => 'RFC Haarlem 1', 'away' => 'RC Hoek van Holland 1'],
+        ['date' => '2025-10-25', 'time' => 0.625, 'location' => 'RC DIOK', 'home' => 'RC DIOK 1', 'away' => 'AAC 1'],
+        ['date' => '2025-10-25', 'time' => 0.625, 'location' => 'Sportpark Wouterland', 'home' => 'Cas RC 1', 'away' => 'RC \'t Gooi 1'],
+        ['date' => '2025-10-25', 'time' => 0.6666666666666666, 'location' => 'Sportpark de Bokkeduinen', 'home' => 'RC Eemland 1', 'away' => 'Haagsche RC 1'],
+        ['date' => '2025-10-25', 'time' => 0.6666666666666666, 'location' => 'Van der Aart Sportpark', 'home' => 'RFC Haarlem 1', 'away' => 'RC The Dukes 1'],
+        ['date' => '2025-10-25', 'time' => 0.6666666666666666, 'location' => 'RC Hoek van Holland', 'home' => 'RC Hoek van Holland 1', 'away' => 'RFC Oisterwijk Oysters 1'],
+        ['date' => '2025-10-25', 'time' => 0.6666666666666666, 'location' => 'Sportcomplex Duivensteijn', 'home' => 'RRC 1', 'away' => 'BRC 1'],
+        ['date' => '2025-11-01', 'time' => 0.625, 'location' => 'RC \'t Gooi', 'home' => 'RC \'t Gooi 1', 'away' => 'RC DIOK 1'],
+        ['date' => '2025-11-01', 'time' => 0.625, 'location' => 'Sportpark de Eendracht', 'home' => 'AAC 1', 'away' => 'RRC 1'],
+        ['date' => '2025-11-01', 'time' => 0.625, 'location' => 'Sportboulevard Wisselaar', 'home' => 'BRC 1', 'away' => 'RC Hoek van Holland 1'],
+        ['date' => '2025-11-01', 'time' => 0.625, 'location' => 'Sportpark de Wolfsputten', 'home' => 'RFC Oisterwijk Oysters 1', 'away' => 'RFC Haarlem 1'],
+        ['date' => '2025-11-01', 'time' => 0.625, 'location' => 'RC The Dukes', 'home' => 'RC The Dukes 1', 'away' => 'RC Eemland 1'],
+        ['date' => '2025-11-01', 'time' => 0.6875, 'location' => 'Haagsche RC', 'home' => 'Haagsche RC 1', 'away' => 'Cas RC 1'],
+        ['date' => '2025-11-08', 'time' => 0.625, 'location' => 'RC \'t Gooi', 'home' => 'RC \'t Gooi 1', 'away' => 'RC Eemland 1'],
+        ['date' => '2025-11-22', 'time' => 0.625, 'location' => 'RC DIOK', 'home' => 'RC DIOK 1', 'away' => 'Haagsche RC 1'],
+        ['date' => '2025-11-22', 'time' => 0.625, 'location' => 'RC The Dukes', 'home' => 'RC The Dukes 1', 'away' => 'RFC Oisterwijk Oysters 1'],
+        ['date' => '2025-11-22', 'time' => 0.6666666666666666, 'location' => 'Van der Aart Sportpark', 'home' => 'RFC Haarlem 1', 'away' => 'BRC 1'],
+        ['date' => '2025-11-22', 'time' => 0.6666666666666666, 'location' => 'RC Hoek van Holland', 'home' => 'RC Hoek van Holland 1', 'away' => 'AAC 1'],
+    ],
+    '3e klasse NW' => [
+        ['date' => '2025-09-21', 'time' => 0.6041666666666666, 'location' => 'Sportpark Groenoord Schagen', 'home' => 'SRC Rush 1', 'away' => 'RC Den Helder 1'],
+        ['date' => '2025-09-21', 'time' => 0.6041666666666666, 'location' => 'RC \'t Gooi', 'home' => 'RC \'t Gooi 3', 'away' => 'Ascrum AA'],
+        ['date' => '2025-09-21', 'time' => 0.625, 'location' => 'Sportpark de Eendracht', 'home' => 'AAC 2', 'away' => 'Haagsche RC Espoirs'],
+        ['date' => '2025-09-21', 'time' => 0.625, 'location' => 'Van der Aart Sportpark', 'home' => 'RFC Haarlem 3', 'away' => 'Amstelveense RC 2'],
+        ['date' => '2025-09-21', 'time' => 0.625, 'location' => 'Sportpark de Blauwe Berg', 'home' => 'RC West-Friesland 1', 'away' => 'CL Mokum Rugby 1'],
+        ['date' => '2025-09-28', 'time' => 0.5, 'location' => 'Sportpark de Eendracht', 'home' => 'Ascrum AA', 'away' => 'SRC Rush 1'],
+        ['date' => '2025-09-28', 'time' => 0.5416666666666666, 'location' => 'Sportpark Sportlaan West', 'home' => 'Amstelveense RC 2', 'away' => 'AAC 2'],
+        ['date' => '2025-09-28', 'time' => 0.625, 'location' => 'Sportpark de Linie', 'home' => 'RC Den Helder 1', 'away' => 'RC West-Friesland 1'],
+        ['date' => '2025-09-28', 'time' => 0.625, 'location' => 'RC Amsterdam', 'home' => 'CL Mokum Rugby 1', 'away' => 'RFC Haarlem 3'],
+        ['date' => '2025-09-28', 'time' => 0.625, 'location' => 'Haagsche RC', 'home' => 'Haagsche RC Espoirs', 'away' => 'RC \'t Gooi 3'],
+        ['date' => '2025-10-05', 'time' => 0.5208333333333334, 'location' => 'Sportpark Sportlaan West', 'home' => 'Amstelveense RC 2', 'away' => 'Haagsche RC Espoirs'],
+        ['date' => '2025-10-05', 'time' => 0.6041666666666666, 'location' => 'Sportpark Groenoord Schagen', 'home' => 'SRC Rush 1', 'away' => 'RC \'t Gooi 3'],
+        ['date' => '2025-10-05', 'time' => 0.625, 'location' => 'Sportpark de Eendracht', 'home' => 'AAC 2', 'away' => 'CL Mokum Rugby 1'],
+        ['date' => '2025-10-05', 'time' => 0.625, 'location' => 'Van der Aart Sportpark', 'home' => 'RFC Haarlem 3', 'away' => 'RC Den Helder 1'],
+        ['date' => '2025-10-12', 'time' => 0.6041666666666666, 'location' => 'RC \'t Gooi', 'home' => 'RC \'t Gooi 3', 'away' => 'RC West-Friesland 1'],
+        ['date' => '2025-10-12', 'time' => 0.625, 'location' => 'Sportpark de Linie', 'home' => 'RC Den Helder 1', 'away' => 'AAC 2'],
+        ['date' => '2025-10-19', 'time' => 0.625, 'location' => 'Sportpark de Blauwe Berg', 'home' => 'RC West-Friesland 1', 'away' => 'Ascrum AA'],
+        ['date' => '2025-10-26', 'time' => 0.5416666666666666, 'location' => 'Haagsche RC', 'home' => 'Haagsche RC Espoirs', 'away' => 'SRC Rush 1'],
+        ['date' => '2025-10-26', 'time' => 0.625, 'location' => 'RC Amsterdam', 'home' => 'CL Mokum Rugby 1', 'away' => 'Amstelveense RC 2'],
+        ['date' => '2025-11-09', 'time' => 0.5416666666666666, 'location' => 'Sportpark Sportlaan West', 'home' => 'Amstelveense RC 2', 'away' => 'RC Den Helder 1'],
+        ['date' => '2025-11-09', 'time' => 0.625, 'location' => 'Sportpark de Eendracht', 'home' => 'AAC 2', 'away' => 'Ascrum AA'],
+        ['date' => '2025-11-09', 'time' => 0.625, 'location' => 'Van der Aart Sportpark', 'home' => 'RFC Haarlem 3', 'away' => 'RC \'t Gooi 3'],
+        ['date' => '2025-11-09', 'time' => 0.625, 'location' => 'Sportpark de Blauwe Berg', 'home' => 'RC West-Friesland 1', 'away' => 'SRC Rush 1'],
+        ['date' => '2025-11-09', 'time' => 0.625, 'location' => 'RC Amsterdam', 'home' => 'CL Mokum Rugby 1', 'away' => 'Haagsche RC Espoirs'],
+        ['date' => '2025-11-16', 'time' => 0.5416666666666666, 'location' => 'Haagsche RC', 'home' => 'Haagsche RC Espoirs', 'away' => 'RC West-Friesland 1'],
+        ['date' => '2025-11-16', 'time' => 0.6041666666666666, 'location' => 'Sportpark Groenoord Schagen', 'home' => 'SRC Rush 1', 'away' => 'RFC Haarlem 3'],
+        ['date' => '2025-11-16', 'time' => 0.6041666666666666, 'location' => 'RC \'t Gooi', 'home' => 'RC \'t Gooi 3', 'away' => 'AAC 2'],
+        ['date' => '2025-11-16', 'time' => 0.625, 'location' => 'Sportpark de Eendracht', 'home' => 'Ascrum AA', 'away' => 'Amstelveense RC 2'],
+        ['date' => '2025-11-16', 'time' => 0.625, 'location' => 'Sportpark de Linie', 'home' => 'RC Den Helder 1', 'away' => 'CL Mokum Rugby 1'], // time was empty, set to 0.625 (15:00)
+        ['date' => '2025-11-23', 'time' => 0.625, 'location' => 'Sportpark de Eendracht', 'home' => 'AAC 2', 'away' => 'SRC Rush 1'],
+        ['date' => '2025-11-23', 'time' => 0.625, 'location' => 'Van der Aart Sportpark', 'home' => 'RFC Haarlem 3', 'away' => 'RC West-Friesland 1'],
+        ['date' => '2025-11-23', 'time' => 0.625, 'location' => 'Sportpark de Linie', 'home' => 'RC Den Helder 1', 'away' => 'Haagsche RC Espoirs'],
+        ['date' => '2025-11-23', 'time' => 0.625, 'location' => 'Sportpark de Eendracht', 'home' => 'Ascrum AA', 'away' => 'CL Mokum Rugby 1'],
+    ],
+    '3e klasse ZW' => [
+        ['date' => '2024-09-23', 'time' => 0.5416666666666666, 'location' => 'Sportpark Rijnvliet', 'home' => 'URC 3', 'away' => 'A.S.R.V. Ascrum 2'],
+        ['date' => '2024-09-23', 'time' => 0.5833333333333334, 'location' => 'Sportpark het Schenge', 'home' => 'GRC Tovaal 1', 'away' => 'BRC 2'],
+        ['date' => '2024-09-23', 'time' => 0.6041666666666666, 'location' => 'Sportcomplex Beresteinlaan', 'home' => 'WRC Te Werve 1', 'away' => 'Haagsche RC 3'],
+        ['date' => '2024-09-23', 'time' => 0.625, 'location' => 'Sportcomplex Duivensteijn', 'home' => 'RRC 3', 'away' => 'SVRC 1'],
+        ['date' => '2024-09-28', 'time' => 0.5416666666666666, 'location' => 'Sportboulevard Wisselaar', 'home' => 'BRC 2', 'away' => 'WRC Te Werve 1'],
+        ['date' => '2024-09-28', 'time' => 0.5416666666666666, 'location' => 'Haagsche RC', 'home' => 'Haagsche RC 3', 'away' => 'RC Sparta 1'],
+        ['date' => '2024-09-28', 'time' => 0.5416666666666666, 'location' => 'Sportcomplex Beresteinlaan', 'home' => 'The Hague Hornets 1', 'away' => 'URC 3'],
+        ['date' => '2024-09-28', 'time' => 0.6041666666666666, 'location' => 'Sportpark de Eendracht', 'home' => 'A.S.R.V. Ascrum 2', 'away' => 'RRC 3'],
+        ['date' => '2024-09-28', 'time' => 0.625, 'location' => 'Sportcentrum TU Delft', 'home' => 'SVRC 1', 'away' => 'GRC Tovaal 1'],
+        ['date' => '2024-10-05', 'time' => 0.5416666666666666, 'location' => 'Haagsche RC', 'home' => 'Haagsche RC 3', 'away' => 'The Hague Hornets 1'],
+        ['date' => '2024-10-05', 'time' => 0.5833333333333334, 'location' => 'Sportpark het Schenge', 'home' => 'GRC Tovaal 1', 'away' => 'A.S.R.V. Ascrum 2'],
+        ['date' => '2024-10-05', 'time' => 0.6041666666666666, 'location' => 'Sportcomplex Beresteinlaan', 'home' => 'WRC Te Werve 1', 'away' => 'SVRC 1'],
+        ['date' => '2024-10-05', 'time' => 0.625, 'location' => 'Sportcomplex Duivensteijn', 'home' => 'RRC 3', 'away' => 'URC 3'],
+        ['date' => '2024-10-12', 'time' => 0.4375, 'location' => 'Sportboulevard Wisselaar', 'home' => 'BRC 2', 'away' => 'Haagsche RC 3'],
+        ['date' => '2024-10-12', 'time' => 0.5416666666666666, 'location' => 'Sportpark Rijnvliet', 'home' => 'URC 3', 'away' => 'GRC Tovaal 1'],
+        ['date' => '2024-10-12', 'time' => 0.5416666666666666, 'location' => 'Sportpark de Eendracht', 'home' => 'A.S.R.V. Ascrum 2', 'away' => 'WRC Te Werve 1'],
+        ['date' => '2024-10-12', 'time' => 0.5416666666666666, 'location' => 'Sportcentrum TU Delft', 'home' => 'SVRC 1', 'away' => 'RC Sparta 1'],
+        ['date' => '2024-10-12', 'time' => 0.625, 'location' => 'Sportcomplex Beresteinlaan', 'home' => 'The Hague Hornets 1', 'away' => 'RRC 3'],
+        ['date' => '2024-11-02', 'time' => 0.625, 'location' => 'Sportcomplex Beresteinlaan', 'home' => 'The Hague Hornets 1', 'away' => 'RC Sparta 1'],
+        ['date' => '2024-11-09', 'time' => 0.5416666666666666, 'location' => 'Sparta Rugby', 'home' => 'RC Sparta 1', 'away' => 'A.S.R.V. Ascrum 2'],
+        ['date' => '2024-11-09', 'time' => 0.5833333333333334, 'location' => 'Sportpark het Schenge', 'home' => 'GRC Tovaal 1', 'away' => 'RRC 3'],
+        ['date' => '2024-11-09', 'time' => 0.6041666666666666, 'location' => 'Sportcomplex Beresteinlaan', 'home' => 'WRC Te Werve 1', 'away' => 'URC 3'],
+        ['date' => '2024-11-09', 'time' => 0.625, 'location' => 'Sportboulevard Wisselaar', 'home' => 'BRC 2', 'away' => 'The Hague Hornets 1'],
+        ['date' => '2024-11-16', 'time' => 0.5416666666666666, 'location' => 'Sportcomplex Duivensteijn', 'home' => 'RRC 3', 'away' => 'WRC Te Werve 1'],
+        ['date' => '2024-11-16', 'time' => 0.5416666666666666, 'location' => 'Sportpark de Eendracht', 'home' => 'A.S.R.V. Ascrum 2', 'away' => 'Haagsche RC 3'],
+        ['date' => '2024-11-16', 'time' => 0.5416666666666666, 'location' => 'Sportcentrum TU Delft', 'home' => 'SVRC 1', 'away' => 'BRC 2'],
+        ['date' => '2024-11-16', 'time' => 0.625, 'location' => 'Sportcomplex Beresteinlaan', 'home' => 'The Hague Hornets 1', 'away' => 'GRC Tovaal 1'],
+        ['date' => '2024-11-16', 'time' => 0.625, 'location' => 'Sportpark Rijnvliet', 'home' => 'URC 3', 'away' => 'RC Sparta 1'], // time was empty, set to 0.625
+        ['date' => '2024-11-23', 'time' => 0.5416666666666666, 'location' => 'Sportpark de Eendracht', 'home' => 'A.S.R.V. Ascrum 2', 'away' => 'BRC 2'],
+        ['date' => '2024-11-23', 'time' => 0.5416666666666666, 'location' => 'Haagsche RC', 'home' => 'Haagsche RC 3', 'away' => 'URC 3'],
+        ['date' => '2024-11-23', 'time' => 0.6041666666666666, 'location' => 'Sportcomplex Beresteinlaan', 'home' => 'WRC Te Werve 1', 'away' => 'GRC Tovaal 1'],
+        ['date' => '2024-11-23', 'time' => 0.625, 'location' => 'Sportcentrum TU Delft', 'home' => 'SVRC 1', 'away' => 'The Hague Hornets 1'],
+    ],
 ];
 
 // Extract unique clubs, locations, and teams
@@ -126,92 +198,113 @@ $team_map = []; // Maps team name to UUID, club UUID, and division
 $base_lat = 52.370216; // Approximate latitude for Amsterdam
 $base_lon = 4.895168; // Approximate longitude for Amsterdam
 
-foreach ($ereklasse_matches as $match) {
-    // Validate date
-    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $match['date'])) {
-        echo "Warning: Invalid date format {$match['date']} for match at {$match['location']} between {$match['home']} and {$match['away']}.\n";
-        continue;
+foreach ($sheets as $sheet_key => $sheet_matches) {
+    // Determine division and district based on sheet
+    if ($sheet_key === 'Ereklasse') {
+        $division = 'Ereklasse';
+        $district = 'National';
+    } elseif ($sheet_key === '3e klasse NW') {
+        $division = '3e Klasse';
+        $district = 'Noordwest';
+    } elseif ($sheet_key === '3e klasse ZW') {
+        $division = '3e Klasse';
+        $district = 'Zuidwest';
+    } else {
+        continue; // Skip unknown sheets
     }
 
-    // Correct likely typo in date
-    if ($match['date'] === '2025-06-09') {
-        echo "Warning: Correcting date '2025-06-09' to '2025-09-06' for match at {$match['location']} between {$match['home']} and {$match['away']}.\n";
-        $match['date'] = '2025-09-06';
-    }
+    foreach ($sheet_matches as $match) {
+        // Validate date
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $match['date'])) {
+            echo "Warning: Invalid date format {$match['date']} for match in {$sheet_key} at {$match['location']} between {$match['home']} and {$match['away']}.\n";
+            continue;
+        }
 
-    // Validate time
-    $decimal_time = $match['time'];
-    if ($decimal_time < 0 || $decimal_time >= 1) {
-        echo "Warning: Invalid decimal time {$decimal_time} for match on {$match['date']} at {$match['location']}.\n";
-        continue;
-    }
+        // Validate time
+        $decimal_time = $match['time'];
+        if ($decimal_time < 0 || $decimal_time >= 1) {
+            echo "Warning: Invalid decimal time {$decimal_time} for match in {$sheet_key} on {$match['date']} at {$match['location']}.\n";
+            continue;
+        }
 
-    $home_team = $match['home'];
-    $away_team = $match['away'];
-    $location = $match['location'];
+        $home_team = $match['home'];
+        $away_team = $match['away'];
+        $location = $match['location'];
 
-    // Infer club from team name (remove numeric suffix)
-    $home_club = preg_replace('/\s*\d+$/', '', $home_team);
-    $away_club = preg_replace('/\s*\d+$/', '', $away_team);
-    $home_club = trim($home_club);
-    $away_club = trim($away_club);
+        // Infer club from team name (remove numeric or special suffixes)
+        $home_club = preg_replace('/\s*\d+|Espoirs|AA$/', '', $home_team);
+        $away_club = preg_replace('/\s*\d+|Espoirs|AA$/', '', $away_team);
+        $home_club = trim($home_club);
+        $away_club = trim($away_club);
 
-    // Add clubs to club_map if not already present
-    foreach ([$home_club, $away_club] as $club_name) {
-        if (!isset($club_map[$club_name])) {
-            $club_map[$club_name] = [
+        // Add clubs to club_map if not already present
+        foreach ([$home_club, $away_club] as $club_name) {
+            if (!isset($club_map[$club_name]) && $club_name !== '') {
+                $club_map[$club_name] = [
+                    'uuid' => generate_uuid_v4(),
+                    'club_id' => strtoupper(str_replace(' ', '', $club_name)),
+                    'club_name' => $club_name,
+                    'precise_location_lat' => $base_lat + (mt_rand(-100, 100) / 10000),
+                    'precise_location_lon' => $base_lon + (mt_rand(-100, 100) / 10000),
+                    'address_text' => "$club_name Ground"
+                ];
+            }
+        }
+
+        // Add teams to team_map if not already present
+        foreach ([$home_team => $home_club, $away_team => $away_club] as $team_name => $club_name) {
+            if (!isset($team_map[$team_name]) && $team_name !== '') {
+                if (isset($club_map[$club_name])) {
+                    $team_map[$team_name] = [
+                        'uuid' => generate_uuid_v4(),
+                        'team_name' => $team_name,
+                        'club_id' => $club_map[$club_name]['uuid'],
+                        'division' => $division
+                    ];
+                } else {
+                    echo "Warning: Skipping team {$team_name} in {$sheet_key} because club {$club_name} could not be inferred.\n";
+                }
+            }
+        }
+
+        // Add location to location_map if not already present
+        if (!isset($location_map[$location]) && $location !== '') {
+            $location_map[$location] = [
                 'uuid' => generate_uuid_v4(),
-                'club_id' => strtoupper(str_replace(' ', '', $club_name)),
-                'club_name' => $club_name,
-                'precise_location_lat' => $base_lat + (mt_rand(-100, 100) / 10000),
-                'precise_location_lon' => $base_lon + (mt_rand(-100, 100) / 10000),
-                'address_text' => "$club_name Ground"
+                'name' => $location,
+                'address_text' => "$location, Netherlands",
+                'latitude' => $base_lat + (mt_rand(-100, 100) / 10000),
+                'longitude' => $base_lon + (mt_rand(-100, 100) / 10000),
+                'notes' => "Standard rugby pitch at $location"
             ];
+        } elseif ($location === '') {
+            echo "Warning: Skipping match in {$sheet_key} on {$match['date']} because location is empty.\n";
+            continue;
+        }
+
+        // Convert time (decimal day) to HH:MM:SS
+        $hours = floor($decimal_time * 24);
+        $minutes = floor(($decimal_time * 24 - $hours) * 60);
+        $kickoff_time = sprintf("%02d:%02d:00", $hours, $minutes);
+
+        // Add match to matches_data
+        if (isset($team_map[$home_team]) && isset($team_map[$away_team]) && isset($location_map[$location])) {
+            $matches_data[] = [
+                'uuid' => generate_uuid_v4(),
+                'home_team_id' => $team_map[$home_team]['uuid'],
+                'away_team_id' => $team_map[$away_team]['uuid'],
+                'location_uuid' => $location_map[$location]['uuid'],
+                'division' => $division,
+                'district' => $district,
+                'poule' => 'Cup',
+                'match_date' => $match['date'],
+                'kickoff_time' => $kickoff_time,
+                'expected_grade' => ['A', 'B', 'C', 'D', 'E'][array_rand(['A', 'B', 'C', 'D', 'E'])]
+            ];
+        } else {
+            echo "Warning: Skipping match in {$sheet_key} on {$match['date']} at {$match['location']} due to missing team or location.\n";
         }
     }
-
-    // Add teams to team_map if not already present
-    foreach ([$home_team => $home_club, $away_team => $away_club] as $team_name => $club_name) {
-        if (!isset($team_map[$team_name])) {
-            $team_map[$team_name] = [
-                'uuid' => generate_uuid_v4(),
-                'team_name' => $team_name,
-                'club_id' => $club_map[$club_name]['uuid'],
-                'division' => 'Ereklasse'
-            ];
-        }
-    }
-
-    // Add location to location_map if not already present
-    if (!isset($location_map[$location])) {
-        $location_map[$location] = [
-            'uuid' => generate_uuid_v4(),
-            'name' => $location,
-            'address_text' => "$location, Netherlands",
-            'latitude' => $base_lat + (mt_rand(-100, 100) / 10000),
-            'longitude' => $base_lon + (mt_rand(-100, 100) / 10000),
-            'notes' => "Standard rugby pitch at $location"
-        ];
-    }
-
-    // Convert time (decimal day) to HH:MM:SS
-    $hours = floor($decimal_time * 24);
-    $minutes = floor(($decimal_time * 24 - $hours) * 60);
-    $kickoff_time = sprintf("%02d:%02d:00", $hours, $minutes);
-
-    // Add match to matches_data
-    $matches_data[] = [
-        'uuid' => generate_uuid_v4(),
-        'home_team_id' => $team_map[$home_team]['uuid'],
-        'away_team_id' => $team_map[$away_team]['uuid'],
-        'location_uuid' => $location_map[$location]['uuid'],
-        'division' => 'Ereklasse',
-        'district' => 'National',
-        'poule' => 'Cup',
-        'match_date' => $match['date'],
-        'kickoff_time' => $kickoff_time,
-        'expected_grade' => ['A', 'B', 'C', 'D', 'E'][array_rand(['A', 'B', 'C', 'D', 'E'])]
-    ];
 }
 
 // ----- Seed Clubs -----
@@ -320,24 +413,18 @@ echo "Matches: {$seeded_matches_count} seeded, {$existing_matches_count} already
 
 // ----- Seed Referees -----
 $grades = ['A', 'B', 'C', 'D', 'E'];
-$referees_data = [];
+
+$referees_data = []; // Store referee data for later use if needed
 $referee_names = [
     'Alice', 'Bob', 'Charlie', 'Diana', 'Edward', 'Fiona', 'George', 'Hannah', 'Isaac', 'Julia',
     'Kevin', 'Laura', 'Michael', 'Nina', 'Oscar', 'Paula', 'Quentin', 'Rachel', 'Samuel', 'Tina',
     'Umar', 'Vanessa', 'William', 'Xenia', 'Yusuf', 'Zara', 'Aaron', 'Bianca', 'Caleb', 'Delilah'
 ];
 
-echo "Seeding Referees...\n";
-$seeded_referees_count = 0;
-$existing_referees_count = 0;
-// Fetch districts for assignment
-$districts_stmt = $pdo->query("SELECT id FROM districts");
-$district_ids = $districts_stmt->fetchAll(PDO::FETCH_COLUMN);
 
 foreach ($referee_names as $index => $name) {
     $club = array_values($club_map)[array_rand(array_keys($club_map))];
     $ref_uuid = generate_uuid_v4();
-    $district_id = $district_ids[array_rand($district_ids)];
     $ref = [
         'uuid' => $ref_uuid,
         'referee_id' => 'REF' . str_pad($index + 1, 3, '0', STR_PAD_LEFT),
@@ -346,40 +433,20 @@ foreach ($referee_names as $index => $name) {
         'email' => strtolower($name) . '@example.com',
         'phone' => '000-000-000' . $index,
         'home_club_id' => $club['uuid'],
-        'home_location_city' => $club['club_name'],
+        'home_location_city' => $club['club_name'], // Assuming city is same as club name for dummy data
         'grade' => $grades[array_rand($grades)],
         'ar_grade' => $grades[array_rand($grades)],
-        'home_lat' => $club['precise_location_lat'] + (mt_rand(-100, 100) / 10000),
-        'home_lon' => $club['precise_location_lon'] + (mt_rand(-100, 100) / 10000),
-        'district_id' => $district_id
+        'home_lat' => $club['precise_location_lat'] + (mt_rand(-100, 100) / 10000), // Slight random variation for demo
+        'home_lon' => $club['precise_location_lon'] + (mt_rand(-100, 100) / 10000)
     ];
     $referees_data[] = $ref;
 
-    $stmt_check_referee = $pdo->prepare("SELECT uuid FROM referees WHERE referee_id = ?");
-    $stmt_check_referee->execute([$ref['referee_id']]);
-    if ($stmt_check_referee->fetch()) {
-        $existing_referees_count++;
-    } else {
-        $stmt_insert_referee = $pdo->prepare("INSERT IGNORE INTO referees (uuid, referee_id, first_name, last_name, email, phone, home_club_id, home_location_city, grade, ar_grade, home_lat, home_lon, district_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-        $stmt_insert_referee->execute([
-            $ref['uuid'],
-            $ref['referee_id'],
-            $ref['first_name'],
-            $ref['last_name'],
-            $ref['email'],
-            $ref['phone'],
-            $ref['home_club_id'],
-            $ref['home_location_city'],
-            $ref['grade'],
-            $ref['ar_grade'],
-            $ref['home_lat'],
-            $ref['home_lon'],
-            $ref['district_id']
-        ]);
-        $seeded_referees_count++;
-    }
+    $stmt = $pdo->prepare("INSERT IGNORE INTO referees (uuid, referee_id, first_name, last_name, email, phone, home_club_id, home_location_city, grade, ar_grade, home_lat, home_lon) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+    // Assuming ar_grade is the same as grade for initial seeding
+    $stmt->execute([$ref['uuid'], $ref['referee_id'], $ref['first_name'], $ref['last_name'], $ref['email'], $ref['phone'], $ref['home_club_id'], $ref['home_location_city'], $ref['grade'], $ref['ar_grade'], $ref['home_lat'], $ref['home_lon']]);
 }
-echo "Referees: {$seeded_referees_count} seeded, {$existing_referees_count} already existed.\n";
+
+echo "Referees seeded.\n";
 
 // ----- Seed Referee Weekly Availability -----
 echo "Seeding Referee Weekly Availability...\n";
@@ -395,15 +462,15 @@ $stmt_insert_availability = $pdo->prepare("
 
 $availability_seeded_count = 0;
 foreach ($referees_data as $referee) {
-    for ($weekday = 0; $weekday <= 6; $weekday++) {
+    for ($weekday = 0; $weekday <= 6; $weekday++) { // 0 = Sunday, 6 = Saturday
         $availability_uuid = generate_uuid_v4();
         $stmt_insert_availability->execute([
             $availability_uuid,
             $referee['uuid'],
             $weekday,
-            true,
-            true,
-            true
+            true, // morning_available
+            true, // afternoon_available
+            true  // evening_available
         ]);
         $availability_seeded_count++;
     }
@@ -412,12 +479,17 @@ echo "{$availability_seeded_count} referee availability records seeded/updated.\
 
 // ----- Seed Admin User -----
 $adminUsername = 'admin';
-$adminPassword = 'password';
+$adminPassword = 'password'; // Securely hash this password
+
+// Hash the password
 $passwordHash = password_hash($adminPassword, PASSWORD_DEFAULT);
-$adminUuid = '123e4567-e89b-12d3-a456-426614174000';
-$adminRole = 'super_admin';
+
+// Generate UUID for the admin user
+$adminUuid = '123e4567-e89b-12d3-a456-426614174000'; // Fixed UUID for default admin
+$adminRole = 'super_admin'; // Set role to super_admin
 
 try {
+    // Check if admin user already exists
     $stmt = $pdo->prepare("SELECT uuid FROM users WHERE username = ?");
     $stmt->execute([$adminUsername]);
     $existingUser = $stmt->fetch();
@@ -425,11 +497,14 @@ try {
     if ($existingUser) {
         echo "Admin user '{$adminUsername}' already exists.\n";
     } else {
+        // Insert the admin user
         $stmt = $pdo->prepare("INSERT INTO users (uuid, username, password_hash, role) VALUES (?, ?, ?, ?)");
         $stmt->execute([$adminUuid, $adminUsername, $passwordHash, $adminRole]);
         echo "Admin user '{$adminUsername}' created successfully.\n";
     }
 } catch (PDOException $e) {
+    // Check if the error is about duplicate entry for username (though IGNORE should handle it, this is more explicit for username)
+    // MySQL error code for duplicate entry is 1062
     if ($e->getCode() == '23000' || $e->errorInfo[1] == 1062) {
         echo "Admin user '{$adminUsername}' already exists (caught exception).\n";
     } else {
@@ -437,7 +512,7 @@ try {
     }
 }
 
-// ----- Seed Additional Users -----
+// ----- Additional Users -----
 $newUsers = [
     ['username' => 'Antoine', 'password' => 'password', 'role' => 'super_admin'],
     ['username' => 'Celine', 'password' => 'password', 'role' => 'super_admin'],
@@ -448,10 +523,15 @@ foreach ($newUsers as $userData) {
     $username = $userData['username'];
     $password = $userData['password'];
     $role = $userData['role'];
+
+    // Hash the password
     $passwordHash = password_hash($password, PASSWORD_DEFAULT);
-    $userUuid = generate_uuid_v4();
+
+    // Generate UUID for the user
+    $userUuid = generate_uuid_v4(); // Using the existing UUID generation function
 
     try {
+        // Check if user already exists
         $stmt = $pdo->prepare("SELECT uuid FROM users WHERE username = ?");
         $stmt->execute([$username]);
         $existingUser = $stmt->fetch();
@@ -459,6 +539,7 @@ foreach ($newUsers as $userData) {
         if ($existingUser) {
             echo "User '{$username}' already exists.\n";
         } else {
+            // Insert the user
             $stmt = $pdo->prepare("INSERT INTO users (uuid, username, password_hash, role) VALUES (?, ?, ?, ?)");
             $stmt->execute([$userUuid, $username, $passwordHash, $role]);
             echo "User '{$username}' created successfully.\n";
