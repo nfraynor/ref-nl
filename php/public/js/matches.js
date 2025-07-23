@@ -57,6 +57,7 @@ function fetchAndUpdateMatches() {
                 initializeSelect2AndEvents();
                 reapplySuggestions();
                 window.fullRefreshConflicts(); // Ensure conflicts are rechecked
+                updateActiveFilterIndicators();
             } else {
                 console.error('Error: matchesTableBody element not found.');
             }
@@ -206,14 +207,23 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Apply active indicators on initial load
+    updateActiveFilterIndicators();
+});
+
+function updateActiveFilterIndicators() {
     ['division', 'district', 'poule', 'location', 'referee_assigner'].forEach(paramName => {
         const toggleId = `${paramName}FilterToggle`;
         const toggleBtn = document.getElementById(toggleId);
-        if (toggleBtn && currentFilters[paramName] && currentFilters[paramName].length > 0) {
-            toggleBtn.classList.add('filter-active');
+        if (toggleBtn) {
+            const isActive = currentFilters[paramName] && currentFilters[paramName].length > 0;
+            if (isActive) {
+                toggleBtn.classList.add('filter-active');
+            } else {
+                toggleBtn.classList.remove('filter-active');
+            }
         }
     });
-});
+}
 
 document.getElementById('clearAssignments')?.addEventListener('click', () => {
     document.querySelectorAll('select.referee-select').forEach(select => {
