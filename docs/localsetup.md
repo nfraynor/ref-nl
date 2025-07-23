@@ -109,7 +109,7 @@ The application connects to the MariaDB/MySQL database running inside the same c
 *   **Host (for external tools on host machine):** `127.0.0.1` (or `localhost`)
 *   **Port (for external tools on host machine):** `3306` (due to the `-p 3306:3306` mapping)
 *   **Database Name:** `refnl`
-*   **Database Server:** MariaDB (highly compatible MySQL drop-in replacement)
+*   **Database Server:** MySQL
 *   **Username:** `root`
 *   **Password:** `password` (this is the default set by `entrypoint.sh` for the `root` user and used in `php/config/database.php`)
 
