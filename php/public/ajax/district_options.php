@@ -1,14 +1,20 @@
 <?php
 require_once __DIR__ . '/../../utils/db.php';
 
-header('Content-Type: application/json');
+$pdo = Database::getConnection();
+$selectedDistricts = $_GET['district'] ?? [];
 
-try {
-    $pdo = Database::getConnection();
-    $stmt = $pdo->query("SELECT id, name FROM districts ORDER BY name ASC");
-    $districts = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    echo json_encode($districts);
-} catch (PDOException $e) {
-    http_response_code(500);
-    echo json_encode(['error' => 'Database error: ' . $e->getMessage()]);
+// Fetch all districts
+$stmt = $pdo->query("SELECT id, name FROM districts ORDER BY name ASC");
+$districts = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+foreach ($districts as $district) {
+    $checked = in_array($district['id'], $selectedDistricts) ? 'checked' : '';
+    $displayName = htmlspecialchars($district['name']);
+
+    echo '<label class="list-group-item">';
+    echo '<input class="form-check-input me-1 district-filter-checkbox" type="checkbox" value="' . htmlspecialchars($district['id']) . '" ' . $checked . '>';
+    echo $displayName;
+    echo '</label>';
 }
+?>

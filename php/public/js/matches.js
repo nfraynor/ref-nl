@@ -371,7 +371,8 @@ function setupFilterDropdown(toggleId, boxId, optionsId, checkboxClass, paramNam
             }
             const queryString = params.toString();
 
-            fetch(`/ajax/${paramName}_options.php?${queryString}`)
+            const endpoint = paramName === 'location' ? 'location_filter_options' : `${paramName}_options`;
+            fetch(`/ajax/${endpoint}.php?${queryString}`)
                 .then(res => res.text())
                 .then(html => {
                     document.getElementById(optionsId).innerHTML = html;
@@ -398,5 +399,5 @@ function setupFilterDropdown(toggleId, boxId, optionsId, checkboxClass, paramNam
 setupFilterDropdown('divisionFilterToggle', 'divisionFilterBox', 'divisionFilterOptions', 'division-filter-checkbox', 'division', 'clearDivisionFilter', 'applyDivisionFilter');
 setupFilterDropdown('districtFilterToggle', 'districtFilterBox', 'districtFilterOptions', 'district-filter-checkbox', 'district', 'clearDistrictFilter', 'applyDistrictFilter');
 setupFilterDropdown('pouleFilterToggle', 'pouleFilterBox', 'pouleFilterOptions', 'poule-filter-checkbox', 'poule', 'clearPouleFilter', 'applyPouleFilter');
-setupFilterDropdown('locationFilterToggle', 'locationFilterBox', 'locationFilterOptions', 'location-filter-checkbox', 'location', 'clearLocationFilter', 'applyLocationFilter');
+setupFilterDropdown('locationFilterToggle', 'locationFilterBox', 'locationFilterOptions', 'location-filter-checkbox', 'location_filter', 'clearLocationFilter', 'applyLocationFilter');
 setupFilterDropdown('refereeAssignerFilterToggle', 'refereeAssignerFilterBox', 'refereeAssignerFilterOptions', 'referee-assigner-filter-checkbox', 'referee_assigner', 'clearRefereeAssignerFilter', 'applyRefereeAssignerFilter');
