@@ -58,7 +58,7 @@
                 // Define script paths relative to the current script's directory
                 $clear_script = __DIR__ . '/../provisioning/clear_schema.php';
                 $provision_script = __DIR__ . '/../provisioning/provision.php';
-                $seed_script = __DIR__ . '/../provisioning/seed.php';
+                $seed_script = __DIR__ . '/../provisioning/seed-real.php';
 
                 // Stage 1: Clear Schema
                 $output_log .= "--- Stage 1: Clearing Schema ---\n";
