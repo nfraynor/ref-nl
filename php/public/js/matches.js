@@ -363,8 +363,15 @@ function setupFilterDropdown(toggleId, boxId, optionsId, checkboxClass, paramNam
     if (dropdownElement) {
         dropdownElement.addEventListener('show.bs.dropdown', () => {
             tempSelected[paramName] = currentFilters[paramName] ? [...currentFilters[paramName]] : [];
-            const selected = new URLSearchParams(window.location.search).getAll(paramName + '[]');
-            fetch(`/ajax/${paramName}_options.php?${new URLSearchParams({ [paramName + '[]']: selected })}`)
+
+            // Build query params from currentFilters, not the URL
+            const params = new URLSearchParams();
+            if (currentFilters[paramName] && Array.isArray(currentFilters[paramName])) {
+                currentFilters[paramName].forEach(item => params.append(paramName + '[]', item));
+            }
+            const queryString = params.toString();
+
+            fetch(`/ajax/${paramName}_options.php?${queryString}`)
                 .then(res => res.text())
                 .then(html => {
                     document.getElementById(optionsId).innerHTML = html;
