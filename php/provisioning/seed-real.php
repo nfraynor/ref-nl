@@ -16,7 +16,7 @@ function generate_uuid_v4() {
 echo "Seeding Divisions and Districts...\n";
 $divisions_districts_data = [
     'Ereklasse' => ['National'],
-    '3e Klasse' => ['Noordwest', 'Zuidwest']
+    '3e Klasse' => ['Noord West', 'Zuid West']
 ];
 
 $seeded_divisions_count = 0;
@@ -410,7 +410,7 @@ foreach ($matches_data as $match) {
     }
 }
 echo "Matches: {$seeded_matches_count} seeded, {$existing_matches_count} already existed.\n";
-
+/*
 // ----- Seed Referees -----
 $grades = ['A', 'B', 'C', 'D', 'E'];
 
@@ -447,7 +447,7 @@ foreach ($referee_names as $index => $name) {
 }
 
 echo "Referees seeded.\n";
-
+*/
 // ----- Seed Referee Weekly Availability -----
 echo "Seeding Referee Weekly Availability...\n";
 $stmt_insert_availability = $pdo->prepare("
