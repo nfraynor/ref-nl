@@ -16,7 +16,7 @@ function generate_uuid_v4() {
 echo "Seeding Divisions and Districts...\n";
 $divisions_districts_data = [
     'Ereklasse' => ['National'],
-    '3e Klasse' => ['Noord West', 'Zuid West']
+    '3e Klasse' => ['Noord', 'Zuid', 'Oost', 'West', 'Midden', 'Noord West', 'Zuid West']
 ];
 
 $seeded_divisions_count = 0;
@@ -59,7 +59,7 @@ foreach ($divisions_districts_data as $division_name => $districts_array) {
 echo "Divisions: {$seeded_divisions_count} seeded, {$existing_divisions_count} already existed.\n";
 echo "Districts: {$seeded_districts_count} seeded, {$existing_districts_count} already existed.\n";
 
-// ----- Extract Data from Sheets -----
+// ----- Extract Data from Excel Sheets -----
 $clubs_data = [];
 $locations_data = [];
 $teams_data = [];
@@ -149,7 +149,7 @@ $sheets = [
         ['date' => '2025-11-16', 'time' => 0.6041666666666666, 'location' => 'Sportpark Groenoord Schagen', 'home' => 'SRC Rush 1', 'away' => 'RFC Haarlem 3'],
         ['date' => '2025-11-16', 'time' => 0.6041666666666666, 'location' => 'RC \'t Gooi', 'home' => 'RC \'t Gooi 3', 'away' => 'AAC 2'],
         ['date' => '2025-11-16', 'time' => 0.625, 'location' => 'Sportpark de Eendracht', 'home' => 'Ascrum AA', 'away' => 'Amstelveense RC 2'],
-        ['date' => '2025-11-16', 'time' => 0.625, 'location' => 'Sportpark de Linie', 'home' => 'RC Den Helder 1', 'away' => 'CL Mokum Rugby 1'], // time was empty, set to 0.625 (15:00)
+        ['date' => '2025-11-16', 'time' => 0.0, 'location' => 'Sportpark de Linie', 'home' => 'RC Den Helder 1', 'away' => 'CL Mokum Rugby 1'],
         ['date' => '2025-11-23', 'time' => 0.625, 'location' => 'Sportpark de Eendracht', 'home' => 'AAC 2', 'away' => 'SRC Rush 1'],
         ['date' => '2025-11-23', 'time' => 0.625, 'location' => 'Van der Aart Sportpark', 'home' => 'RFC Haarlem 3', 'away' => 'RC West-Friesland 1'],
         ['date' => '2025-11-23', 'time' => 0.625, 'location' => 'Sportpark de Linie', 'home' => 'RC Den Helder 1', 'away' => 'Haagsche RC Espoirs'],
@@ -183,12 +183,12 @@ $sheets = [
         ['date' => '2024-11-16', 'time' => 0.5416666666666666, 'location' => 'Sportpark de Eendracht', 'home' => 'A.S.R.V. Ascrum 2', 'away' => 'Haagsche RC 3'],
         ['date' => '2024-11-16', 'time' => 0.5416666666666666, 'location' => 'Sportcentrum TU Delft', 'home' => 'SVRC 1', 'away' => 'BRC 2'],
         ['date' => '2024-11-16', 'time' => 0.625, 'location' => 'Sportcomplex Beresteinlaan', 'home' => 'The Hague Hornets 1', 'away' => 'GRC Tovaal 1'],
-        ['date' => '2024-11-16', 'time' => 0.625, 'location' => 'Sportpark Rijnvliet', 'home' => 'URC 3', 'away' => 'RC Sparta 1'], // time was empty, set to 0.625
+        ['date' => '2024-11-16', 'time' => 0.0, 'location' => 'Sportpark Rijnvliet', 'home' => 'URC 3', 'away' => 'RC Sparta 1'],
         ['date' => '2024-11-23', 'time' => 0.5416666666666666, 'location' => 'Sportpark de Eendracht', 'home' => 'A.S.R.V. Ascrum 2', 'away' => 'BRC 2'],
         ['date' => '2024-11-23', 'time' => 0.5416666666666666, 'location' => 'Haagsche RC', 'home' => 'Haagsche RC 3', 'away' => 'URC 3'],
         ['date' => '2024-11-23', 'time' => 0.6041666666666666, 'location' => 'Sportcomplex Beresteinlaan', 'home' => 'WRC Te Werve 1', 'away' => 'GRC Tovaal 1'],
         ['date' => '2024-11-23', 'time' => 0.625, 'location' => 'Sportcentrum TU Delft', 'home' => 'SVRC 1', 'away' => 'The Hague Hornets 1'],
-    ],
+    ]
 ];
 
 // Extract unique clubs, locations, and teams
@@ -210,7 +210,8 @@ foreach ($sheets as $sheet_key => $sheet_matches) {
         $division = '3e Klasse';
         $district = 'Zuidwest';
     } else {
-        continue; // Skip unknown sheets
+        echo "Warning: Skipping unknown sheet {$sheet_key}.\n";
+        continue;
     }
 
     foreach ($sheet_matches as $match) {
@@ -220,11 +221,17 @@ foreach ($sheets as $sheet_key => $sheet_matches) {
             continue;
         }
 
-        // Validate time
+        // Correct likely typo in Ereklasse date
+        if ($sheet_key === 'Ereklasse' && $match['date'] === '2025-06-09') {
+            echo "Warning: Correcting date '2025-06-09' to '2025-09-06' for match in {$sheet_key} at {$match['location']} between {$match['home']} and {$match['away']}.\n";
+            $match['date'] = '2025-09-06';
+        }
+
+        // Validate and handle time
         $decimal_time = $match['time'];
-        if ($decimal_time < 0 || $decimal_time >= 1) {
-            echo "Warning: Invalid decimal time {$decimal_time} for match in {$sheet_key} on {$match['date']} at {$match['location']}.\n";
-            continue;
+        if ($decimal_time <= 0 || $decimal_time >= 1) {
+            echo "Warning: Invalid or missing decimal time {$decimal_time} for match in {$sheet_key} on {$match['date']} at {$match['location']}. Defaulting to 15:00:00.\n";
+            $decimal_time = 0.625; // Default to 15:00:00
         }
 
         $home_team = $match['home'];
@@ -410,18 +417,19 @@ foreach ($matches_data as $match) {
     }
 }
 echo "Matches: {$seeded_matches_count} seeded, {$existing_matches_count} already existed.\n";
-/*
+
 // ----- Seed Referees -----
 $grades = ['A', 'B', 'C', 'D', 'E'];
-
-$referees_data = []; // Store referee data for later use if needed
+$referees_data = [];
 $referee_names = [
     'Alice', 'Bob', 'Charlie', 'Diana', 'Edward', 'Fiona', 'George', 'Hannah', 'Isaac', 'Julia',
     'Kevin', 'Laura', 'Michael', 'Nina', 'Oscar', 'Paula', 'Quentin', 'Rachel', 'Samuel', 'Tina',
     'Umar', 'Vanessa', 'William', 'Xenia', 'Yusuf', 'Zara', 'Aaron', 'Bianca', 'Caleb', 'Delilah'
 ];
 
-
+echo "Seeding Referees...\n";
+$seeded_referees_count = 0;
+$existing_referees_count = 0;
 foreach ($referee_names as $index => $name) {
     $club = array_values($club_map)[array_rand(array_keys($club_map))];
     $ref_uuid = generate_uuid_v4();
@@ -433,21 +441,39 @@ foreach ($referee_names as $index => $name) {
         'email' => strtolower($name) . '@example.com',
         'phone' => '000-000-000' . $index,
         'home_club_id' => $club['uuid'],
-        'home_location_city' => $club['club_name'], // Assuming city is same as club name for dummy data
+        'home_location_city' => $club['club_name'],
         'grade' => $grades[array_rand($grades)],
         'ar_grade' => $grades[array_rand($grades)],
-        'home_lat' => $club['precise_location_lat'] + (mt_rand(-100, 100) / 10000), // Slight random variation for demo
+        'home_lat' => $club['precise_location_lat'] + (mt_rand(-100, 100) / 10000),
         'home_lon' => $club['precise_location_lon'] + (mt_rand(-100, 100) / 10000)
     ];
     $referees_data[] = $ref;
 
-    $stmt = $pdo->prepare("INSERT IGNORE INTO referees (uuid, referee_id, first_name, last_name, email, phone, home_club_id, home_location_city, grade, ar_grade, home_lat, home_lon) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-    // Assuming ar_grade is the same as grade for initial seeding
-    $stmt->execute([$ref['uuid'], $ref['referee_id'], $ref['first_name'], $ref['last_name'], $ref['email'], $ref['phone'], $ref['home_club_id'], $ref['home_location_city'], $ref['grade'], $ref['ar_grade'], $ref['home_lat'], $ref['home_lon']]);
+    $stmt_check_referee = $pdo->prepare("SELECT uuid FROM referees WHERE referee_id = ?");
+    $stmt_check_referee->execute([$ref['referee_id']]);
+    if ($stmt_check_referee->fetch()) {
+        $existing_referees_count++;
+    } else {
+        $stmt_insert_referee = $pdo->prepare("INSERT IGNORE INTO referees (uuid, referee_id, first_name, last_name, email, phone, home_club_id, home_location_city, grade, ar_grade, home_lat, home_lon) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        $stmt_insert_referee->execute([
+            $ref['uuid'],
+            $ref['referee_id'],
+            $ref['first_name'],
+            $ref['last_name'],
+            $ref['email'],
+            $ref['phone'],
+            $ref['home_club_id'],
+            $ref['home_location_city'],
+            $ref['grade'],
+            $ref['ar_grade'],
+            $ref['home_lat'],
+            $ref['home_lon']
+        ]);
+        $seeded_referees_count++;
+    }
 }
+echo "Referees: {$seeded_referees_count} seeded, {$existing_referees_count} already existed.\n";
 
-echo "Referees seeded.\n";
-*/
 // ----- Seed Referee Weekly Availability -----
 echo "Seeding Referee Weekly Availability...\n";
 $stmt_insert_availability = $pdo->prepare("
@@ -462,15 +488,15 @@ $stmt_insert_availability = $pdo->prepare("
 
 $availability_seeded_count = 0;
 foreach ($referees_data as $referee) {
-    for ($weekday = 0; $weekday <= 6; $weekday++) { // 0 = Sunday, 6 = Saturday
+    for ($weekday = 0; $weekday <= 6; $weekday++) {
         $availability_uuid = generate_uuid_v4();
         $stmt_insert_availability->execute([
             $availability_uuid,
             $referee['uuid'],
             $weekday,
-            true, // morning_available
-            true, // afternoon_available
-            true  // evening_available
+            true,
+            true,
+            true
         ]);
         $availability_seeded_count++;
     }
@@ -479,17 +505,12 @@ echo "{$availability_seeded_count} referee availability records seeded/updated.\
 
 // ----- Seed Admin User -----
 $adminUsername = 'admin';
-$adminPassword = 'password'; // Securely hash this password
-
-// Hash the password
+$adminPassword = 'password';
 $passwordHash = password_hash($adminPassword, PASSWORD_DEFAULT);
-
-// Generate UUID for the admin user
-$adminUuid = '123e4567-e89b-12d3-a456-426614174000'; // Fixed UUID for default admin
-$adminRole = 'super_admin'; // Set role to super_admin
+$adminUuid = '123e4567-e89b-12d3-a456-426614174000';
+$adminRole = 'super_admin';
 
 try {
-    // Check if admin user already exists
     $stmt = $pdo->prepare("SELECT uuid FROM users WHERE username = ?");
     $stmt->execute([$adminUsername]);
     $existingUser = $stmt->fetch();
@@ -497,14 +518,11 @@ try {
     if ($existingUser) {
         echo "Admin user '{$adminUsername}' already exists.\n";
     } else {
-        // Insert the admin user
         $stmt = $pdo->prepare("INSERT INTO users (uuid, username, password_hash, role) VALUES (?, ?, ?, ?)");
         $stmt->execute([$adminUuid, $adminUsername, $passwordHash, $adminRole]);
         echo "Admin user '{$adminUsername}' created successfully.\n";
     }
 } catch (PDOException $e) {
-    // Check if the error is about duplicate entry for username (though IGNORE should handle it, this is more explicit for username)
-    // MySQL error code for duplicate entry is 1062
     if ($e->getCode() == '23000' || $e->errorInfo[1] == 1062) {
         echo "Admin user '{$adminUsername}' already exists (caught exception).\n";
     } else {
@@ -512,7 +530,7 @@ try {
     }
 }
 
-// ----- Additional Users -----
+// ----- Seed Additional Users -----
 $newUsers = [
     ['username' => 'Antoine', 'password' => 'password', 'role' => 'super_admin'],
     ['username' => 'Celine', 'password' => 'password', 'role' => 'super_admin'],
@@ -523,15 +541,10 @@ foreach ($newUsers as $userData) {
     $username = $userData['username'];
     $password = $userData['password'];
     $role = $userData['role'];
-
-    // Hash the password
     $passwordHash = password_hash($password, PASSWORD_DEFAULT);
-
-    // Generate UUID for the user
-    $userUuid = generate_uuid_v4(); // Using the existing UUID generation function
+    $userUuid = generate_uuid_v4();
 
     try {
-        // Check if user already exists
         $stmt = $pdo->prepare("SELECT uuid FROM users WHERE username = ?");
         $stmt->execute([$username]);
         $existingUser = $stmt->fetch();
@@ -539,7 +552,6 @@ foreach ($newUsers as $userData) {
         if ($existingUser) {
             echo "User '{$username}' already exists.\n";
         } else {
-            // Insert the user
             $stmt = $pdo->prepare("INSERT INTO users (uuid, username, password_hash, role) VALUES (?, ?, ?, ?)");
             $stmt->execute([$userUuid, $username, $passwordHash, $role]);
             echo "User '{$username}' created successfully.\n";

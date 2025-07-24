@@ -14,12 +14,12 @@ function generate_uuid_v4() {
 
 // ----- Function to parse referee name -----
 function parse_referee_name($name_str) {
-    if (preg_match('/^([^,]+),\s*([^()]+)\s*\(([^)]+)\)/', $name_str, $matches)) {
+    if (preg_match('/^^([^,]+),\s*([^()]+)\s*\(([^)]+)\)/', $name_str, $matches)) {
         $surname = trim($matches[1]);
         $initials = trim($matches[2]);
         $first_name = trim($matches[3]);
 
-        // Check for Dutch prefixes in initials
+        // Handle Dutch prefixes in initials
         if (preg_match('/([A-Z.]+)\s+(van|de|der|van der|van de|den)\s*$/i', $initials, $prefix_matches)) {
             $prefix = $prefix_matches[2];
             $last_name = $prefix . ' ' . $surname;
@@ -27,235 +27,13 @@ function parse_referee_name($name_str) {
             $last_name = $surname;
         }
     } else {
-        // Default fallback: treat whole string as first_name, empty last_name
+        // Fallback: treat whole string as first_name, empty last_name
         $first_name = trim($name_str);
         $last_name = '';
     }
 
     return ['first_name' => $first_name, 'last_name' => $last_name];
 }
-
-// ----- Raw rows data (extracted from the provided sheet, without "rowX: " prefix) -----
-$raw_rows = [
-    'Aart, W van der (Wesley),wvanderaart@gmail.com,C: 2e klasse heren, Colts Plate,District Zuid West,Tientjeslid (BASSETS RC THE)',
-    'Ankone, B (Bouke),bouke.ankone@gmail.com,C: 2e klasse heren, Colts Plate,District Oost,',
-    'Assman, M.J. (Michael),michael.assman67@gmail.com,B: Ereklasse dames, 1e klasse heren, Colts cup,District Noord West, District Midden,',
-    'Backer, J. (Jeffry),j.backer@ziggo.nl,C: 2e klasse heren, Colts Plate,District Noord West,Recreant (DEN HELDER RC)',
-    'Barnhoorn, S (Serge),serge@barnhoorn.eu,B: Ereklasse dames, 1e klasse heren, Colts cup,District Noord West,Tientjeslid (VRN)',
-    'Bett, T (Tim),timbett@xs4all.nl,Beoordelaar,District Zuid West,',
-    'Binns, T (Thomas),thomas.binns@hotmail.co.uk,B: Ereklasse dames, 1e klasse heren, Colts cup,District Zuid,',
-    'Blaas, C.L.N.M. (Kees),keesblaas@planet.nl,Scheidsrechter coach,District Midden,Tientjeslid (Utrechtse Rugby Club)',
-    'Bras, M. (Marit),maritbras@gmail.com,C: 2e klasse heren, Colts Plate,District Noord West,Spelend lid (HAARLEM RFC)',
-    'Broek, A. van den (Arne),arne.broek@kpnmail.nl,Beoordelaar,District Zuid,Tientjeslid (RCE (RC Eindhoven))',
-    'Broersma, O. (Obed),obroersma@gmail.com,C: 2e klasse heren, Colts Plate,District Zuid West,',
-    'Bronkhorst, C.G. (Carl Garth),carl.bronkz101@gmail.com,C: 2e klasse heren, Colts Plate,District Zuid,Tientjeslid (DUKES RC THE)',
-    'Brucciani, T (Thomas),tom@brucciani.co.uk,Extra,District Oost,',
-    'Bruijn, P. (Paul),paulbruyn@gmail.com,Scheidsrechter coach,District Zuid West,Tientjeslid (Rotterdamse Rugby Club)',
-    'Bruin, E. de (Ed),eddydebruin@xs4all.nl,C: 2e klasse heren, Colts Plate,District Midden,',
-    'Brummelman, M (Marloes),marloes.brummelman@gmail.com,C: 2e klasse heren, Colts Plate,District Zuid,Spelend lid (M.M.R.C.)',
-    'Buist, M. (Marinus),marinus.buist@gmail.com,C: 2e klasse heren, Colts Plate,District Oost,Recreant (Rugbyclub The Big Bulls)',
-    'Burbach, M (Max),mh.burbach@gmx.de,C: 2e klasse heren, Colts Plate,District Oost,Tientjeslid (Rugby Club Aachen e.V)',
-    'Buys, J.C. (Chris),chrisbuys22@gmail.com,Extra,District Zuid,Tientjeslid (OEMOEMENOE EZRC)',
-    'Capello, A (Ad),wedstrijdsecretaris@rugbyroosendaal.nl,Beoordelaar,District Zuid,Tientjeslid (RC RCC )',
-    'Coronel, S (Stefan),steef.coronel@gmail.com,B: Ereklasse dames, 1e klasse heren, Colts cup,District Noord West,Tientjeslid (ASCRUM A.S.R.V.)',
-    'D\'Ambrosio, F (Federico),federico@dambrosio.nl,C: 2e klasse heren, Colts Plate,District Midden,Tientjeslid (VRN)',
-    'Denley, B (Brian),bddenley@gmail.com,C: 2e klasse heren, Colts Plate,District Zuid West,Tientjeslid (GOUDA RFC)',
-    'Dijkstra, M. (Mireya),mireyadijk@gmail.com,Extra,District Noord,Tientjeslid (GREATE PIER RC)',
-    'Duiverman, K.J. (Kees Jan),kees.jan.duiverman@gmail.com,Beoordelaar,District Zuid West,',
-    'Engelse, L den (Lucas),lucas004848@gmail.com,B: Ereklasse dames, 1e klasse heren, Colts cup,District Midden,Tientjeslid (NIEUWEGEIN RC)',
-    'Estanga, Y (Yeraldin),yeral.rugby.referee@gmail.com,C: 2e klasse heren, Colts Plate,District Noord West,Tientjeslid (VRN)',
-    'Faassen, R. van (Rutger),rutgervf@gmail.com,Extra,District Oost,Recreant (Rugbyclub The Big Bulls)',
-    'Gerwen, LLF van (Louis),louisvangerwen@hotmail.com,B: Ereklasse dames, 1e klasse heren, Colts cup,District Zuid,Tientjeslid (TSRC TARANTULA)',
-    'Glaser, S. (Stephan),stephan@glsr.nl,B: Ereklasse dames, 1e klasse heren, Colts cup,District Noord West,',
-    'Grillis, R.M.F. (Ruben),ruben.grillis@hotmail.com,C: 2e klasse heren, Colts Plate,District Oost,',
-    'Hansmeier, A (Annabell),annabellhansmeier@gmx.de,C: 2e klasse heren, Colts Plate,District Noord West,Tientjeslid (SMUGGLERS RC THE)',
-    'Hawkins, M (Mike),lostohawk@live.com,Extra,District Noord West,Tientjeslid (VRN)',
-    'Heijer, E. den (Eelco),eelcodh@hotmail.com,B: Ereklasse dames, 1e klasse heren, Colts cup,District Zuid West,Tientjeslid (DELFT RC)',
-    'Heuff, D (Dirk),djheuff@gmail.com,Scheidsrechter coach,District Zuid West,Tientjeslid (Rotterdamse Studenten Rugby Club)',
-    'Hoed, M. van den (Mattijs),mattijsvandenhoed@freedom.nl,B: Ereklasse dames, 1e klasse heren, Colts cup,District Noord,Social Rugby (GRONINGEN RC)',
-    'Hoyer, M (Mike),referee@rugby-club-aachen.de,Scheidsrechter coach,District Zuid,',
-    'Huiskamp, H.W. (Erwin),h.w.huiskamp@gmail.com,Beoordelaar,District Midden,Tientjeslid (GOOI RC \'T)',
-    'Lancashire, R (Richard),richard.lancashire@gmail.com,C: 2e klasse heren, Colts Plate,District Zuid West,Recreant (RC DIOK)',
-    'Letaif, W (Wissem),wissemltaifrugby@gmail.com,A: Ereklasse heren,District Noord West,Tientjeslid (AMSTERDAMSE AC)',
-    'Looten, L (Lars),lad.looten@gmail.com; elooten@gmail.com,B: Ereklasse dames, 1e klasse heren, Colts cup,District Oost,Spelend lid (WASPS NRC THE)',
-    'Maaijen, K. (Koen),k.maaijen@gmail.com,A: Ereklasse heren,District Zuid West,Tientjeslid (GOUDA RFC)',
-    'Maintz, A (Antoine),antoine.maintz@upcmail.nl,B: Ereklasse dames, 1e klasse heren, Colts cup,District Midden,Tientjeslid (Rugby Club Hilversum)',
-    'Meijer, H.A.W. (Riëtte),riettemeijer@gmail.com,Extra,District Midden,Tientjeslid (RUS)',
-    'Meyer, PJ John (Phillip),phillipmeyer22@gmail.com,C: 2e klasse heren, Colts Plate,District Oost,Recreant (PIGS ARC THE)',
-    'Mostert, R. (Reinier),reintjemos@hotmail.com,Extra,District Zuid West,Recreant (Rugbyclub Hoek van Holland)',
-    'Naulais, M.J.R. (Mika),m.naulais@gmail.com,Extra,District Zuid West,Tientjeslid (L.S.R.G.)',
-    'O Shaughnessy, COS (Colin),colinoshocks@gmail.com,Extra,District Zuid West,Tientjeslid (BASSETS RC THE)',
-    'Oliver, A. (Andrew),aforugbyref@hotmail.com,C: 2e klasse heren, Colts Plate,District Zuid,Tientjeslid (OISTERWIJK OYSTERS RFC)',
-    'Oudman, BJ (Bram),bram.oudman.referee@gmail.com,A: Ereklasse heren,District Oost,Recreant (EMMEN RUGBY CLUB)',
-    'O’Connell, D (Dan),daniel.x.oconnell@gmail.com,A: Ereklasse heren,District Zuid,Tientjeslid (Rugby Club Aachen e.V)',
-    'Pardede, J.P. (Jens),jens@dengar.nl,A: Ereklasse heren,District Zuid West,Spelend lid (GOUDA RFC)',
-    'Pardede, T.B. (Tjerk),tjerk@dengar.nl,Extra,District Midden,Spelend lid (Utrechtse Studenten Rugby Society)',
-    'Ploeger, P. (Peter),peter.ploeger@gmail.com,C: 2e klasse heren, Colts Plate,District Oost,Spelend lid (ERC\'69)',
-    'Plomp, S (Simon),smn.plomp@gmail.com,Beoordelaar,District Midden,',
-    'Pol, R. van de (Rene),renevdpol@hotmail.com,Extra,District Zuid,Recreant (OISTERWIJK OYSTERS RFC)',
-    'Pouwels, T (Thomas),thomas16839@gmail.com,C: 2e klasse heren, Colts Plate,District Zuid West,',
-    'Prevaes, B. (Bert),bert@prevaes.nl,Beoordelaar,District Midden,',
-    'Puijpe, J.J.M.H.A. (Joost),joostpuype@hotmail.com,Beoordelaar,District Noord West,Tientjeslid (AMSTELVEENSE RC)',
-    'Raynor, N (Nathan),n.f.raynor@gmail.com,B: Ereklasse dames, 1e klasse heren, Colts cup,District Zuid West,',
-    'Referee 1, E (Exchange),garyjr9515@gmail.com,Extra,District Midden,Tientjeslid (VRN)',
-    'Referee 2, E (Exchange),ondrej947@gmail.com,Extra,District Midden,Tientjeslid (VRN)',
-    'Referee 3, E (Exchange),jonas.dolezil@protonmail.com,Extra,District Midden,Tientjeslid (VRN)',
-    'Riepe, C (Conrad),conrad.riepe@googlemail.com,A: Ereklasse heren,District Zuid,',
-    'Ritchie, K (Katherine),katherine.ritchie@btinternet.com,A: Ereklasse heren,District Zuid West,Tientjeslid (Rotterdamse Studenten Rugby Club)',
-    'Rooyen, B van (Bruce),brucethomas.vr@gmail.com,B: Ereklasse dames, 1e klasse heren, Colts cup,District Zuid West,',
-    'Rouwet, P (Pablo),p.rouwet@gmail.com,C: 2e klasse heren, Colts Plate,District Noord West,Recreant (ASCRUM A.S.R.V.)',
-    'Ruiter, H.L.G. de (Henrie),hlg.ruiter@gmail.com,Beoordelaar,District Zuid,',
-    'Smits, P. (Pieter),pag.smits@hotmail.com,B: Ereklasse dames, 1e klasse heren, Colts cup,District Zuid West,Recreant (Rugbyclub Hoek van Holland)',
-    'Spek, E Van der (Edwin),edwinvdspek.rugby@gmail.com,A: Ereklasse heren,District Noord West,Tientjeslid (HAARLEM RFC)',
-    'Statham, J (James),james.statham1@btinternet.com; claudiastatham@live.com,C: 2e klasse heren, Colts Plate,District Zuid West,',
-    'Stevens, A. (Andrew),ajstevens97@outlook.com,Beoordelaar,District Zuid,Tientjeslid (OCTOPUS RC)',
-    'Taljaard, D.J. (Diederick),dj.taljaard@gmail.com,B: Ereklasse dames, 1e klasse heren, Colts cup,District Zuid West,',
-    'Teerink, F. (Friso),frisoteerink@gmail.com,Beoordelaar,District Noord West,Tientjeslid (RUSH SRC)',
-    'Velden, R van der (Rudolf),vdvruud@gmail.com,Beoordelaar,District Midden,Tientjeslid (Utrechtse Rugby Club)',
-    'Veldmaat, J. (Joris),j.veldmaat@gmail.com,C: 2e klasse heren, Colts Plate,District Oost,',
-    'Verseveld, F.J.A. van (Fred),fred.van.verseveld@gmail.com,C: 2e klasse heren, Colts Plate,District Midden,Tientjeslid (GOOI RC \'T)',
-    'Visser, G. (Gert),visser.gert.j@gmail.com,A: Ereklasse heren,District Midden,Tientjeslid (Utrechtse Rugby Club)',
-    'Vliet, J. van der (Hans),hnsvdvliet@gmail.com,Beoordelaar,District Zuid West,Tientjeslid (DELFT RC)',
-    'Vries, H. de (Henk),rugbyhenk@outlook.com,C: 2e klasse heren, Colts Plate,District Noord,Spelend lid (GRONINGEN RC)',
-    'Vries, M. de (Michael),vries.vries@ziggo.nl,C: 2e klasse heren, Colts Plate,District Noord West,Tientjeslid (WATERLAND RC)',
-    'Wadey, D (Darron),achillesagain@gmail.com,Beoordelaar,District Noord West,Tientjeslid (WATERLAND RC)',
-    'Wartena, S. (Sjoerd),swartena@casema.nl,Beoordelaar,District Zuid,Recreant (Etten-Leur RC)',
-    'Weir, D (Dennis),dennis.weir.rugby@gmail.com,Extra,District Oost,Tientjeslid (VRN)',
-    'Welle Donker, G. (Guus),guuswelledonker@gmail.com,B: Ereklasse dames, 1e klasse heren, Colts cup,District Zuid West,Recreant (WRC-Te Werve RUFC)',
-    'Wolfenden, I. (Ian),klmblue69@hotmail.com,Extra,District Noord West,Tientjeslid (AMSTELVEENSE RC)',
-    'Wright, L (Liam),liamewright@gmail.com,A: Ereklasse heren,District Noord West,Tientjeslid (HAARLEM RFC)',
-    'Zandvliet, J.P. (Joop),referee@joopzandvliet.nl,Beoordelaar,District Noord West,Spelend lid (ALKMAARSE R.U.F.C.)',
-    'Clarke, D (Don),don_clarke_bss@hotmail.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Midden,Tientjeslid (RUS)',
-    'Doughty, M.J. (Martin),doughtymartin@aol.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Midden,Tientjeslid (Utrechtse Rugby Club)',
-    'Feller, MM (Max),max.feller@kpnmail.nl,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Midden,Spelend lid (BULLDOGS ALMERE RC)',
-    'Hagens, L.G.L.M. (Luuk),luukhagens@gmail.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Midden,Tientjeslid (Stichtsche Rugby Football Club)',
-    'Koops, K (Klaas),koopsklaas@gmail.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Midden,Recreant (SPAKENBURG RC)',
-    'Luteijn, E.P.A. (Eric),eluteijn@gmail.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Midden,Tientjeslid (GOOI RC \'T)',
-    'Onsoz, A (Aylin),aylinonsoz@gmail.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Midden,Tientjeslid (Utrechtse Rugby Club)',
-    'Ruijter, SM de (Shaquil),shaquil11@outlook.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Midden,Spelend lid (Rugby Club Eemland)',
-    'Silbernberg, AP (Allain),allains27@gmail.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Midden,',
-    'Tolboom, A.G. (Ton),tontolboom@outlook.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Midden,',
-    'Verveer, H (Hans),hlverveer@gmail.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Midden,Tientjeslid (SPAKENBURG RC)',
-    'Albers, J (Jan),jan.albers@icloud.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Noord West,Tientjeslid (ASCRUM A.S.R.V.)',
-    'Beltman, A. (Arend),beltmanarend@gmail.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Noord West,',
-    'Bras, M (Martijn),brasvaneden@upcmail.nl,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Noord West,Tientjeslid (HAARLEM RFC)',
-    'Fellenberg Van der Molen, A (Andres),a.fellenberg@green-partner.nl,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Noord West,',
-    'Fellenberg van der Molen, L (Lucas),lucas.fellenberg@gmail.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Noord West,Spelend lid (Zaandijk Rugby)',
-    'Goos, H.J. (Hendrik),hendrikgoos@yahoo.co.uk,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Noord West,Tientjeslid (RUSH SRC)',
-    'Hille Ris Lambers, T (Ties),tieshrl@gmail.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Noord West,Tientjeslid (Rotterdamse Studenten Rugby Club)',
-    'Keyser, G (Gawie),gawie.keyser@me.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Noord West,Tientjeslid (ALKMAARSE R.U.F.C.)',
-    'Kouwenhoven, I (Ino),ino@quicknet.nl,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Noord West,Tientjeslid (ALKMAARSE R.U.F.C.)',
-    'Mooij, S de (Sem),semdemooij@icloud.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Noord West,Spelend lid (CASTRICUMSE RC), Tientjeslid (WATERLAND RC)',
-    'Oosterbeek, S.C.M. (Steijn),frank.oosterbeek@gmail.com; steijnoosterbeek@gmail.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Noord West,Spelend lid (AMSTELVEENSE RC)',
-    'Victor, JA (Jaco),jaco.victor19@gmail.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Noord West,',
-    'Butselaar, B.P. van (Bob),bvb88@hotmail.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Noord,',
-    'Delft, ALJ van (Amber),a.l.j.vandelft@gmail.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Noord,Recreant (GRONINGEN RC)',
-    'Denkers, R (Rick),drsdenkers@outlook.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Noord,Tientjeslid (EMMEN RUGBY CLUB)',
-    'Eijnatten, M van (Maurits),combustiblewater@hotmail.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Noord,Social Rugby (GRONINGEN RC)',
-    'Hokse, H.F. (Harro),Voorzitter@thebigstones.nl,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Noord,Spelend lid (Rugby Club The Big Stones)',
-    'Jaspers Focks, L.M (Loes),loesjf@live.nl,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Noord,Recreant (GRONINGEN RC)',
-    'Kizito Bugembe, D (Deusdedit),deuskhalifa@gmail.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Noord,Social Rugby (Rugby Club Sneek)',
-    'Pas, T.H. ten (Tom),tomtpas@hotmail.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Noord,Spelend lid (GRONINGEN RC)',
-    'Roling, A.H.P. (Albert),ahp.roling@ziggo.nl,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Noord,',
-    'Skilton, D (David),david3467@live.nl,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Noord,Recreant (PHOENIX DRC)',
-    'Sondorp, LHJ (Luc),l.h.j.sondorp@gmail.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Noord,Spelend lid (GRONINGEN RC)',
-    'Stoeten, HJ (Hendrik Jan),hendrikjanstoeten@hotmail.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Noord,Spelend lid (FEANSTER RC)',
-    'Verlaan, A. (Arthur),a.verlaan@gmail.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Noord,',
-    'Vries, GP De (GP),rugbygp57@gmail.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Noord,',
-    'Wagemakers, A (Ad),ad.jeanneke.wagemakers@planet.nl,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Noord,Veteranen Rugby (Rugby Club The Big Stones)',
-    'Weenink, Y. (Yoeri),yweenink@gmail.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Noord,Recreant (DWINGELOO RC)',
-    'Ansell, D.J. (Derek),derek_ansell@hotmail.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Oost,',
-    'Brakel, G. van (Gerard),Molenweg10@me.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Oost,Recreant (ASCRUM A.S.R.V.)',
-    'Brinkman, N (Nouri),nourinouri@live.nl,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Oost,Tientjeslid (PIGS ARC THE)',
-    'Dommelen, J van (Jeroen),jeroendommel@gmail.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Oost,Recreant (WAGENINGEN RC)',
-    'Ehren, S (Stijn),stijn.ehren@gmail.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Oost,Recreant (ASCRUM A.S.R.V.)',
-    'Francke, K (Kai),kaifrancke@hotmail.de,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Oost,',
-    'Koeverden, M. van (Michiel),michielvankoeverden@hotmail.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Oost,Tientjeslid (ZWOLLE RC)',
-    'Kramer, J.A. (Jolanda),jolanda.kramer@outlook.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Oost,Tientjeslid (PIGS ARC THE)',
-    'Luijkx, P.C.L.M. (Patrick),luijkx@hotmail.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Oost,Tientjeslid (OBELIX NSRV)',
-    'Murray, L (Lorcan),lorcan.murray@hotmail.co.uk,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Oost,Tientjeslid (PIGS ARC THE)',
-    'Nel, M (Martian),martiannel6@gmail.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Oost,Spelend lid (PIGS ARC THE)',
-    'Nijman, J. (John),johnnijman@gmail.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Oost,',
-    'Popken, D (Daan),daanpopken@gmail.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Oost,Recreant (ZWOLLE RC)',
-    'Reinhardt, T (Tiaan),tiaanreinhardt@gmail.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Oost,Recreant (PIGS ARC THE)',
-    'Reuvers, P. (Peter),reuverspeter@msn.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Oost,Tientjeslid (DRC The Wild Rovers)',
-    'Roos, M. (Marco),marcoroos0@gmail.com; wedstrijdsecretaris@rcwageningen.nl,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Oost,',
-    'Schepman, T.J.J.R (Thijs),thijschepman@gmail.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Oost,',
-    'Smeets, C. (Cosmo),cosmosmeets@hotmail.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Oost,Recreant (PIGS ARC THE)',
-    'Utrecht, J van (Johan),jdcvanutrecht@hotmail.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Oost,Tientjeslid (DRC The Wild Rovers)',
-    'Veldman, R. (Richard),lgveldman@hotmail.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Oost,Recreant (WAGENINGEN RC)',
-    'Adriaanse, J. (Janwillem),janwillem@gmx.es,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Zuid,Tientjeslid (TILBURG RC)',
-    'Berg, M van den (Max),m.h.vandenberg@hotmail.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Zuid,',
-    'Boers, K (Koen),koenboers@hotmail.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Zuid,',
-    'Bogaers, W.J.A.M. (Pim),bogaers@icloud.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Zuid,Recreant (ASCRUM A.S.R.V.)',
-    'Bommel, T. van (Twan),bomme01@kpnmail.nl,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Zuid,Tientjeslid (OISTERWIJK OYSTERS RFC)',
-    'Boom, T van den (Tom),tomvdboom@gmail.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Zuid,Spelend lid (ELEPHANTS ESRC THE)',
-    'Bouwens, W (Wilco),wilco.bouwens@gmail.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Zuid,Tientjeslid (RC RCC )',
-    'Companjen, T (Tijn),tijncompanjen@gmail.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Zuid,Spelend lid (Utrechtse Studenten Rugby Society)',
-    'Cremers, B (Bart),bja.cremers@gmail.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Zuid,Spelend lid (BREDASE RUGBY CLUB)',
-    'Demba, A.G.M. (Aïsha),aishademba@hotmail.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Zuid,Tientjeslid (ELEPHANTS ESRC THE)',
-    'Derks, H.P.M. (Harm),harmderks96@gmail.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Zuid,Spelend lid (ELEPHANTS ESRC THE)',
-    'Hanegraaf, B. (Bram Onno),bramhanegraaf@hotmail.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Zuid,Spelend lid (OCTOPUS RC)',
-    'Jacobi, J (Jeroen),jacobijeroen@gmail.com,Extra,District Zuid,Tientjeslid (BREDASE RUGBY CLUB)',
-    'Koekkoek, E. (Etienne),etiennekoekkoek@gmail.com,Extra,District Zuid,Spelend lid (BREDASE RUGBY CLUB)',
-    'Leenders, P. (Peter),peter.leenders@chello.nl,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Zuid,',
-    'Mooijman, M.H. (Martijn),mhmooijman76@yahoo.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Zuid,Tientjeslid (VETS VRC THE)',
-    'Reede, T.C.R (Thies),reedecurfs@gmail.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Zuid,Spelend lid (M.M.R.C.)',
-    'Renate Janssen, S (Scheidsrechter),renate.janssen@hotmail.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Zuid,Tientjeslid (ELEPHANTS ESRC THE)',
-    'Rijo Mato, M (Matias),matias.rijo@hotmail.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Zuid,Tientjeslid (TSRC TARANTULA)',
-    'Schalkwijk, J. (Jan),jan.schalkwijk@gmx.net,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Zuid,',
-    'Schoorel, A (Alex),alex0103schoorel@gmail.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Zuid,Recreant (OISTERWIJK OYSTERS RFC)',
-    'Têtu, L (Luc),l.tetu@live.nl,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Zuid,Tientjeslid (RC RCC )',
-    'Vermeulen, M. (Mark),zondag11@gmail.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Zuid,',
-    'Wijdeven, J (Joop),joop.wijdeven@gmail.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Zuid,Tientjeslid (WAGENINGEN RC)',
-    'Aldama, E. (Eduardo),eardv@yahoo.es,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Zuid West,Spelend lid (DELFT RC)',
-    'Angelucci, S (Stefano),stefspace@yahoo.it,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Zuid West,Tientjeslid (Voorburgse Rugby Club)',
-    'Bent, JCP van der (Jeroen),tinekeenjeroen@gmail.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Zuid West,Tientjeslid (Rugbyclub Hoek van Holland)',
-    'Bloem, D (Dirk),dirk.c.bloem@gmail.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Zuid West,Spelend lid (The Hague Hornets)',
-    'Brouwer, W.J.J. (Wouter),wouter.brouwer1@gmail.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Zuid West,Spelend lid (WRC-Te Werve RUFC)',
-    'Cuvelier-Paradis, Y (Yannick),yannick.cuvelier@gmail.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Zuid West,',
-    'Driel, G B Van (Bruis),bruis@salax.nl,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Zuid West,Recreant (Rotterdamse Rugby Club)',
-    'Frankland, R.T. (Richard),Rtfrankland@yahoo.com.au,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Zuid West,',
-    'Gorkum, T van (Tom),thomasvangorkum@hotmail.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Zuid West,',
-    'Guichard, S (Sebastian),sebas.guichard@gmail.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Zuid West,Spelend lid (Rotterdamse Rugby Club)',
-    'Haan, W. de (Wiebe),wiebedehaan1957@gmail.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Zuid West,Tientjeslid (GOUDA RFC)',
-    'Hokse, M.F. (Marlou),marlou_hokse@kpnmail.nl,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Zuid West,Recreant (The Hague Hornets), Tientjeslid (Rugby Club The Big Stones)',
-    'Horst, B van der (Bob),bvdhorst2013@gmail.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Zuid West,Tientjeslid (Voorburgse Rugby Club)',
-    'Jansen, WR (Wil),wil@klima.co.za,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Zuid West,',
-    'Kahana, G. (Guy),guy_kahana@hotmail.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Zuid West,Tientjeslid (Haagsche Rugby Club)',
-    'Kampen, CD van (Céline),cedi.vankampen@gmail.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Zuid West,',
-    'Kersbergen, A van (Ap),appokers@gmail.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Zuid West,Tientjeslid (GOUDA RFC)',
-    'Klijnsma, S.D. (Sebastian),s.d.klijnsma@gmail.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Zuid West,',
-    'Krabbendam, J.J.C. (Jeroen),J.Krabbendam2@vandervalknotarissen.nl,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Zuid West,Tientjeslid (HERMES RUGBY CLUB)',
-    'Leeming, W (will),william_leeming@hotmail.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Zuid West,',
-    'Marijnissen, J (Jurre),jurre.m95@gmail.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Zuid West,Spelend lid (Sanctus Virgilius RC)',
-    'Merwe, DJ van der (David),davidvdmerwe.nl@gmail.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Zuid West,Spelend lid (DORDTSCHE RUGBY CLUB), Tientjeslid (Rotterdamse Rugby Club)',
-    'Mudde, L. (Lars),lars.mudde@live.nl,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Zuid West,Spelend lid (BASSETS RC THE)',
-    'Mudde, T.R. (Tim),sassem1965@live.nl,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Zuid West,Tientjeslid (BASSETS RC THE)',
-    'Noort, A.B.J. van (Antonie),antonievannoort@hotmail.com,E: 4e klasse heren, 2e klasse dames, Jun.Plate,District Zuid West,Spelend lid (GOUDA RFC)',
-    'Oostenbroek, H.J. (Hubert),hj@oostenbroek.nl,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Zuid West,Recreant (ASCRUM A.S.R.V.)',
-    'Petersen, L (Loes),loespetersen@gmail.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Zuid West,Recreant (L.S.R.G.)',
-    'Prein, J (Joep),jprein@xs4all.nl,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Zuid West,Recreant (RC DIOK)',
-    'Rasch, T. (Tycho),tycho.rasch@gmail.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Zuid West,Spelend lid (DELFT RC)',
-    'Schoot, G. van der (Gwen),rugbygwen@gmail.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Zuid West,Spelend lid (DELFT RC)',
-    'Slaghek, E.M. (Erik),emslaghek@gmail.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Zuid West,Spelend lid (DELFT RC)',
-    'Smith, O S (Oliver),oliverfreemansmith@gmail.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Zuid West,Recreant (RC DIOK)',
-    'Swinkels, C.W. (Christian),christian@swinkels.email,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Zuid West,',
-    'Tandon, ST (Suparshav),suparshavt@gmail.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Zuid West,Spelend lid (L.S.R.G.)',
-    'Teijlingen, AS van (Alessio Stèfano),alessiovanteijlingen@live.nl,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Zuid West,Spelend lid (BASSETS RC THE), Tientjeslid (L.S.R.G.)',
-    'Thomson, G (Graham),mauritsthomson@outlook.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Zuid West,Spelend lid (L.S.R.G.)',
-    'Vallinga, Z A (Zoë Anne-Klara),zoe@vallinga.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Zuid West,Recreant (L.S.R.G.)',
-    'Verbrugh, D.B. (Dagmar),dagmarverbrugh@gmail.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Zuid West,Spelend lid (GOUDA RFC)',
-    'Verweij, B.A. (Bart),bart_verweij@live.nl,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Zuid West,Tientjeslid (Sanctus Virgilius RC)',
-    'Vingerhoets, M. C. H. (Marc),marc.vingerhoets@gmail.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Zuid West,Tientjeslid (DORDTSCHE RUGBY CLUB)',
-    'Visser, R (Ruben),Ruben.j.visser@gmail.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Zuid West,Spelend lid (Rotterdamse Studenten Rugby Club)',
-    'Voskuil, D (Diederick),diederickvoskuil@hotmail.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Zuid West,Recreant (DSR-C)',
-    'Wagner, D (Dennis),denniswagner.bassets@hotmail.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Zuid West,Tientjeslid (BASSETS RC THE)',
-    'Weightman, PMH (Magnus),mweightman@yahoo.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Zuid West,Recreant (Rotterdamse Rugby Club)',
-    'Zon, DHM van der (Daan),vanderzon@voorpraktijken.nl,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Zuid West,',
-    'Zuilen, B.L. van (Bas),bas@vanzuilen.net,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Zuid West,',
-    'Zwet, J van der (Joran),joran1407@hotmail.com,D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup,District Zuid West,Tientjeslid (THOR SRC)'
-];
 
 // ----- District coordinates map (approximate) -----
 $district_coords = [
@@ -264,32 +42,248 @@ $district_coords = [
     'Oost' => ['lat' => 52.2215, 'lon' => 6.8937], // Enschede
     'Midden' => ['lat' => 52.0907, 'lon' => 5.1214], // Utrecht
     'Zuid' => ['lat' => 51.4416, 'lon' => 5.4697], // Eindhoven
-    'Noord' => ['lat' => 53.2194, 'lon' => 6.5665]
+    'Noord' => ['lat' => 53.2194, 'lon' => 6.5665] // Groningen
 ];
 
-// ----- Parse raw rows and build referees_data -----
+// ----- Referee data array (from Excel/CSV, excluding header) -----
+$referee_rows = [
+    ['Name' => 'Aart, W van der (Wesley)', 'Email' => 'wvanderaart@gmail.com', 'Class' => 'C: 2e klasse heren, Colts Plate', 'District' => 'District Zuid West', 'Club' => 'Tientjeslid (BASSETS RC THE)'],
+    ['Name' => 'Ankone, B (Bouke)', 'Email' => 'bouke.ankone@gmail.com', 'Class' => 'C: 2e klasse heren, Colts Plate', 'District' => 'District Oost', 'Club' => ''],
+    ['Name' => 'Assman, M.J. (Michael)', 'Email' => 'michael.assman67@gmail.com', 'Class' => 'B: Ereklasse dames, 1e klasse heren, Colts cup', 'District' => 'District Noord West', 'Club' => ''],
+    ['Name' => 'Backer, J. (Jeffry)', 'Email' => 'j.backer@ziggo.nl', 'Class' => 'C: 2e klasse heren, Colts Plate', 'District' => 'District Noord West', 'Club' => 'Recreant (DEN HELDER RC)'],
+    ['Name' => 'Barnhoorn, S (Serge)', 'Email' => 'serge@barnhoorn.eu', 'Class' => 'B: Ereklasse dames, 1e klasse heren, Colts cup', 'District' => 'District Noord West', 'Club' => 'Tientjeslid (VRN)'],
+    ['Name' => 'Bett, T (Tim)', 'Email' => 'timbett@xs4all.nl', 'Class' => 'Beoordelaar', 'District' => 'District Zuid West', 'Club' => ''],
+    ['Name' => 'Binns, T (Thomas)', 'Email' => 'thomas.binns@hotmail.co.uk', 'Class' => 'B: Ereklasse dames, 1e klasse heren, Colts cup', 'District' => 'District Zuid', 'Club' => ''],
+    ['Name' => 'Blaas, C.L.N.M. (Kees)', 'Email' => 'keesblaas@planet.nl', 'Class' => 'Scheidsrechter coach', 'District' => 'District Midden', 'Club' => 'Tientjeslid (Utrechtse Rugby Club)'],
+    ['Name' => 'Bras, M. (Marit)', 'Email' => 'maritbras@gmail.com', 'Class' => 'C: 2e klasse heren, Colts Plate', 'District' => 'District Noord West', 'Club' => 'Spelend lid (HAARLEM RFC)'],
+    ['Name' => 'Broek, A. van den (Arne)', 'Email' => 'arne.broek@kpnmail.nl', 'Class' => 'Beoordelaar', 'District' => 'District Zuid', 'Club' => 'Tientjeslid (RCE (RC Eindhoven))'],
+    ['Name' => 'Broersma, O. (Obed)', 'Email' => 'obroersma@gmail.com', 'Class' => 'C: 2e klasse heren, Colts Plate', 'District' => 'District Zuid West', 'Club' => ''],
+    ['Name' => 'Bronkhorst, C.G. (Carl Garth)', 'Email' => 'carl.bronkz101@gmail.com', 'Class' => 'C: 2e klasse heren, Colts Plate', 'District' => 'District Zuid', 'Club' => 'Tientjeslid (DUKES RC THE)'],
+    ['Name' => 'Brucciani, T (Thomas)', 'Email' => 'tom@brucciani.co.uk', 'Class' => 'Extra', 'District' => 'District Oost', 'Club' => ''],
+    ['Name' => 'Bruijn, P. (Paul)', 'Email' => 'paulbruyn@gmail.com', 'Class' => 'Scheidsrechter coach', 'District' => 'District Zuid West', 'Club' => 'Tientjeslid (Rotterdamse Rugby Club)'],
+    ['Name' => 'Bruin, E. de (Ed)', 'Email' => 'eddydebruin@xs4all.nl', 'Class' => 'C: 2e klasse heren, Colts Plate', 'District' => 'District Midden', 'Club' => ''],
+    ['Name' => 'Brummelman, M (Marloes)', 'Email' => 'marloes.brummelman@gmail.com', 'Class' => 'C: 2e klasse heren, Colts Plate', 'District' => 'District Zuid', 'Club' => 'Spelend lid (M.M.R.C.)'],
+    ['Name' => 'Buist, M. (Marinus)', 'Email' => 'marinus.buist@gmail.com', 'Class' => 'C: 2e klasse heren, Colts Plate', 'District' => 'District Oost', 'Club' => 'Recreant (Rugbyclub The Big Bulls)'],
+    ['Name' => 'Burbach, M (Max)', 'Email' => 'mh.burbach@gmx.de', 'Class' => 'C: 2e klasse heren, Colts Plate', 'District' => 'District Oost', 'Club' => 'Tientjeslid (Rugby Club Aachen e.V)'],
+    ['Name' => 'Buys, J.C. (Chris)', 'Email' => 'chrisbuys22@gmail.com', 'Class' => 'Extra', 'District' => 'District Zuid', 'Club' => 'Tientjeslid (OEMOEMENOE EZRC)'],
+    ['Name' => 'Capello, A (Ad)', 'Email' => 'wedstrijdsecretaris@rugbyroosendaal.nl', 'Class' => 'Beoordelaar', 'District' => 'District Zuid', 'Club' => 'Tientjeslid (RC RCC )'],
+    ['Name' => 'Coronel, S (Stefan)', 'Email' => 'steef.coronel@gmail.com', 'Class' => 'B: Ereklasse dames, 1e klasse heren, Colts cup', 'District' => 'District Noord West', 'Club' => 'Tientjeslid (ASCRUM A.S.R.V.)'],
+    ['Name' => 'D\'Ambrosio, F (Federico)', 'Email' => 'federico@dambrosio.nl', 'Class' => 'C: 2e klasse heren, Colts Plate', 'District' => 'District Midden', 'Club' => 'Tientjeslid (VRN)'],
+    ['Name' => 'Denley, B (Brian)', 'Email' => 'bddenley@gmail.com', 'Class' => 'C: 2e klasse heren, Colts Plate', 'District' => 'District Zuid West', 'Club' => 'Tientjeslid (GOUDA RFC)'],
+    ['Name' => 'Dijkstra, M. (Mireya)', 'Email' => 'mireyadijk@gmail.com', 'Class' => 'Extra', 'District' => 'District Noord', 'Club' => 'Tientjeslid (GREATE PIER RC)'],
+    ['Name' => 'Duiverman, K.J. (Kees Jan)', 'Email' => 'kees.jan.duiverman@gmail.com', 'Class' => 'Beoordelaar', 'District' => 'District Zuid West', 'Club' => ''],
+    ['Name' => 'Engelse, L den (Lucas)', 'Email' => 'lucas004848@gmail.com', 'Class' => 'B: Ereklasse dames, 1e klasse heren, Colts cup', 'District' => 'District Midden', 'Club' => 'Tientjeslid (NIEUWEGEIN RC)'],
+    ['Name' => 'Estanga, Y (Yeraldin)', 'Email' => 'yeral.rugby.referee@gmail.com', 'Class' => 'C: 2e klasse heren, Colts Plate', 'District' => 'District Noord West', 'Club' => 'Tientjeslid (VRN)'],
+    ['Name' => 'Faassen, R. van (Rutger)', 'Email' => 'rutgervf@gmail.com', 'Class' => 'Extra', 'District' => 'District Oost', 'Club' => 'Recreant (Rugbyclub The Big Bulls)'],
+    ['Name' => 'Gerwen, LLF van (Louis)', 'Email' => 'louisvangerwen@hotmail.com', 'Class' => 'B: Ereklasse dames, 1e klasse heren, Colts cup', 'District' => 'District Zuid', 'Club' => 'Tientjeslid (TSRC TARANTULA)'],
+    ['Name' => 'Glaser, S. (Stephan)', 'Email' => 'stephan@glsr.nl', 'Class' => 'B: Ereklasse dames, 1e klasse heren, Colts cup', 'District' => 'District Noord West', 'Club' => ''],
+    ['Name' => 'Grillis, R.M.F. (Ruben)', 'Email' => 'ruben.grillis@hotmail.com', 'Class' => 'C: 2e klasse heren, Colts Plate', 'District' => 'District Oost', 'Club' => ''],
+    ['Name' => 'Hansmeier, A (Annabell)', 'Email' => 'annabellhansmeier@gmx.de', 'Class' => 'C: 2e klasse heren, Colts Plate', 'District' => 'District Noord West', 'Club' => 'Tientjeslid (SMUGGLERS RC THE)'],
+    ['Name' => 'Hawkins, M (Mike)', 'Email' => 'lostohawk@live.com', 'Class' => 'Extra', 'District' => 'District Noord West', 'Club' => 'Tientjeslid (VRN)'],
+    ['Name' => 'Heijer, E. den (Eelco)', 'Email' => 'eelcodh@hotmail.com', 'Class' => 'B: Ereklasse dames, 1e klasse heren, Colts cup', 'District' => 'District Zuid West', 'Club' => 'Tientjeslid (DELFT RC)'],
+    ['Name' => 'Heuff, D (Dirk)', 'Email' => 'djheuff@gmail.com', 'Class' => 'Scheidsrechter coach', 'District' => 'District Zuid West', 'Club' => 'Tientjeslid (Rotterdamse Studenten Rugby Club)'],
+    ['Name' => 'Hoed, M. van den (Mattijs)', 'Email' => 'mattijsvandenhoed@freedom.nl', 'Class' => 'B: Ereklasse dames, 1e klasse heren, Colts cup', 'District' => 'District Noord', 'Club' => 'Social Rugby (GRONINGEN RC)'],
+    ['Name' => 'Hoyer, M (Mike)', 'Email' => 'referee@rugby-club-aachen.de', 'Class' => 'Scheidsrechter coach', 'District' => 'District Zuid', 'Club' => ''],
+    ['Name' => 'Huiskamp, H.W. (Erwin)', 'Email' => 'h.w.huiskamp@gmail.com', 'Class' => 'Beoordelaar', 'District' => 'District Midden', 'Club' => 'Tientjeslid (GOOI RC \'T)'],
+    ['Name' => 'Lancashire, R (Richard)', 'Email' => 'richard.lancashire@gmail.com', 'Class' => 'C: 2e klasse heren, Colts Plate', 'District' => 'District Zuid West', 'Club' => 'Recreant (RC DIOK)'],
+    ['Name' => 'Letaif, W (Wissem)', 'Email' => 'wissemltaifrugby@gmail.com', 'Class' => 'A: Ereklasse heren', 'District' => 'District Noord West', 'Club' => 'Tientjeslid (AMSTERDAMSE AC)'],
+    ['Name' => 'Looten, L (Lars)', 'Email' => 'lad.looten@gmail.com; elooten@gmail.com', 'Class' => 'B: Ereklasse dames, 1e klasse heren, Colts cup', 'District' => 'District Oost', 'Club' => 'Spelend lid (WASPS NRC THE)'],
+    ['Name' => 'Maaijen, K. (Koen)', 'Email' => 'k.maaijen@gmail.com', 'Class' => 'A: Ereklasse heren', 'District' => 'District Zuid West', 'Club' => 'Tientjeslid (GOUDA RFC)'],
+    ['Name' => 'Maintz, A (Antoine)', 'Email' => 'antoine.maintz@upcmail.nl', 'Class' => 'B: Ereklasse dames, 1e klasse heren, Colts cup', 'District' => 'District Midden', 'Club' => 'Tientjeslid (Rugby Club Hilversum)'],
+    ['Name' => 'Meijer, H.A.W. (Riëtte)', 'Email' => 'riettemeijer@gmail.com', 'Class' => 'Extra', 'District' => 'District Midden', 'Club' => 'Tientjeslid (RUS)'],
+    ['Name' => 'Meyer, PJ John (Phillip)', 'Email' => 'phillipmeyer22@gmail.com', 'Class' => 'C: 2e klasse heren, Colts Plate', 'District' => 'District Oost', 'Club' => 'Recreant (PIGS ARC THE)'],
+    ['Name' => 'Mostert, R. (Reinier)', 'Email' => 'reintjemos@hotmail.com', 'Class' => 'Extra', 'District' => 'District Zuid West', 'Club' => 'Recreant (Rugbyclub Hoek van Holland)'],
+    ['Name' => 'Naulais, M.J.R. (Mika)', 'Email' => 'm.naulais@gmail.com', 'Class' => 'Extra', 'District' => 'District Zuid West', 'Club' => 'Tientjeslid (L.S.R.G.)'],
+    ['Name' => 'O Shaughnessy, COS (Colin)', 'Email' => 'colinoshocks@gmail.com', 'Class' => 'Extra', 'District' => 'District Zuid West', 'Club' => 'Tientjeslid (BASSETS RC THE)'],
+    ['Name' => 'Oliver, A. (Andrew)', 'Email' => 'aforugbyref@hotmail.com', 'Class' => 'C: 2e klasse heren, Colts Plate', 'District' => 'District Zuid', 'Club' => 'Tientjeslid (OISTERWIJK OYSTERS RFC)'],
+    ['Name' => 'Oudman, BJ (Bram)', 'Email' => 'bram.oudman.referee@gmail.com', 'Class' => 'A: Ereklasse heren', 'District' => 'District Oost', 'Club' => 'Recreant (EMMEN RUGBY CLUB)'],
+    ['Name' => 'O’Connell, D (Dan)', 'Email' => 'daniel.x.oconnell@gmail.com', 'Class' => 'A: Ereklasse heren', 'District' => 'District Zuid', 'Club' => 'Tientjeslid (Rugby Club Aachen e.V)'],
+    ['Name' => 'Pardede, J.P. (Jens)', 'Email' => 'jens@dengar.nl', 'Class' => 'A: Ereklasse heren', 'District' => 'District Zuid West', 'Club' => 'Spelend lid (GOUDA RFC)'],
+    ['Name' => 'Pardede, T.B. (Tjerk)', 'Email' => 'tjerk@dengar.nl', 'Class' => 'Extra', 'District' => 'District Midden', 'Club' => 'Spelend lid (Utrechtse Studenten Rugby Society)'],
+    ['Name' => 'Ploeger, P. (Peter)', 'Email' => 'peter.ploeger@gmail.com', 'Class' => 'C: 2e klasse heren, Colts Plate', 'District' => 'District Oost', 'Club' => 'Spelend lid (ERC\'69)'],
+    ['Name' => 'Plomp, S (Simon)', 'Email' => 'smn.plomp@gmail.com', 'Class' => 'Beoordelaar', 'District' => 'District Midden', 'Club' => ''],
+    ['Name' => 'Pol, R. van de (Rene)', 'Email' => 'renevdpol@hotmail.com', 'Class' => 'Extra', 'District' => 'District Zuid', 'Club' => 'Recreant (OISTERWIJK OYSTERS RFC)'],
+    ['Name' => 'Pouwels, T (Thomas)', 'Email' => 'thomas16839@gmail.com', 'Class' => 'C: 2e klasse heren, Colts Plate', 'District' => 'District Zuid West', 'Club' => ''],
+    ['Name' => 'Prevaes, B. (Bert)', 'Email' => 'bert@prevaes.nl', 'Class' => 'Beoordelaar', 'District' => 'District Midden', 'Club' => ''],
+    ['Name' => 'Puijpe, J.J.M.H.A. (Joost)', 'Email' => 'joostpuype@hotmail.com', 'Class' => 'Beoordelaar', 'District' => 'District Noord West', 'Club' => 'Tientjeslid (AMSTELVEENSE RC)'],
+    ['Name' => 'Raynor, N (Nathan)', 'Email' => 'n.f.raynor@gmail.com', 'Class' => 'B: Ereklasse dames, 1e klasse heren, Colts cup', 'District' => 'District Zuid West', 'Club' => ''],
+    ['Name' => 'Referee 1, E (Exchange)', 'Email' => 'garyjr9515@gmail.com', 'Class' => 'Extra', 'District' => 'District Midden', 'Club' => 'Tientjeslid (VRN)'],
+    ['Name' => 'Referee 2, E (Exchange)', 'Email' => 'ondrej947@gmail.com', 'Class' => 'Extra', 'District' => 'District Midden', 'Club' => 'Tientjeslid (VRN)'],
+    ['Name' => 'Referee 3, E (Exchange)', 'Email' => 'jonas.dolezil@protonmail.com', 'Class' => 'Extra', 'District' => 'District Midden', 'Club' => 'Tientjeslid (VRN)'],
+    ['Name' => 'Riepe, C (Conrad)', 'Email' => 'conrad.riepe@googlemail.com', 'Class' => 'A: Ereklasse heren', 'District' => 'District Zuid', 'Club' => ''],
+    ['Name' => 'Ritchie, K (Katherine)', 'Email' => 'katherine.ritchie@btinternet.com', 'Class' => 'A: Ereklasse heren', 'District' => 'District Zuid West', 'Club' => 'Tientjeslid (Rotterdamse Studenten Rugby Club)'],
+    ['Name' => 'Rooyen, B van (Bruce)', 'Email' => 'brucethomas.vr@gmail.com', 'Class' => 'B: Ereklasse dames, 1e klasse heren, Colts cup', 'District' => 'District Zuid West', 'Club' => ''],
+    ['Name' => 'Rouwet, P (Pablo)', 'Email' => 'p.rouwet@gmail.com', 'Class' => 'C: 2e klasse heren, Colts Plate', 'District' => 'District Noord West', 'Club' => 'Recreant (ASCRUM A.S.R.V.)'],
+    ['Name' => 'Ruiter, H.L.G. de (Henrie)', 'Email' => 'hlg.ruiter@gmail.com', 'Class' => 'Beoordelaar', 'District' => 'District Zuid', 'Club' => ''],
+    ['Name' => 'Smits, P. (Pieter)', 'Email' => 'pag.smits@hotmail.com', 'Class' => 'B: Ereklasse dames, 1e klasse heren, Colts cup', 'District' => 'District Zuid West', 'Club' => 'Recreant (Rugbyclub Hoek van Holland)'],
+    ['Name' => 'Spek, E Van der (Edwin)', 'Email' => 'edwinvdspek.rugby@gmail.com', 'Class' => 'A: Ereklasse heren', 'District' => 'District Noord West', 'Club' => 'Tientjeslid (HAARLEM RFC)'],
+    ['Name' => 'Statham, J (James)', 'Email' => 'james.statham1@btinternet.com; claudiastatham@live.com', 'Class' => 'C: 2e klasse heren, Colts Plate', 'District' => 'District Zuid West', 'Club' => ''],
+    ['Name' => 'Stevens, A. (Andrew)', 'Email' => 'ajstevens97@outlook.com', 'Class' => 'Beoordelaar', 'District' => 'District Zuid', 'Club' => 'Tientjeslid (OCTOPUS RC)'],
+    ['Name' => 'Taljaard, D.J. (Diederick)', 'Email' => 'dj.taljaard@gmail.com', 'Class' => 'B: Ereklasse dames, 1e klasse heren, Colts cup', 'District' => 'District Zuid West', 'Club' => ''],
+    ['Name' => 'Teerink, F. (Friso)', 'Email' => 'frisoteerink@gmail.com', 'Class' => 'Beoordelaar', 'District' => 'District Noord West', 'Club' => 'Tientjeslid (RUSH SRC)'],
+    ['Name' => 'Velden, R van der (Rudolf)', 'Email' => 'vdvruud@gmail.com', 'Class' => 'Beoordelaar', 'District' => 'District Midden', 'Club' => 'Tientjeslid (Utrechtse Rugby Club)'],
+    ['Name' => 'Veldmaat, J. (Joris)', 'Email' => 'j.veldmaat@gmail.com', 'Class' => 'C: 2e klasse heren, Colts Plate', 'District' => 'District Oost', 'Club' => ''],
+    ['Name' => 'Verseveld, F.J.A. van (Fred)', 'Email' => 'fred.van.verseveld@gmail.com', 'Class' => 'C: 2e klasse heren, Colts Plate', 'District' => 'District Midden', 'Club' => 'Tientjeslid (GOOI RC \'T)'],
+    ['Name' => 'Visser, G. (Gert)', 'Email' => 'visser.gert.j@gmail.com', 'Class' => 'A: Ereklasse heren', 'District' => 'District Midden', 'Club' => 'Tientjeslid (Utrechtse Rugby Club)'],
+    ['Name' => 'Vliet, J. van der (Hans)', 'Email' => 'hnsvdvliet@gmail.com', 'Class' => 'Beoordelaar', 'District' => 'District Zuid West', 'Club' => 'Tientjeslid (DELFT RC)'],
+    ['Name' => 'Vries, H. de (Henk)', 'Email' => 'rugbyhenk@outlook.com', 'Class' => 'C: 2e klasse heren, Colts Plate', 'District' => 'District Noord', 'Club' => 'Spelend lid (GRONINGEN RC)'],
+    ['Name' => 'Vries, M. de (Michael)', 'Email' => 'vries.vries@ziggo.nl', 'Class' => 'C: 2e klasse heren, Colts Plate', 'District' => 'District Noord West', 'Club' => 'Tientjeslid (WATERLAND RC)'],
+    ['Name' => 'Wadey, D (Darron)', 'Email' => 'achillesagain@gmail.com', 'Class' => 'Beoordelaar', 'District' => 'District Noord West', 'Club' => 'Tientjeslid (WATERLAND RC)'],
+    ['Name' => 'Wartena, S. (Sjoerd)', 'Email' => 'swartena@casema.nl', 'Class' => 'Beoordelaar', 'District' => 'District Zuid', 'Club' => 'Recreant (Etten-Leur RC)'],
+    ['Name' => 'Weir, D (Dennis)', 'Email' => 'dennis.weir.rugby@gmail.com', 'Class' => 'Extra', 'District' => 'District Oost', 'Club' => 'Tientjeslid (VRN)'],
+    ['Name' => 'Welle Donker, G. (Guus)', 'Email' => 'guuswelledonker@gmail.com', 'Class' => 'B: Ereklasse dames, 1e klasse heren, Colts cup', 'District' => 'District Zuid West', 'Club' => 'Recreant (WRC-Te Werve RUFC)'],
+    ['Name' => 'Wolfenden, I. (Ian)', 'Email' => 'klmblue69@hotmail.com', 'Class' => 'Extra', 'District' => 'District Noord West', 'Club' => 'Tientjeslid (AMSTELVEENSE RC)'],
+    ['Name' => 'Wright, L (Liam)', 'Email' => 'liamewright@gmail.com', 'Class' => 'A: Ereklasse heren', 'District' => 'District Noord West', 'Club' => 'Tientjeslid (HAARLEM RFC)'],
+    ['Name' => 'Zandvliet, J.P. (Joop)', 'Email' => 'referee@joopzandvliet.nl', 'Class' => 'Beoordelaar', 'District' => 'District Noord West', 'Club' => 'Spelend lid (ALKMAARSE R.U.F.C.)'],
+    ['Name' => 'Clarke, D (Don)', 'Email' => 'don_clarke_bss@hotmail.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Midden', 'Club' => 'Tientjeslid (RUS)'],
+    ['Name' => 'Doughty, M.J. (Martin)', 'Email' => 'doughtymartin@aol.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Midden', 'Club' => 'Tientjeslid (Utrechtse Rugby Club)'],
+    ['Name' => 'Feller, MM (Max)', 'Email' => 'max.feller@kpnmail.nl', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Midden', 'Club' => 'Spelend lid (BULLDOGS ALMERE RC)'],
+    ['Name' => 'Hagens, L.G.L.M. (Luuk)', 'Email' => 'luukhagens@gmail.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Midden', 'Club' => 'Tientjeslid (Stichtsche Rugby Football Club)'],
+    ['Name' => 'Koops, K (Klaas)', 'Email' => 'koopsklaas@gmail.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Midden', 'Club' => 'Recreant (SPAKENBURG RC)'],
+    ['Name' => 'Luteijn, E.P.A. (Eric)', 'Email' => 'eluteijn@gmail.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Midden', 'Club' => 'Tientjeslid (GOOI RC \'T)'],
+    ['Name' => 'Onsoz, A (Aylin)', 'Email' => 'aylinonsoz@gmail.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Midden', 'Club' => 'Tientjeslid (Utrechtse Rugby Club)'],
+    ['Name' => 'Ruijter, SM de (Shaquil)', 'Email' => 'shaquil11@outlook.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Midden', 'Club' => 'Spelend lid (Rugby Club Eemland)'],
+    ['Name' => 'Silbernberg, AP (Allain)', 'Email' => 'allains27@gmail.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Midden', 'Club' => ''],
+    ['Name' => 'Tolboom, A.G. (Ton)', 'Email' => 'tontolboom@outlook.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Midden', 'Club' => ''],
+    ['Name' => 'Verveer, H (Hans)', 'Email' => 'hlverveer@gmail.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Midden', 'Club' => 'Tientjeslid (SPAKENBURG RC)'],
+    ['Name' => 'Albers, J (Jan)', 'Email' => 'jan.albers@icloud.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Noord West', 'Club' => 'Tientjeslid (ASCRUM A.S.R.V.)'],
+    ['Name' => 'Beltman, A. (Arend)', 'Email' => 'beltmanarend@gmail.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Noord West', 'Club' => ''],
+    ['Name' => 'Bras, M (Martijn)', 'Email' => 'brasvaneden@upcmail.nl', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Noord West', 'Club' => 'Tientjeslid (HAARLEM RFC)'],
+    ['Name' => 'Fellenberg Van der Molen, A (Andres)', 'Email' => 'a.fellenberg@green-partner.nl', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Noord West', 'Club' => ''],
+    ['Name' => 'Fellenberg van der Molen, L (Lucas)', 'Email' => 'lucas.fellenberg@gmail.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Noord West', 'Club' => 'Spelend lid (Zaandijk Rugby)'],
+    ['Name' => 'Goos, H.J. (Hendrik)', 'Email' => 'hendrikgoos@yahoo.co.uk', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Noord West', 'Club' => 'Tientjeslid (RUSH SRC)'],
+    ['Name' => 'Hille Ris Lambers, T (Ties)', 'Email' => 'tieshrl@gmail.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Noord West', 'Club' => 'Tientjeslid (Rotterdamse Studenten Rugby Club)'],
+    ['Name' => 'Keyser, G (Gawie)', 'Email' => 'gawie.keyser@me.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Noord West', 'Club' => 'Tientjeslid (ALKMAARSE R.U.F.C.)'],
+    ['Name' => 'Kouwenhoven, I (Ino)', 'Email' => 'ino@quicknet.nl', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Noord West', 'Club' => 'Tientjeslid (ALKMAARSE R.U.F.C.)'],
+    ['Name' => 'Mooij, S de (Sem)', 'Email' => 'semdemooij@icloud.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Noord West', 'Club' => 'Spelend lid (CASTRICUMSE RC), Tientjeslid (WATERLAND RC)'],
+    ['Name' => 'Oosterbeek, S.C.M. (Steijn)', 'Email' => 'frank.oosterbeek@gmail.com; steijnoosterbeek@gmail.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Noord West', 'Club' => 'Spelend lid (AMSTELVEENSE RC)'],
+    ['Name' => 'Victor, JA (Jaco)', 'Email' => 'jaco.victor19@gmail.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Noord West', 'Club' => ''],
+    ['Name' => 'Butselaar, B.P. van (Bob)', 'Email' => 'bvb88@hotmail.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Noord', 'Club' => ''],
+    ['Name' => 'Delft, ALJ van (Amber)', 'Email' => 'a.l.j.vandelft@gmail.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Noord', 'Club' => 'Recreant (GRONINGEN RC)'],
+    ['Name' => 'Denkers, R (Rick)', 'Email' => 'drsdenkers@outlook.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Noord', 'Club' => 'Tientjeslid (EMMEN RUGBY CLUB)'],
+    ['Name' => 'Eijnatten, M van (Maurits)', 'Email' => 'combustiblewater@hotmail.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Noord', 'Club' => 'Social Rugby (GRONINGEN RC)'],
+    ['Name' => 'Hokse, H.F. (Harro)', 'Email' => 'Voorzitter@thebigstones.nl', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Noord', 'Club' => 'Spelend lid (Rugby Club The Big Stones)'],
+    ['Name' => 'Jaspers Focks, L.M (Loes)', 'Email' => 'loesjf@live.nl', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Noord', 'Club' => 'Recreant (GRONINGEN RC)'],
+    ['Name' => 'Kizito Bugembe, D (Deusdedit)', 'Email' => 'deuskhalifa@gmail.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Noord', 'Club' => 'Social Rugby (Rugby Club Sneek)'],
+    ['Name' => 'Pas, T.H. ten (Tom)', 'Email' => 'tomtpas@hotmail.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Noord', 'Club' => 'Spelend lid (GRONINGEN RC)'],
+    ['Name' => 'Roling, A.H.P. (Albert)', 'Email' => 'ahp.roling@ziggo.nl', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Noord', 'Club' => ''],
+    ['Name' => 'Skilton, D (David)', 'Email' => 'david3467@live.nl', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Noord', 'Club' => 'Recreant (PHOENIX DRC)'],
+    ['Name' => 'Sondorp, LHJ (Luc)', 'Email' => 'l.h.j.sondorp@gmail.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Noord', 'Club' => 'Spelend lid (GRONINGEN RC)'],
+    ['Name' => 'Stoeten, HJ (Hendrik Jan)', 'Email' => 'hendrikjanstoeten@hotmail.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Noord', 'Club' => 'Spelend lid (FEANSTER RC)'],
+    ['Name' => 'Verlaan, A. (Arthur)', 'Email' => 'a.verlaan@gmail.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Noord', 'Club' => ''],
+    ['Name' => 'Vries, GP De (GP)', 'Email' => 'rugbygp57@gmail.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Noord', 'Club' => ''],
+    ['Name' => 'Wagemakers, A (Ad)', 'Email' => 'ad.jeanneke.wagemakers@planet.nl', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Noord', 'Club' => 'Veteranen Rugby (Rugby Club The Big Stones)'],
+    ['Name' => 'Weenink, Y. (Yoeri)', 'Email' => 'yweenink@gmail.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Noord', 'Club' => 'Recreant (DWINGELOO RC)'],
+    ['Name' => 'Ansell, D.J. (Derek)', 'Email' => 'derek_ansell@hotmail.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Oost', 'Club' => ''],
+    ['Name' => 'Brakel, G. van (Gerard)', 'Email' => 'Molenweg10@me.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Oost', 'Club' => 'Recreant (ASCRUM A.S.R.V.)'],
+    ['Name' => 'Brinkman, N (Nouri)', 'Email' => 'nourinouri@live.nl', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Oost', 'Club' => 'Tientjeslid (PIGS ARC THE)'],
+    ['Name' => 'Dommelen, J van (Jeroen)', 'Email' => 'jeroendommel@gmail.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Oost', 'Club' => 'Recreant (WAGENINGEN RC)'],
+    ['Name' => 'Ehren, S (Stijn)', 'Email' => 'stijn.ehren@gmail.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Oost', 'Club' => 'Recreant (ASCRUM A.S.R.V.)'],
+    ['Name' => 'Francke, K (Kai)', 'Email' => 'kaifrancke@hotmail.de', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Oost', 'Club' => ''],
+    ['Name' => 'Koeverden, M. van (Michiel)', 'Email' => 'michielvankoeverden@hotmail.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Oost', 'Club' => 'Tientjeslid (ZWOLLE RC)'],
+    ['Name' => 'Kramer, J.A. (Jolanda)', 'Email' => 'jolanda.kramer@outlook.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Oost', 'Club' => 'Tientjeslid (PIGS ARC THE)'],
+    ['Name' => 'Luijkx, P.C.L.M. (Patrick)', 'Email' => 'luijkx@hotmail.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Oost', 'Club' => 'Tientjeslid (OBELIX NSRV)'],
+    ['Name' => 'Murray, L (Lorcan)', 'Email' => 'lorcan.murray@hotmail.co.uk', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Oost', 'Club' => 'Tientjeslid (PIGS ARC THE)'],
+    ['Name' => 'Nel, M (Martian)', 'Email' => 'martiannel6@gmail.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Oost', 'Club' => 'Spelend lid (PIGS ARC THE)'],
+    ['Name' => 'Nijman, J. (John)', 'Email' => 'johnnijman@gmail.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Oost', 'Club' => ''],
+    ['Name' => 'Popken, D (Daan)', 'Email' => 'daanpopken@gmail.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Oost', 'Club' => 'Recreant (ZWOLLE RC)'],
+    ['Name' => 'Reinhardt, T (Tiaan)', 'Email' => 'tiaanreinhardt@gmail.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Oost', 'Club' => 'Recreant (PIGS ARC THE)'],
+    ['Name' => 'Reuvers, P. (Peter)', 'Email' => 'reuverspeter@msn.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Oost', 'Club' => 'Tientjeslid (DRC The Wild Rovers)'],
+    ['Name' => 'Roos, M. (Marco)', 'Email' => 'marcoroos0@gmail.com; wedstrijdsecretaris@rcwageningen.nl', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Oost', 'Club' => ''],
+    ['Name' => 'Schepman, T.J.J.R (Thijs)', 'Email' => 'thijschepman@gmail.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Oost', 'Club' => ''],
+    ['Name' => 'Smeets, C. (Cosmo)', 'Email' => 'cosmosmeets@hotmail.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Oost', 'Club' => 'Recreant (PIGS ARC THE)'],
+    ['Name' => 'Utrecht, J van (Johan)', 'Email' => 'jdcvanutrecht@hotmail.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Oost', 'Club' => 'Tientjeslid (DRC The Wild Rovers)'],
+    ['Name' => 'Veldman, R. (Richard)', 'Email' => 'lgveldman@hotmail.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Oost', 'Club' => 'Recreant (WAGENINGEN RC)'],
+    ['Name' => 'Adriaanse, J. (Janwillem)', 'Email' => 'janwillem@gmx.es', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Zuid', 'Club' => 'Tientjeslid (TILBURG RC)'],
+    ['Name' => 'Berg, M van den (Max)', 'Email' => 'm.h.vandenberg@hotmail.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Zuid', 'Club' => ''],
+    ['Name' => 'Boers, K (Koen)', 'Email' => 'koenboers@hotmail.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Zuid', 'Club' => ''],
+    ['Name' => 'Bogaers, W.J.A.M. (Pim)', 'Email' => 'bogaers@icloud.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Zuid', 'Club' => 'Recreant (ASCRUM A.S.R.V.)'],
+    ['Name' => 'Bommel, T. van (Twan)', 'Email' => 'bomme01@kpnmail.nl', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Zuid', 'Club' => 'Tientjeslid (OISTERWIJK OYSTERS RFC)'],
+    ['Name' => 'Boom, T van den (Tom)', 'Email' => 'tomvdboom@gmail.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Zuid', 'Club' => 'Spelend lid (ELEPHANTS ESRC THE)'],
+    ['Name' => 'Bouwens, W (Wilco)', 'Email' => 'wilco.bouwens@gmail.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Zuid', 'Club' => 'Tientjeslid (RC RCC )'],
+    ['Name' => 'Companjen, T (Tijn)', 'Email' => 'tijncompanjen@gmail.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Zuid', 'Club' => 'Spelend lid (Utrechtse Studenten Rugby Society)'],
+    ['Name' => 'Cremers, B (Bart)', 'Email' => 'bja.cremers@gmail.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Zuid', 'Club' => 'Spelend lid (BREDASE RUGBY CLUB)'],
+    ['Name' => 'Demba, A.G.M. (Aïsha)', 'Email' => 'aishademba@hotmail.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Zuid', 'Club' => 'Tientjeslid (ELEPHANTS ESRC THE)'],
+    ['Name' => 'Derks, H.P.M. (Harm)', 'Email' => 'harmderks96@gmail.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Zuid', 'Club' => 'Spelend lid (ELEPHANTS ESRC THE)'],
+    ['Name' => 'Hanegraaf, B. (Bram Onno)', 'Email' => 'bramhanegraaf@hotmail.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Zuid', 'Club' => 'Spelend lid (OCTOPUS RC)'],
+    ['Name' => 'Jacobi, J (Jeroen)', 'Email' => 'jacobijeroen@gmail.com', 'Class' => 'Extra', 'District' => 'District Zuid', 'Club' => 'Tientjeslid (BREDASE RUGBY CLUB)'],
+    ['Name' => 'Koekkoek, E. (Etienne)', 'Email' => 'etiennekoekkoek@gmail.com', 'Class' => 'Extra', 'District' => 'District Zuid', 'Club' => 'Spelend lid (BREDASE RUGBY CLUB)'],
+    ['Name' => 'Leenders, P. (Peter)', 'Email' => 'peter.leenders@chello.nl', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Zuid', 'Club' => ''],
+    ['Name' => 'Mooijman, M.H. (Martijn)', 'Email' => 'mhmooijman76@yahoo.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Zuid', 'Club' => 'Tientjeslid (VETS VRC THE)'],
+    ['Name' => 'Reede, T.C.R (Thies)', 'Email' => 'reedecurfs@gmail.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Zuid', 'Club' => 'Spelend lid (M.M.R.C.)'],
+    ['Name' => 'Renate Janssen, S (Scheidsrechter)', 'Email' => 'renate.janssen@hotmail.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Zuid', 'Club' => 'Tientjeslid (ELEPHANTS ESRC THE)'],
+    ['Name' => 'Rijo Mato, M (Matias)', 'Email' => 'matias.rijo@hotmail.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Zuid', 'Club' => 'Tientjeslid (TSRC TARANTULA)'],
+    ['Name' => 'Schalkwijk, J. (Jan)', 'Email' => 'jan.schalkwijk@gmx.net', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Zuid', 'Club' => ''],
+    ['Name' => 'Schoorel, A (Alex)', 'Email' => 'alex0103schoorel@gmail.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Zuid', 'Club' => 'Recreant (OISTERWIJK OYSTERS RFC)'],
+    ['Name' => 'Têtu, L (Luc)', 'Email' => 'l.tetu@live.nl', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Zuid', 'Club' => 'Tientjeslid (RC RCC )'],
+    ['Name' => 'Vermeulen, M. (Mark)', 'Email' => 'zondag11@gmail.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Zuid', 'Club' => ''],
+    ['Name' => 'Wijdeven, J (Joop)', 'Email' => 'joop.wijdeven@gmail.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Zuid', 'Club' => 'Tientjeslid (WAGENINGEN RC)'],
+    ['Name' => 'Aldama, E. (Eduardo)', 'Email' => 'eardv@yahoo.es', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Zuid West', 'Club' => 'Spelend lid (DELFT RC)'],
+    ['Name' => 'Angelucci, S (Stefano)', 'Email' => 'stefspace@yahoo.it', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Zuid West', 'Club' => 'Tientjeslid (Voorburgse Rugby Club)'],
+    ['Name' => 'Bent, JCP van der (Jeroen)', 'Email' => 'tinekeenjeroen@gmail.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Zuid West', 'Club' => 'Tientjeslid (Rugbyclub Hoek van Holland)'],
+    ['Name' => 'Bloem, D (Dirk)', 'Email' => 'dirk.c.bloem@gmail.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Zuid West', 'Club' => 'Spelend lid (The Hague Hornets)'],
+    ['Name' => 'Brouwer, W.J.J. (Wouter)', 'Email' => 'wouter.brouwer1@gmail.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Zuid West', 'Club' => 'Spelend lid (WRC-Te Werve RUFC)'],
+    ['Name' => 'Cuvelier-Paradis, Y (Yannick)', 'Email' => 'yannick.cuvelier@gmail.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Zuid West', 'Club' => ''],
+    ['Name' => 'Driel, G B Van (Bruis)', 'Email' => 'bruis@salax.nl', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Zuid West', 'Club' => 'Recreant (Rotterdamse Rugby Club)'],
+    ['Name' => 'Frankland, R.T. (Richard)', 'Email' => 'Rtfrankland@yahoo.com.au', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Zuid West', 'Club' => ''],
+    ['Name' => 'Gorkum, T van (Tom)', 'Email' => 'thomasvangorkum@hotmail.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Zuid West', 'Club' => ''],
+    ['Name' => 'Guichard, S (Sebastian)', 'Email' => 'sebas.guichard@gmail.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Zuid West', 'Club' => 'Spelend lid (Rotterdamse Rugby Club)'],
+    ['Name' => 'Haan, W. de (Wiebe)', 'Email' => 'wiebedehaan1957@gmail.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Zuid West', 'Club' => 'Tientjeslid (GOUDA RFC)'],
+    ['Name' => 'Hokse, M.F. (Marlou)', 'Email' => 'marlou_hokse@kpnmail.nl', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Zuid West', 'Club' => 'Recreant (The Hague Hornets), Tientjeslid (Rugby Club The Big Stones)'],
+    ['Name' => 'Horst, B van der (Bob)', 'Email' => 'bvdhorst2013@gmail.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Zuid West', 'Club' => 'Tientjeslid (Voorburgse Rugby Club)'],
+    ['Name' => 'Jansen, WR (Wil)', 'Email' => 'wil@klima.co.za', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Zuid West', 'Club' => ''],
+    ['Name' => 'Kahana, G. (Guy)', 'Email' => 'guy_kahana@hotmail.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Zuid West', 'Club' => 'Tientjeslid (Haagsche Rugby Club)'],
+    ['Name' => 'Kampen, CD van (Céline)', 'Email' => 'cedi.vankampen@gmail.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Zuid West', 'Club' => ''],
+    ['Name' => 'Kersbergen, A van (Ap)', 'Email' => 'appokers@gmail.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Zuid West', 'Club' => 'Tientjeslid (GOUDA RFC)'],
+    ['Name' => 'Klijnsma, S.D. (Sebastian)', 'Email' => 's.d.klijnsma@gmail.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Zuid West', 'Club' => ''],
+    ['Name' => 'Krabbendam, J.J.C. (Jeroen)', 'Email' => 'J.Krabbendam2@vandervalknotarissen.nl', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Zuid West', 'Club' => 'Tientjeslid (HERMES RUGBY CLUB)'],
+    ['Name' => 'Leeming, W (will)', 'Email' => 'william_leeming@hotmail.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Zuid West', 'Club' => ''],
+    ['Name' => 'Marijnissen, J (Jurre)', 'Email' => 'jurre.m95@gmail.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Zuid West', 'Club' => 'Spelend lid (Sanctus Virgilius RC)'],
+    ['Name' => 'Merwe, DJ van der (David)', 'Email' => 'davidvdmerwe.nl@gmail.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Zuid West', 'Club' => 'Spelend lid (DORDTSCHE RUGBY CLUB), Tientjeslid (Rotterdamse Rugby Club)'],
+    ['Name' => 'Mudde, L. (Lars)', 'Email' => 'lars.mudde@live.nl', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Zuid West', 'Club' => 'Spelend lid (BASSETS RC THE)'],
+    ['Name' => 'Mudde, T.R. (Tim)', 'Email' => 'sassem1965@live.nl', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Zuid West', 'Club' => 'Tientjeslid (BASSETS RC THE)'],
+    ['Name' => 'Noort, A.B.J. van (Antonie)', 'Email' => 'antonievannoort@hotmail.com', 'Class' => 'E: 4e klasse heren, 2e klasse dames, Jun.Plate', 'District' => 'District Zuid West', 'Club' => 'Spelend lid (GOUDA RFC)'],
+    ['Name' => 'Oostenbroek, H.J. (Hubert)', 'Email' => 'hj@oostenbroek.nl', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Zuid West', 'Club' => 'Recreant (ASCRUM A.S.R.V.)'],
+    ['Name' => 'Petersen, L (Loes)', 'Email' => 'loespetersen@gmail.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Zuid West', 'Club' => 'Recreant (L.S.R.G.)'],
+    ['Name' => 'Prein, J (Joep)', 'Email' => 'jprein@xs4all.nl', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Zuid West', 'Club' => 'Recreant (RC DIOK)'],
+    ['Name' => 'Rasch, T. (Tycho)', 'Email' => 'tycho.rasch@gmail.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Zuid West', 'Club' => 'Spelend lid (DELFT RC)'],
+    ['Name' => 'Schoot, G. van der (Gwen)', 'Email' => 'rugbygwen@gmail.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Zuid West', 'Club' => 'Spelend lid (DELFT RC)'],
+    ['Name' => 'Slaghek, E.M. (Erik)', 'Email' => 'emslaghek@gmail.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Zuid West', 'Club' => 'Spelend lid (DELFT RC)'],
+    ['Name' => 'Smith, O S (Oliver)', 'Email' => 'oliverfreemansmith@gmail.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Zuid West', 'Club' => 'Recreant (RC DIOK)'],
+    ['Name' => 'Swinkels, C.W. (Christian)', 'Email' => 'christian@swinkels.email', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Zuid West', 'Club' => ''],
+    ['Name' => 'Tandon, ST (Suparshav)', 'Email' => 'suparshavt@gmail.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Zuid West', 'Club' => 'Spelend lid (L.S.R.G.)'],
+    ['Name' => 'Teijlingen, AS van (Alessio Stèfano)', 'Email' => 'alessiovanteijlingen@live.nl', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Zuid West', 'Club' => 'Spelend lid (BASSETS RC THE), Tientjeslid (L.S.R.G.)'],
+    ['Name' => 'Thomson, G (Graham)', 'Email' => 'mauritsthomson@outlook.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Zuid West', 'Club' => 'Spelend lid (L.S.R.G.)'],
+    ['Name' => 'Vallinga, Z A (Zoë Anne-Klara)', 'Email' => 'zoe@vallinga.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Zuid West', 'Club' => 'Recreant (L.S.R.G.)'],
+    ['Name' => 'Verbrugh, D.B. (Dagmar)', 'Email' => 'dagmarverbrugh@gmail.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Zuid West', 'Club' => 'Spelend lid (GOUDA RFC)'],
+    ['Name' => 'Verweij, B.A. (Bart)', 'Email' => 'bart_verweij@live.nl', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Zuid West', 'Club' => 'Tientjeslid (Sanctus Virgilius RC)'],
+    ['Name' => 'Vingerhoets, M. C. H. (Marc)', 'Email' => 'marc.vingerhoets@gmail.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Zuid West', 'Club' => 'Tientjeslid (DORDTSCHE RUGBY CLUB)'],
+    ['Name' => 'Visser, R (Ruben)', 'Email' => 'Ruben.j.visser@gmail.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Zuid West', 'Club' => 'Spelend lid (Rotterdamse Studenten Rugby Club)'],
+    ['Name' => 'Voskuil, D (Diederick)', 'Email' => 'diederickvoskuil@hotmail.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Zuid West', 'Club' => 'Recreant (DSR-C)'],
+    ['Name' => 'Wagner, D (Dennis)', 'Email' => 'denniswagner.bassets@hotmail.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Zuid West', 'Club' => 'Tientjeslid (BASSETS RC THE)'],
+    ['Name' => 'Weightman, PMH (Magnus)', 'Email' => 'mweightman@yahoo.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Zuid West', 'Club' => 'Recreant (Rotterdamse Rugby Club)'],
+    ['Name' => 'Zon, DHM van der (Daan)', 'Email' => 'vanderzon@voorpraktijken.nl', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Zuid West', 'Club' => ''],
+    ['Name' => 'Zuilen, B.L. van (Bas)', 'Email' => 'bas@vanzuilen.net', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Zuid West', 'Club' => ''],
+    ['Name' => 'Zwet, J van der (Joran)', 'Email' => 'joran1407@hotmail.com', 'Class' => 'D: 3e kl.He, 1e kl.Da, Colts Bo/Sh, Jun.cup', 'District' => 'District Zuid West', 'Club' => 'Tientjeslid (THOR SRC)']
+];
+
+// ----- Parse referee rows and build referees_data -----
 $referees_data = [];
-foreach ($raw_rows as $row_str) {
-    // Match the row pattern
-    if (preg_match('/^(.+?),(.+?@.+?),(.*?[A-E]:.+?),(District.+?),(.*?)$/', $row_str, $matches)) {
-        $name_str = trim($matches[1]);
-        $email = trim($matches[2]);
-        $grade_str = trim($matches[3]);
-        $district = trim($matches[4]);
-        $membership = trim($matches[5]);
-    } else {
-        echo "Warning: Could not parse row: $row_str\n";
-        continue;
-    }
+foreach ($referee_rows as $row) {
+    $name_str = $row['Name'];
+    $email_str = $row['Email'];
+    $class_str = $row['Class'];
+    $district = $row['District'];
+    $club = $row['Club'];
 
     // Extract grade
-    if (!preg_match('/^([A-E]):/', $grade_str, $grade_match)) {
+    if (!preg_match('/^([A-E]):/', $class_str, $grade_match)) {
         continue; // Skip if no grade
     }
     $grade = $grade_match[1];
 
     if (!in_array($grade, ['A', 'B', 'C', 'D'])) {
-        continue; // Skip if not A-D (as per user instruction; E is skipped)
+        continue; // Skip if not A-D
     }
 
     // Parse name
@@ -303,11 +297,11 @@ foreach ($raw_rows as $row_str) {
     }
 
     // Extract district name (remove "District ")
-    $district_name = trim(str_replace('District', '', $district));
+    $district_name = trim(str_replace('District ', '', $district));
 
     // Get coords or default
     $base_lat = $district_coords[$district_name]['lat'] ?? 52.1326;
-    $base_lon = $district_coords[$district_name]['lon'] ?? 5.2913; // Default to Netherlands center if unknown
+    $base_lon = $district_coords[$district_name]['lon'] ?? 5.2913; // Default to Netherlands center
     $home_lat = $base_lat + (mt_rand(-100, 100) / 10000);
     $home_lon = $base_lon + (mt_rand(-100, 100) / 10000);
 
@@ -315,12 +309,16 @@ foreach ($raw_rows as $row_str) {
     $ar_grades = ['A', 'B', 'C', 'D'];
     $ar_grade = $ar_grades[array_rand($ar_grades)];
 
+    // Select primary email (first one if multiple)
+    $emails = explode(';', $email_str);
+    $primary_email = trim($emails[0]);
+
     // Build referee data
     $referees_data[] = [
         'uuid' => generate_uuid_v4(),
         'first_name' => $first_name,
         'last_name' => $last_name,
-        'email' => $email,
+        'email' => $primary_email,
         'phone' => null, // No phone in data
         'home_club_id' => null, // Ignored
         'home_location_city' => $district_name,
