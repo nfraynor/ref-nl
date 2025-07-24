@@ -3,6 +3,7 @@ require_once __DIR__ . '/../utils/session_auth.php';
 require_once __DIR__ . '/../utils/db.php';
 include 'includes/header.php';
 include 'includes/nav.php';
+include 'components/referee_dropdown.php';
 
 $assignMode = isset($_GET['assign_mode']);
 $pdo = Database::getConnection();
@@ -365,6 +366,10 @@ if ($loadInitialMatches && !empty($referees)) { // Only compute if matches were 
                                 <span class="cell-value"><?= htmlspecialchars($match['referee_assigner_username'] ?? 'N/A') ?></span>
                                 <i class="bi bi-pencil-square edit-icon"></i>
                             </td>
+                            <td class="<?= $assignMode ? 'referee-select-cell' : '' ?>"><?php renderRefereeDropdown("referee_id", $match, $referees, $assignMode, $refereeSchedule_initial, $refereeAvailabilityCache_initial); ?></td>
+                            <td class="<?= $assignMode ? 'referee-select-cell' : '' ?>"><?php renderRefereeDropdown("ar1_id", $match, $referees, $assignMode, $refereeSchedule_initial, $refereeAvailabilityCache_initial); ?></td>
+                            <td class="<?= $assignMode ? 'referee-select-cell' : '' ?>"><?php renderRefereeDropdown("ar2_id", $match, $referees, $assignMode, $refereeSchedule_initial, $refereeAvailabilityCache_initial); ?></td>
+                            <td class="<?= $assignMode ? 'referee-select-cell' : '' ?>"><?php renderRefereeDropdown("commissioner_id", $match, $referees, $assignMode, $refereeSchedule_initial, $refereeAvailabilityCache_initial); ?></td>
                         </tr>
                     <?php endforeach; ?>
                     </tbody>
