@@ -39,6 +39,9 @@ const GRADE_ORDER = ['A' => 4, 'B' => 3, 'C' => 2, 'D' => 1, '' => 0];
 // Preferred grade by division
 $preferredGradeByDivision = [
     'Ereklasse' => 'A',
+    'Futureklasse' => 'B',
+    'Ereklasse Dames' => 'B',
+    'Colts Cup' => 'B',
     '1e Klasse' => 'B',
     '2e Klasse' => 'C',
     '3e Klasse' => 'D'

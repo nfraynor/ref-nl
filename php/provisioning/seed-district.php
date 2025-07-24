@@ -9,6 +9,10 @@ echo "Seeding Divisions and Districts...\n";
 // Seed divisions
 $divisions = [
     'Ereklasse' => ['National'],
+    'Futureklasse' => ['National'],
+    'Ereklasse Dames' => ['National'],
+    'Colts Cup' => ['National'],
+    '1e Klasse' => ['National'],
     '3e Klasse' => ['Noord', 'Zuid', 'Oost', 'West', 'Midden', 'Noord West', 'Zuid West']
 ];
 
