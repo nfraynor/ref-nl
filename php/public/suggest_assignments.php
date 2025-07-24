@@ -24,6 +24,18 @@
 require_once __DIR__ . '/../utils/session_auth.php';
 require_once __DIR__ . '/../utils/db.php';
 
+// Prepare for streaming
+if (ob_get_level() == 0) ob_start();
+header('Content-Type: application/json');
+header('X-Content-Type-Options: nosniff');
+
+function send_progress($progress, $message) {
+    $response = ['progress' => $progress, 'message' => $message];
+    echo json_encode($response) . "\n";
+    ob_flush();
+    flush();
+}
+
 $pdo = Database::getConnection();
 
 // Constants for configuration
@@ -109,6 +121,8 @@ foreach (['division', 'district', 'poule', 'location', 'referee_assigner'] as $f
 
 $whereSQL = count($whereClauses) ? 'WHERE ' . implode(' AND ', $whereClauses) : '';
 
+send_progress(5, 'Filtering matches based on criteria...');
+
 // Load filtered matches
 $matches = [];
 if ($loadMatches) {
@@ -129,11 +143,11 @@ if ($loadMatches) {
     $matches = $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
+send_progress(10, 'Loaded ' . count($matches) . ' matches to be assigned.');
 error_log('Number of matches loaded: ' . count($matches));
 
 if (empty($matches)) {
-    header('Content-Type: application/json');
-    echo json_encode(['error' => 'No matches found in filtered view']);
+    send_progress(100, 'No matches found in filtered view.');
     exit;
 }
 
@@ -165,6 +179,7 @@ if (!$testingMode) {
     unset($assign);
 }
 
+send_progress(15, 'Loaded all existing assignments for conflict checking.');
 error_log('Number of existing assignments: ' . count($existingAssignments));
 
 // Process existing for per-ref per-date/week
@@ -202,6 +217,7 @@ $referees = $pdo->query("
     ORDER BY r.grade DESC
 ")->fetchAll(PDO::FETCH_ASSOC);
 
+send_progress(20, 'Loaded all referees and their data.');
 error_log('Number of referees loaded: ' . count($referees));
 
 // Pre-fetch unavailability/weekly
@@ -226,6 +242,8 @@ foreach ($referees as $ref) {
         $availabilityCache[$refId][$match['uuid']] = isRefereeAvailable($refId, $match['match_date'], $match['kickoff_time'], $unavailability, $weekly);
     }
 }
+
+send_progress(30, 'Pre-cached referee availability for all matches.');
 
 // Group filtered matches by date
 $matchesByDate = [];
@@ -437,6 +455,9 @@ function attemptAssignment(
 }
 
 // Process day by day
+$totalAssignmentsToMake = count($matches) * count(ROLES);
+$assignmentsMade = 0;
+
 foreach ($matchesByDate as $date => &$dayMatches) {
     usort($dayMatches, function($a, $b) {
         $aNum = preg_match('/\d+/', $a['division'], $m) ? (int)$m[0] : 0;
@@ -449,6 +470,9 @@ foreach ($matchesByDate as $date => &$dayMatches) {
         for ($pass = 1; $pass <= 2; $pass++) {
             foreach ($dayMatches as &$match) {
                 attemptAssignment($role, $match, $referees, $suggestions, $suggestedAssignmentsCountThisRun, $existingAssignmentsByDateRef, $existingMatchDetailsByDateRef, $existingAssignmentsByWeekRef, $availabilityCache, $pass, $suggestedMatchDetailsByDateRef, false);
+                $assignmentsMade++;
+                $progress = 30 + (int)(($assignmentsMade / $totalAssignmentsToMake) * 60);
+                send_progress($progress, "Assigning role {$role} for match on {$match['match_date']} (Pass {$pass})");
             }
             unset($match);
         }
@@ -456,6 +480,9 @@ foreach ($matchesByDate as $date => &$dayMatches) {
         foreach ($dayMatches as &$match) {
             if ($suggestions[$match['uuid']][$role] === null) {
                 attemptAssignment($role, $match, $referees, $suggestions, $suggestedAssignmentsCountThisRun, $existingAssignmentsByDateRef, $existingMatchDetailsByDateRef, $existingAssignmentsByWeekRef, $availabilityCache, 3, $suggestedMatchDetailsByDateRef, true);
+                $assignmentsMade++;
+                $progress = 30 + (int)(($assignmentsMade / $totalAssignmentsToMake) * 60);
+                send_progress($progress, "Assigning role {$role} for match on {$match['match_date']} (Relaxed Pass)");
             }
         }
         unset($match);
@@ -463,8 +490,23 @@ foreach ($matchesByDate as $date => &$dayMatches) {
 }
 unset($dayMatches);
 
-error_log('Final suggestions: ' . json_encode($suggestions));
+send_progress(95, 'Finalizing suggestions...');
 
-header('Content-Type: application/json');
-echo json_encode($suggestions, JSON_PRETTY_PRINT);
+// Construct the final data payload
+$response = [
+    'progress' => 100,
+    'message' => 'Suggestions complete!',
+    'suggestions' => $suggestions
+];
+echo json_encode($response) . "\n";
+ob_flush();
+flush();
+
+// Close the connection
+if (function_exists('fastcgi_finish_request')) {
+    fastcgi_finish_request();
+}
+if (ob_get_level() > 0) {
+    ob_end_flush();
+}
 ?>
