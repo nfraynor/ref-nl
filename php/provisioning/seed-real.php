@@ -40,15 +40,24 @@ foreach ($divisions_districts_data as $division_name => $districts) {
 
     $district_list = is_array($districts) ? $districts : [$districts];
     foreach ($district_list as $district_name) {
-        $stmt_check_district = $pdo->prepare("SELECT id FROM districts WHERE name = ? AND division_id = ?");
-        $stmt_check_district->execute([$district_name, $division_ids[$division_name]]);
+        $stmt_check_district = $pdo->prepare("SELECT id FROM districts WHERE name = ?");
+        $stmt_check_district->execute([$district_name]);
         $district_row = $stmt_check_district->fetch(PDO::FETCH_ASSOC);
 
         if (!$district_row) {
-            echo "Error: District {$district_name} for division {$division_name} not found in database. Please run seed_districts.php first.\n";
+            echo "Error: District {$district_name} not found in database. Please run seed_districts.php first.\n";
             exit(1);
         }
-        $district_ids[$district_name] = $district_row['id'];
+        $district_id = $district_row['id'];
+        $district_ids[$district_name] = $district_id;
+
+        // Check association
+        $stmt_check_link = $pdo->prepare("SELECT 1 FROM division_districts WHERE division_id = ? AND district_id = ?");
+        $stmt_check_link->execute([$division_ids[$division_name], $district_id]);
+        if (!$stmt_check_link->fetch()) {
+            echo "Error: No association between division {$division_name} and district {$district_name}. Please check seed_districts.php.\n";
+            exit(1);
+        }
     }
 }
 echo "Divisions and districts validated successfully.\n";

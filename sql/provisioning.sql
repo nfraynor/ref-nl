@@ -1,18 +1,22 @@
 -- Divisions Table
 CREATE TABLE IF NOT EXISTS divisions (
-     id INT AUTO_INCREMENT PRIMARY KEY,
-     name VARCHAR(255) UNIQUE NOT NULL
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) UNIQUE NOT NULL
 );
 
 -- Districts Table
 CREATE TABLE IF NOT EXISTS districts (
-     id INT AUTO_INCREMENT PRIMARY KEY,
-     name VARCHAR(255) NOT NULL,
-     division_id INT NOT NULL,
-     FOREIGN KEY (division_id) REFERENCES divisions(id),
-     UNIQUE (name, division_id) -- Ensure district names are unique within a division
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) UNIQUE NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS division_districts (
+    division_id INT NOT NULL,
+    district_id INT NOT NULL,
+    PRIMARY KEY (division_id, district_id),
+    FOREIGN KEY (division_id) REFERENCES divisions(id) ON DELETE CASCADE,
+    FOREIGN KEY (district_id) REFERENCES districts(id) ON DELETE CASCADE
+);
 -- Clubs
 CREATE TABLE IF NOT EXISTS clubs (
     uuid CHAR(36) PRIMARY KEY,
