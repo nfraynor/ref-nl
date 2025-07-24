@@ -373,24 +373,24 @@ if ($loadInitialMatches && !empty($referees)) { // Only compute if matches were 
                 </table>
             </div>
 
-            <!-- Pagination Controls -->
-            <nav aria-label="Page navigation">
+            <!-- Pagination Controls will be loaded here via AJAX -->
+            <nav aria-label="Page navigation" id="paginationControls">
                 <ul class="pagination justify-content-center">
                     <?php if ($currentPage > 1): ?>
                         <li class="page-item">
-                            <a class="page-link" href="?<?= buildQueryString(['page' => $currentPage - 1]) ?>">Previous</a>
+                            <a class="page-link" href="#" data-page="<?= $currentPage - 1 ?>">Previous</a>
                         </li>
                     <?php endif; ?>
 
                     <?php for ($i = 1; $i <= $totalPages; $i++): ?>
                         <li class="page-item <?= ($i == $currentPage) ? 'active' : '' ?>">
-                            <a class="page-link" href="?<?= buildQueryString(['page' => $i]) ?>"><?= $i ?></a>
+                            <a class="page-link" href="#" data-page="<?= $i ?>"><?= $i ?></a>
                         </li>
                     <?php endfor; ?>
 
                     <?php if ($currentPage < $totalPages): ?>
                         <li class="page-item">
-                            <a class="page-link" href="?<?= buildQueryString(['page' => $currentPage + 1]) ?>">Next</a>
+                            <a class="page-link" href="#" data-page="<?= $currentPage + 1 ?>">Next</a>
                         </li>
                     <?php endif; ?>
                 </ul>
