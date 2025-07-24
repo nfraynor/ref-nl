@@ -6,7 +6,7 @@ DATADIR="/var/lib/mysql"
 # Ensure the MySQL/MariaDB data directory is owned by the mysql user
 # This is important for bind mounts, as the host directory might have different ownership.
 echo "Ensuring $DATADIR ownership is mysql:mysql..."
-chown -R mysql:mysql "$DATADIR"
+# chown -R mysql:mysql "$DATADIR"
 chmod -R 700 "$DATADIR" # MariaDB/MySQL prefers stricter permissions on its data directory
 
 # Initialize MariaDB data directory if it's empty

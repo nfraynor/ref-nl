@@ -48,11 +48,16 @@ function fetchAndUpdateMatches() {
             if (!res.ok) {
                 throw new Error(`HTTP error! status: ${res.status}`);
             }
-            return res.text();
+            return res.json();
         })
-        .then(html => {
+        .then(data => {
             const tableBody = document.getElementById('matchesTableBody');
             if (tableBody) {
+                tableBody.innerHTML = '';
+                let html = '';
+                data.matches.forEach(match => {
+                    html += generateMatchRow(match, data.referees, data.assignMode);
+                });
                 tableBody.innerHTML = html;
                 initializeSelect2AndEvents();
                 reapplySuggestions();
@@ -65,6 +70,68 @@ function fetchAndUpdateMatches() {
         .catch(error => {
             console.error('Error fetching or updating matches:', error);
         });
+}
+
+function generateMatchRow(match, referees, assignMode) {
+    const homeTeam = match.home_club_name + " - " + match.home_team_name;
+    const awayTeam = match.away_club_name + " - " + match.away_team_name;
+    const locationName = match.location_name || 'N/A';
+    const locationAddress = match.location_address || '';
+    const refereeAssigner = match.referee_assigner_username || 'N/A';
+
+    let locOutput = locationName;
+    if (locationAddress && locationName !== locationAddress) {
+        locOutput += `<br><small>${locationAddress}</small>`;
+    } else if (!locationName && locationAddress) {
+        locOutput = `<small>${locationAddress}</small>`;
+    }
+
+    return `
+        <tr>
+            <td><a href="match_detail.php?uuid=${match.uuid}">${match.match_date}</a></td>
+            <td>${match.kickoff_time.substring(0, 5)}</td>
+            <td>${homeTeam}</td>
+            <td>${awayTeam}</td>
+            <td>${match.division}</td>
+            <td>${match.district}</td>
+            <td>${match.poule}</td>
+            <td class="editable-cell" data-match-uuid="${match.uuid}" data-field-type="location" data-current-value="${match.location_uuid || ''}">
+                <span class="cell-value">${locOutput}</span>
+                <i class="bi bi-pencil-square edit-icon" style="display: none;"></i>
+            </td>
+            <td class="editable-cell" data-match-uuid="${match.uuid}" data-field-type="referee_assigner" data-current-value="${match.referee_assigner_uuid || ''}">
+                <span class="cell-value">${refereeAssigner}</span>
+                <i class="bi bi-pencil-square edit-icon" style="display: none;"></i>
+            </td>
+            <td>${renderRefereeDropdown("referee_id", match, referees, assignMode)}</td>
+            <td>${renderRefereeDropdown("ar1_id", match, referees, assignMode)}</td>
+            <td>${renderRefereeDropdown("ar2_id", match, referees, assignMode)}</td>
+            <td>${renderRefereeDropdown("commissioner_id", match, referees, assignMode)}</td>
+        </tr>
+    `;
+}
+
+function renderRefereeDropdown(role, match, referees, assignMode) {
+    if (!assignMode) {
+        const refereeId = match[role];
+        if (refereeId) {
+            const referee = referees.find(r => r.uuid === refereeId);
+            return referee ? `${referee.first_name} ${referee.last_name}` : 'N/A';
+        }
+        return 'N/A';
+    }
+
+    let options = '<option value="">-- Select Referee --</option>';
+    referees.forEach(ref => {
+        const selected = match[role] === ref.uuid ? ' selected' : '';
+        options += `<option value="${ref.uuid}"${selected}>${ref.first_name} ${ref.last_name} (${ref.grade})</option>`;
+    });
+
+    return `
+        <select name="assignments[${match.uuid}][${role}]" class="referee-select" data-match-id="${match.uuid}" data-role="${role}">
+            ${options}
+        </select>
+    `;
 }
 
 function reapplySuggestions() {
