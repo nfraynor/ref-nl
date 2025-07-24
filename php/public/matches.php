@@ -74,7 +74,7 @@ if ($userRole !== 'super_admin') {
 // --- END: Role-based permission logic ---
 
 // Pagination settings
-$matchesPerPage = 20;
+$matchesPerPage = 50;
 $currentPage = isset($_GET['page']) ? (int)$_GET['page'] : 1;
 if ($currentPage < 1) {
     $currentPage = 1;
@@ -334,8 +334,8 @@ if ($loadInitialMatches && !empty($referees)) { // Only compute if matches were 
                         <tr>
                             <td><a href="match_detail.php?uuid=<?= htmlspecialchars($match['uuid']) ?>"><?= htmlspecialchars($match['match_date']) ?></a></td>
                             <td><?= htmlspecialchars(substr($match['kickoff_time'], 0, 5)) ?></td>
-                            <td><?= htmlspecialchars($match['home_club_name'] . " - " . $match['home_team_name']) ?></td>
-                            <td><?= htmlspecialchars($match['away_club_name'] . " - " . $match['away_team_name']) ?></td>
+                            <td><?= htmlspecialchars($match['home_team_name']) ?></td>
+                            <td><?= htmlspecialchars($match['away_team_name']) ?></td>
                             <td><?= htmlspecialchars($match['division']) ?></td>
                             <td><?= htmlspecialchars($match['district']) ?></td>
                             <td><?= htmlspecialchars($match['poule']) ?></td>

@@ -265,10 +265,10 @@ foreach ($referees as $ref) {
 
 send_progress(30, 'Pre-cached referee availability for all matches.');
 
-// Group filtered matches by date
-$matchesByDate = [];
+// Group filtered matches by week
+$matchesByWeek = [];
 foreach ($matches as $match) {
-    $matchesByDate[$match['match_date']][] = $match;
+    $matchesByWeek[$match['week_key']][] = $match;
 }
 
 // Initialize suggestions
@@ -277,8 +277,11 @@ foreach ($matches as $match) {
     $suggestions[$match['uuid']] = array_fill_keys(ROLES, null);
 }
 
-// Suggested counts this run (global, since weekly spans multiple days)
+// Suggested counts this run (global, for overall load balancing)
 $suggestedAssignmentsCountThisRun = array_fill_keys(array_column($referees, 'uuid'), 0);
+
+// Suggested counts per week (for weekly limits)
+$suggestedAssignmentsByWeekRef = [];
 
 // Suggested details by date by ref
 $suggestedMatchDetailsByDateRef = [];
@@ -311,7 +314,7 @@ function haversine($lat1, $lon1, $lat2, $lon2) {
 }
 
 // canAssign function (returns false or score; higher score = better)
-function canAssign($refId, $matchId, $matchDate, $matchWeek, $kickoffMinutes, $locationLat, $locationLon, $currentRole, $existingAssignmentsByDateRef, $existingMatchDetailsByDateRef, $existingAssignmentsByWeekRef, $suggestedAssignmentsCountThisRun, $suggestedMatchDetailsByDateRef, $allowOrange, $referees, $division) {
+function canAssign($refId, $matchId, $matchDate, $matchWeek, $kickoffMinutes, $locationLat, $locationLon, $currentRole, $existingAssignmentsByDateRef, $existingMatchDetailsByDateRef, $existingAssignmentsByWeekRef, $suggestedAssignmentsCountThisRun, $suggestedMatchDetailsByDateRef, $suggestedAssignmentsByWeekRef, $allowOrange, $referees, $division) {
     global $preferredGradeByDivision;
 
     // Find ref data
@@ -336,7 +339,8 @@ function canAssign($refId, $matchId, $matchDate, $matchWeek, $kickoffMinutes, $l
 
     // Weekly limit (hard)
     $existingGamesThisWeek = $existingAssignmentsByWeekRef[$matchWeek][$refId] ?? 0;
-    $totalGamesThisWeek = $existingGamesThisWeek + $suggestedAssignmentsCountThisRun[$refId] + 1;
+    $suggestedGamesThisWeek = $suggestedAssignmentsByWeekRef[$matchWeek][$refId] ?? 0;
+    $totalGamesThisWeek = $existingGamesThisWeek + $suggestedGamesThisWeek + 1;
     if ($totalGamesThisWeek > MAX_GAMES_PER_WEEK) {
         error_log("Ref $refId skipped for match $matchId: Weekly limit exceeded (total $totalGamesThisWeek)");
         return false;
@@ -420,6 +424,7 @@ function attemptAssignment(
     $availabilityCache,
     $pass,
     &$suggestedMatchDetailsByDateRef,
+    &$suggestedAssignmentsByWeekRef,
     $allowOrange = false
 ) {
     $matchId = $match['uuid'];
@@ -442,7 +447,7 @@ function attemptAssignment(
             continue;
         }
 
-        $score = canAssign($refId, $matchId, $matchDate, $matchWeek, $match['kickoff_minutes'], $match['location_lat'], $match['location_lon'], $role, $existingAssignmentsByDateRef, $existingMatchDetailsByDateRef, $existingAssignmentsByWeekRef, $suggestedAssignmentsCountThisRun, $suggestedMatchDetailsByDateRef, $allowOrange, $referees, $match['division']);
+        $score = canAssign($refId, $matchId, $matchDate, $matchWeek, $match['kickoff_minutes'], $match['location_lat'], $match['location_lon'], $role, $existingAssignmentsByDateRef, $existingMatchDetailsByDateRef, $existingAssignmentsByWeekRef, $suggestedAssignmentsCountThisRun, $suggestedMatchDetailsByDateRef, $suggestedAssignmentsByWeekRef, $allowOrange, $referees, $match['division']);
         if ($score !== false) {
             $eligibleRefs[] = ['refId' => $refId, 'score' => $score];
         }
@@ -463,6 +468,9 @@ function attemptAssignment(
         $suggestions[$matchId][$role] = $bestRefId;
         $suggestedAssignmentsCountThisRun[$bestRefId]++;
 
+        if (!isset($suggestedAssignmentsByWeekRef[$matchWeek][$bestRefId])) $suggestedAssignmentsByWeekRef[$matchWeek][$bestRefId] = 0;
+        $suggestedAssignmentsByWeekRef[$matchWeek][$bestRefId]++;
+
         if (!isset($suggestedMatchDetailsByDateRef[$matchDate][$bestRefId])) $suggestedMatchDetailsByDateRef[$matchDate][$bestRefId] = [];
         $suggestedMatchDetailsByDateRef[$matchDate][$bestRefId][] = [
             'kickoff_minutes' => $match['kickoff_minutes'],
@@ -474,36 +482,41 @@ function attemptAssignment(
     }
 }
 
-// Process day by day
-$totalMatches = count($matches);
-$matchesProcessed = 0;
+// Process week by week
+$totalAssignments = count($matches) * count(ROLES);
+$processedAssignments = 0;
 
-foreach ($matchesByDate as $date => &$dayMatches) {
-    usort($dayMatches, function($a, $b) {
-        $aNum = preg_match('/\d+/', $a['division'], $m) ? (int)$m[0] : 0;
-        $bNum = preg_match('/\d+/', $b['division'], $m) ? (int)$m[0] : 0;
-        if ($aNum !== $bNum) return $bNum - $aNum;
+ksort($matchesByWeek); // Process weeks in order
+
+foreach ($matchesByWeek as $week => $weekMatches) {
+    // Sort matches by division priority (lower number/higher division first)
+    usort($weekMatches, function($a, $b) {
+        $aNum = preg_match('/\d+/', $a['division'], $m) ? (int)$m[0] : 999; // Non-numeric high to come last
+        $bNum = preg_match('/\d+/', $b['division'], $m) ? (int)$m[0] : 999;
+        if ($aNum !== $bNum) {
+            return $aNum - $bNum; // Smaller num (higher div) first
+        }
         return strcmp($a['division'], $b['division']);
     });
 
-    foreach ($dayMatches as &$match) {
-        $matchesProcessed++;
-        foreach (ROLES as $role) {
+    foreach (ROLES as $role) { // Assign main refs first, then AR1, AR2
+        foreach ($weekMatches as &$match) {
             // Attempt assignment in multiple passes
-            attemptAssignment($role, $match, $referees, $suggestions, $suggestedAssignmentsCountThisRun, $existingAssignmentsByDateRef, $existingMatchDetailsByDateRef, $existingAssignmentsByWeekRef, $availabilityCache, 1, $suggestedMatchDetailsByDateRef, false);
+            attemptAssignment($role, $match, $referees, $suggestions, $suggestedAssignmentsCountThisRun, $existingAssignmentsByDateRef, $existingMatchDetailsByDateRef, $existingAssignmentsByWeekRef, $availabilityCache, 1, $suggestedMatchDetailsByDateRef, $suggestedAssignmentsByWeekRef, false);
             if ($suggestions[$match['uuid']][$role] === null) {
-                attemptAssignment($role, $match, $referees, $suggestions, $suggestedAssignmentsCountThisRun, $existingAssignmentsByDateRef, $existingMatchDetailsByDateRef, $existingAssignmentsByWeekRef, $availabilityCache, 2, $suggestedMatchDetailsByDateRef, false);
+                attemptAssignment($role, $match, $referees, $suggestions, $suggestedAssignmentsCountThisRun, $existingAssignmentsByDateRef, $existingMatchDetailsByDateRef, $existingAssignmentsByWeekRef, $availabilityCache, 2, $suggestedMatchDetailsByDateRef, $suggestedAssignmentsByWeekRef, false);
             }
             if ($suggestions[$match['uuid']][$role] === null) {
-                attemptAssignment($role, $match, $referees, $suggestions, $suggestedAssignmentsCountThisRun, $existingAssignmentsByDateRef, $existingMatchDetailsByDateRef, $existingAssignmentsByWeekRef, $availabilityCache, 3, $suggestedMatchDetailsByDateRef, true);
+                attemptAssignment($role, $match, $referees, $suggestions, $suggestedAssignmentsCountThisRun, $existingAssignmentsByDateRef, $existingMatchDetailsByDateRef, $existingAssignmentsByWeekRef, $availabilityCache, 3, $suggestedMatchDetailsByDateRef, $suggestedAssignmentsByWeekRef, true);
             }
+
+            $processedAssignments++;
+            $progress = (int)(($processedAssignments / $totalAssignments) * 100);
+            send_progress($progress, "Processed {$processedAssignments} of {$totalAssignments} assignments...");
         }
-        $progress = (int)(($matchesProcessed / $totalMatches) * 100);
-        send_progress($progress, "Processed {$matchesProcessed} of {$totalMatches} matches...");
+        unset($match);
     }
-    unset($match);
 }
-unset($dayMatches);
 
 send_progress(95, 'Finalizing suggestions...');
 
