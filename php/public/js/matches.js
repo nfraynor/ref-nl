@@ -285,54 +285,59 @@ document.getElementById('suggestAssignments')?.addEventListener('click', async (
         const decoder = new TextDecoder();
         let buffer = '';
 
-        while (true) {
-            const { value, done } = await reader.read();
-            if (done) {
-                break;
-            }
+        const processStream = async () => {
+            while (true) {
+                const { value, done } = await reader.read();
+                if (done) {
+                    break;
+                }
 
-            buffer += decoder.decode(value, { stream: true });
-            const lines = buffer.split('\n');
-            buffer = lines.pop(); // Keep the last partial line
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop(); // Keep the last partial line
 
-            for (const line of lines) {
-                if (line.trim() === '') continue;
-                try {
-                    const data = JSON.parse(line);
+                for (const line of lines) {
+                    if (line.trim() === '') continue;
+                    try {
+                        const data = JSON.parse(line);
 
-                    // Update progress bar
-                    progressBar.style.width = `${data.progress}%`;
-                    progressBar.setAttribute('aria-valuenow', data.progress);
-                    progressText.textContent = data.message;
+                        // Update progress bar
+                        progressBar.style.width = `${data.progress}%`;
+                        progressBar.setAttribute('aria-valuenow', data.progress);
+                        progressText.textContent = data.message;
 
-                    // If final data is here
-                    if (data.progress === 100 && data.suggestions) {
-                        // Apply to dropdowns and store in global object
-                        for (const matchId in data.suggestions) {
-                            if (!suggestedAssignments[matchId]) {
-                                suggestedAssignments[matchId] = {};
-                            }
-                            const matchSuggestions = data.suggestions[matchId];
+                        // If final data is here
+                        if (data.progress === 100 && data.suggestions) {
+                            // Apply to dropdowns and store in global object
+                            for (const matchId in data.suggestions) {
+                                if (!suggestedAssignments[matchId]) {
+                                    suggestedAssignments[matchId] = {};
+                                }
+                                const matchSuggestions = data.suggestions[matchId];
 
-                            for (const role in matchSuggestions) {
-                                const refId = matchSuggestions[role];
-                                suggestedAssignments[matchId][role] = refId;
+                                for (const role in matchSuggestions) {
+                                    const refId = matchSuggestions[role];
+                                    suggestedAssignments[matchId][role] = refId;
 
-                                const select = document.querySelector(`select[name="assignments[${matchId}][${role}]"]`);
-                                if (select) {
-                                    select.value = refId ?? "";
-                                    const event = new Event('change', { bubbles: true });
-                                    select.dispatchEvent(event);
+                                    const select = document.querySelector(`select[name="assignments[${matchId}][${role}]"]`);
+                                    if (select) {
+                                        select.value = refId ?? "";
+                                        const event = new Event('change', { bubbles: true });
+                                        select.dispatchEvent(event);
+                                    }
                                 }
                             }
+                            window.fullRefreshConflicts(); // Full refresh after suggestions
                         }
-                        window.fullRefreshConflicts(); // Full refresh after suggestions
+                    } catch (e) {
+                        console.error('Error parsing progress update:', e, 'Line:', line);
                     }
-                } catch (e) {
-                    console.error('Error parsing progress update:', e, 'Line:', line);
                 }
             }
-        }
+        };
+
+        await processStream();
+
     } catch (error) {
         console.error('Error fetching suggestions:', error);
         alert('Error fetching suggestions. Please check the console for details or try again.');
