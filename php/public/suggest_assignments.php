@@ -425,7 +425,8 @@ function attemptAssignment(
     $pass,
     &$suggestedMatchDetailsByDateRef,
     &$suggestedAssignmentsByWeekRef,
-    $allowOrange = false
+    $allowOrange = false,
+    $suggestedInThisWeek
 ) {
     $matchId = $match['uuid'];
     if ($suggestions[$matchId][$role] !== null) return;
@@ -435,21 +436,50 @@ function attemptAssignment(
 
     error_log("Attempting assignment for match $matchId, role $role, pass $pass, allowOrange " . ($allowOrange ? 'true' : 'false'));
 
+    $preferredGrade = $preferredGradeByDivision[$match['division']] ?? null;
+
     // Collect eligible refs with scores
     $eligibleRefs = [];
-    foreach ($referees as $ref) {
-        $refId = $ref['uuid'];
+    $triedPreferred = false;
 
-        if ($pass === 1 && $suggestedAssignmentsCountThisRun[$refId] > 0) continue;
+    if ($preferredGrade) {
+        // First try only preferred grade
+        $triedPreferred = true;
+        foreach ($referees as $ref) {
+            $refId = $ref['uuid'];
 
-        if (!$availabilityCache[$refId][$matchId]) {
-            error_log("Ref $refId skipped for match $matchId: Not available");
-            continue;
+            if ($ref['grade'] !== $preferredGrade) continue;
+
+            if ($pass === 1 && $suggestedInThisWeek[$refId] > 0) continue;
+
+            if (!$availabilityCache[$refId][$matchId]) {
+                error_log("Ref $refId skipped for match $matchId: Not available");
+                continue;
+            }
+
+            $score = canAssign($refId, $matchId, $matchDate, $matchWeek, $match['kickoff_minutes'], $match['location_lat'], $match['location_lon'], $role, $existingAssignmentsByDateRef, $existingMatchDetailsByDateRef, $existingAssignmentsByWeekRef, $suggestedAssignmentsCountThisRun, $suggestedMatchDetailsByDateRef, $suggestedAssignmentsByWeekRef, $allowOrange, $referees, $match['division']);
+            if ($score !== false) {
+                $eligibleRefs[] = ['refId' => $refId, 'score' => $score];
+            }
         }
+    }
 
-        $score = canAssign($refId, $matchId, $matchDate, $matchWeek, $match['kickoff_minutes'], $match['location_lat'], $match['location_lon'], $role, $existingAssignmentsByDateRef, $existingMatchDetailsByDateRef, $existingAssignmentsByWeekRef, $suggestedAssignmentsCountThisRun, $suggestedMatchDetailsByDateRef, $suggestedAssignmentsByWeekRef, $allowOrange, $referees, $match['division']);
-        if ($score !== false) {
-            $eligibleRefs[] = ['refId' => $refId, 'score' => $score];
+    if (empty($eligibleRefs)) {
+        // If no preferred or no eligible preferred, try all
+        foreach ($referees as $ref) {
+            $refId = $ref['uuid'];
+
+            if ($pass === 1 && $suggestedInThisWeek[$refId] > 0) continue;
+
+            if (!$availabilityCache[$refId][$matchId]) {
+                error_log("Ref $refId skipped for match $matchId:Not available");
+                continue;
+            }
+
+            $score = canAssign($refId, $matchId, $matchDate, $matchWeek, $match['kickoff_minutes'], $match['location_lat'], $match['location_lon'], $role, $existingAssignmentsByDateRef, $existingMatchDetailsByDateRef, $existingAssignmentsByWeekRef, $suggestedAssignmentsCountThisRun, $suggestedMatchDetailsByDateRef, $suggestedAssignmentsByWeekRef, $allowOrange, $referees, $match['division']);
+            if ($score !== false) {
+                $eligibleRefs[] = ['refId' => $refId, 'score' => $score];
+            }
         }
     }
 
@@ -466,7 +496,7 @@ function attemptAssignment(
         error_log("Best ref for match $matchId, role $role: $bestRefId with score $bestScore");
 
         $suggestions[$matchId][$role] = $bestRefId;
-        $suggestedAssignmentsCountThisRun[$bestRefId]++;
+        $suggestedInThisWeek[$bestRefId]++;
 
         if (!isset($suggestedAssignmentsByWeekRef[$matchWeek][$bestRefId])) $suggestedAssignmentsByWeekRef[$matchWeek][$bestRefId] = 0;
         $suggestedAssignmentsByWeekRef[$matchWeek][$bestRefId]++;
@@ -489,25 +519,34 @@ $processedAssignments = 0;
 ksort($matchesByWeek); // Process weeks in order
 
 foreach ($matchesByWeek as $week => $weekMatches) {
-    // Sort matches by division priority (lower number/higher division first)
+    $suggestedInThisWeek = array_fill_keys(array_column($referees, 'uuid'), 0);
+
+    // Sort matches by division priority (higher preferred grade first, then lower class number)
     usort($weekMatches, function($a, $b) {
-        $aNum = preg_match('/\d+/', $a['division'], $m) ? (int)$m[0] : 999; // Non-numeric high to come last
-        $bNum = preg_match('/\d+/', $b['division'], $m) ? (int)$m[0] : 999;
-        if ($aNum !== $bNum) {
-            return $aNum - $bNum; // Smaller num (higher div) first
+        $prefA = GRADE_ORDER[$preferredGradeByDivision[$a['division']] ?? ''] ?? 0;
+        $prefB = GRADE_ORDER[$preferredGradeByDivision[$b['division']] ?? ''] ?? 0;
+        if ($prefA !== $prefB) {
+            return $prefB - $prefA; // higher pref grade first
         }
-        return strcmp($a['division'], $b['division']);
+        $aNum = preg_match('/\d+/', $a['division'], $m) ? (int)$m[0] : 999;
+        $bNum = preg_match('/\d+/', $b['division'], $m) ? (int)$m[0] : 999;
+        return $aNum - $bNum; // lower class number first
     });
 
     foreach (ROLES as $role) { // Assign main refs first, then AR1, AR2
         foreach ($weekMatches as &$match) {
+            if (($role === 'ar1_id' || $role === 'ar2_id') && $match['division'] !== 'Ereklasse') {
+                $processedAssignments++;
+                continue;
+            }
+
             // Attempt assignment in multiple passes
-            attemptAssignment($role, $match, $referees, $suggestions, $suggestedAssignmentsCountThisRun, $existingAssignmentsByDateRef, $existingMatchDetailsByDateRef, $existingAssignmentsByWeekRef, $availabilityCache, 1, $suggestedMatchDetailsByDateRef, $suggestedAssignmentsByWeekRef, false);
+            attemptAssignment($role, $match, $referees, $suggestions, $suggestedAssignmentsCountThisRun, $existingAssignmentsByDateRef, $existingMatchDetailsByDateRef, $existingAssignmentsByWeekRef, $availabilityCache, 1, $suggestedMatchDetailsByDateRef, $suggestedAssignmentsByWeekRef, false, $suggestedInThisWeek);
             if ($suggestions[$match['uuid']][$role] === null) {
-                attemptAssignment($role, $match, $referees, $suggestions, $suggestedAssignmentsCountThisRun, $existingAssignmentsByDateRef, $existingMatchDetailsByDateRef, $existingAssignmentsByWeekRef, $availabilityCache, 2, $suggestedMatchDetailsByDateRef, $suggestedAssignmentsByWeekRef, false);
+                attemptAssignment($role, $match, $referees, $suggestions, $suggestedAssignmentsCountThisRun, $existingAssignmentsByDateRef, $existingMatchDetailsByDateRef, $existingAssignmentsByWeekRef, $availabilityCache, 2, $suggestedMatchDetailsByDateRef, $suggestedAssignmentsByWeekRef, false, $suggestedInThisWeek);
             }
             if ($suggestions[$match['uuid']][$role] === null) {
-                attemptAssignment($role, $match, $referees, $suggestions, $suggestedAssignmentsCountThisRun, $existingAssignmentsByDateRef, $existingMatchDetailsByDateRef, $existingAssignmentsByWeekRef, $availabilityCache, 3, $suggestedMatchDetailsByDateRef, $suggestedAssignmentsByWeekRef, true);
+                attemptAssignment($role, $match, $referees, $suggestions, $suggestedAssignmentsCountThisRun, $existingAssignmentsByDateRef, $existingMatchDetailsByDateRef, $existingAssignmentsByWeekRef, $availabilityCache, 3, $suggestedMatchDetailsByDateRef, $suggestedAssignmentsByWeekRef, true, $suggestedInThisWeek);
             }
 
             $processedAssignments++;

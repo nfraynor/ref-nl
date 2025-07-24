@@ -211,17 +211,23 @@ body {
 
 /* Inline editing styles for referee_detail.php */
 .editable-field .edit-icon,
-h1 .edit-icon { /* Targeting edit icons in h1 as well */
-    font-size: 0.9em; /* Slightly larger for better clickability */
+h1 .edit-icon {
+    font-size: 0.9em;
     margin-left: 8px;
     cursor: pointer;
-    color: #007bff; /* Bootstrap primary color for edit icons */
-    vertical-align: middle; /* Align icons with text */
+    color: #007bff;
+    vertical-align: middle;
+    visibility: hidden; /* Hide by default */
+}
+
+.editable-field:hover .edit-icon,
+h1:hover .edit-icon {
+    visibility: visible; /* Show on hover of parent */
 }
 
 .editable-field .edit-icon:hover,
 h1 .edit-icon:hover {
-    color: #0056b3; /* Darker on hover */
+    color: #0056b3;
 }
 
 .edit-controls {
