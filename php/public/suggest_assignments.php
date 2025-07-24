@@ -36,6 +36,14 @@ const ROLES = ['referee_id', 'ar1_id', 'ar2_id']; // Removed commissioner_id
 // Grade order for non-numeric grades
 const GRADE_ORDER = ['A' => 4, 'B' => 3, 'C' => 2, 'D' => 1, '' => 0];
 
+// Preferred grade by division
+$preferredGradeByDivision = [
+    'Ereklasse' => 'A',
+    '1e Klasse' => 'B',
+    '2e Klasse' => 'C',
+    '3e Klasse' => 'D'
+];
+
 $testingMode = isset($_GET['testing']) && $_GET['testing'] === 'true';
 
 // Build WHERE clause for filtered matches (role-based + GET filters)
@@ -69,29 +77,29 @@ if ($userRole !== 'super_admin') {
         $loadMatches = false;
     } else {
         $divisionPlaceholders = implode(',', array_fill(0, count($allowedDivisionNames), '?'));
-        $whereClauses[] = "division IN ($divisionPlaceholders)";
+        $whereClauses[] = "m.division IN ($divisionPlaceholders)";
         $params = array_merge($params, $allowedDivisionNames);
 
         $districtPlaceholders = implode(',', array_fill(0, count($allowedDistrictNames), '?'));
-        $whereClauses[] = "district IN ($districtPlaceholders)";
+        $whereClauses[] = "m.district IN ($districtPlaceholders)";
         $params = array_merge($params, $allowedDistrictNames);
     }
 }
 
 if (!empty($_GET['start_date'])) {
-    $whereClauses[] = "match_date >= ?";
+    $whereClauses[] = "m.match_date >= ?";
     $params[] = $_GET['start_date'];
 }
 
 if (!empty($_GET['end_date'])) {
-    $whereClauses[] = "match_date <= ?";
+    $whereClauses[] = "m.match_date <= ?";
     $params[] = $_GET['end_date'];
 }
 
 foreach (['division', 'district', 'poule', 'location', 'referee_assigner'] as $filter) {
     if (!empty($_GET[$filter]) && is_array($_GET[$filter])) {
         $placeholders = implode(',', array_fill(0, count($_GET[$filter]), '?'));
-        $whereClauses[] = "$filter IN ($placeholders)";
+        $whereClauses[] = "m.$filter IN ($placeholders)";
         $params = array_merge($params, $_GET[$filter]);
     }
 }
@@ -103,15 +111,16 @@ $matches = [];
 if ($loadMatches) {
     $stmt = $pdo->prepare("
         SELECT 
-            uuid,
-            match_date,
-            kickoff_time,
-            location_lat,
-            location_lon,
-            division
-        FROM matches
+            m.uuid,
+            m.match_date,
+            m.kickoff_time,
+            l.latitude AS location_lat,
+            l.longitude AS location_lon,
+            m.division
+        FROM matches m
+        LEFT JOIN locations l ON m.location_uuid = l.uuid
         $whereSQL
-        ORDER BY match_date ASC, kickoff_time ASC
+        ORDER BY m.match_date ASC, m.kickoff_time ASC
     ");
     $stmt->execute($params);
     $matches = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -138,9 +147,10 @@ $existingAssignments = [];
 if (!$testingMode) {
     $existingAssignments = $pdo->query("
         SELECT 
-            uuid AS match_id, match_date, kickoff_time, location_lat, location_lon,
-            referee_id, ar1_id, ar2_id, commissioner_id
-        FROM matches
+            m.uuid AS match_id, m.match_date, m.kickoff_time, l.latitude AS location_lat, l.longitude AS location_lon,
+            m.referee_id, m.ar1_id, m.ar2_id, m.commissioner_id
+        FROM matches m
+        LEFT JOIN locations l ON m.location_uuid = l.uuid
         WHERE referee_id IS NOT NULL OR ar1_id IS NOT NULL OR ar2_id IS NOT NULL OR commissioner_id IS NOT NULL
     ")->fetchAll(PDO::FETCH_ASSOC);
 
@@ -260,7 +270,9 @@ function haversine($lat1, $lon1, $lat2, $lon2) {
 }
 
 // canAssign function (returns false or score; higher score = better)
-function canAssign($refId, $matchId, $matchDate, $matchWeek, $kickoffMinutes, $locationLat, $locationLon, $currentRole, $existingAssignmentsByDateRef, $existingMatchDetailsByDateRef, $existingAssignmentsByWeekRef, $suggestedAssignmentsCountThisRun, $suggestedMatchDetailsByDateRef, $allowOrange, $referees) {
+function canAssign($refId, $matchId, $matchDate, $matchWeek, $kickoffMinutes, $locationLat, $locationLon, $currentRole, $existingAssignmentsByDateRef, $existingMatchDetailsByDateRef, $existingAssignmentsByWeekRef, $suggestedAssignmentsCountThisRun, $suggestedMatchDetailsByDateRef, $allowOrange, $referees, $division) {
+    global $preferredGradeByDivision;
+
     // Find ref data
     $refData = null;
     foreach ($referees as $r) {
@@ -305,7 +317,7 @@ function canAssign($refId, $matchId, $matchDate, $matchWeek, $kickoffMinutes, $l
     // Check suggested conflicts
     $suggestedDetails = $suggestedMatchDetailsByDateRef[$matchDate][$refId] ?? [];
     foreach ($suggestedDetails as $sDetail) {
-        if (($locationLat !== null || $sDetail['location_lat'] !== null) && ($locationLat !== $sDetail['location_lat'] || $locationLon !== $sDetail['location_lon'])) {
+        if ($locationLat !== null && $sDetail['location_lat'] !== null && ($locationLat !== $sDetail['location_lat'] || $locationLon !== $sDetail['location_lon'])) {
             error_log("Ref $refId skipped for match $matchId: Red - Different location");
             return false; // Red
         }
@@ -322,7 +334,7 @@ function canAssign($refId, $matchId, $matchDate, $matchWeek, $kickoffMinutes, $l
     // Check existing conflicts
     $existingDetails = $existingMatchDetailsByDateRef[$matchDate][$refId] ?? [];
     foreach ($existingDetails as $eDetail) {
-        if (($locationLat !== null || $eDetail['location_lat'] !== null) && ($locationLat !== $eDetail['location_lat'] || $locationLon !== $eDetail['location_lon'])) {
+        if ($locationLat !== null && $eDetail['location_lat'] !== null && ($locationLat !== $eDetail['location_lat'] || $locationLon !== $eDetail['location_lon'])) {
             error_log("Ref $refId skipped for match $matchId: Red - Different location (existing)");
             return false; // Red
         }
@@ -343,11 +355,13 @@ function canAssign($refId, $matchId, $matchDate, $matchWeek, $kickoffMinutes, $l
 
     // Calculate score for "best" (higher = better)
     $gradeScore = is_numeric($refData['grade']) ? (int)$refData['grade'] : (GRADE_ORDER[$refData['grade']] ?? 0);
-    $loadScore = MAX_GAMES_PER_WEEK - $suggestedAssignmentsCountThisRun[$refId]; // Prefer less loaded
+    $preferredGrade = $preferredGradeByDivision[$division] ?? null;
+    $preferredBonus = ($preferredGrade && $refData['grade'] === $preferredGrade) ? 100 : 0;
+    $loadScore = 10 - min(10, $suggestedAssignmentsCountThisRun[$refId]); // Prefer less loaded, normalized to 0-10
     $distanceScore = $distance === INF ? 0 : (1 / (1 + $distance)); // Prefer closer (0-1 normalized)
 
-    $score = $gradeScore * 10 + $loadScore * 5 + $distanceScore; // Weighted score
-    error_log("Ref $refId eligible for match $matchId: Score $score (grade $gradeScore, load $loadScore, distance $distance)");
+    $score = $preferredBonus + $gradeScore * 10 + $loadScore * 5 + $distanceScore; // Weighted score
+    error_log("Ref $refId eligible for match $matchId: Score $score (preferred $preferredBonus, grade $gradeScore, load $loadScore, distance $distance)");
 
     return $score;
 }
@@ -387,7 +401,7 @@ function attemptAssignment(
             continue;
         }
 
-        $score = canAssign($refId, $matchId, $matchDate, $matchWeek, $match['kickoff_minutes'], $match['location_lat'], $match['location_lon'], $role, $existingAssignmentsByDateRef, $existingMatchDetailsByDateRef, $existingAssignmentsByWeekRef, $suggestedAssignmentsCountThisRun, $suggestedMatchDetailsByDateRef, $allowOrange, $referees);
+        $score = canAssign($refId, $matchId, $matchDate, $matchWeek, $match['kickoff_minutes'], $match['location_lat'], $match['location_lon'], $role, $existingAssignmentsByDateRef, $existingMatchDetailsByDateRef, $existingAssignmentsByWeekRef, $suggestedAssignmentsCountThisRun, $suggestedMatchDetailsByDateRef, $allowOrange, $referees, $match['division']);
         if ($score !== false) {
             $eligibleRefs[] = ['refId' => $refId, 'score' => $score];
         }
