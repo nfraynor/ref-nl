@@ -302,7 +302,7 @@ document.getElementById('suggestAssignments')?.addEventListener('click', async (
                         const data = JSON.parse(line);
 
                         // Update progress bar
-                        progressBar.style.width = `${data.progress}%`;
+                        progressBar.style.setProperty('--progress-width', `${data.progress}%`);
                         progressBar.setAttribute('aria-valuenow', data.progress);
                         progressText.textContent = data.message;
 

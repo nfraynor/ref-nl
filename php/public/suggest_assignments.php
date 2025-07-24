@@ -24,6 +24,9 @@
 require_once __DIR__ . '/../utils/session_auth.php';
 require_once __DIR__ . '/../utils/db.php';
 
+// Suppress notices and warnings
+error_reporting(E_ALL & ~E_NOTICE & ~E_WARNING);
+
 // Prepare for streaming
 if (ob_get_level() == 0) ob_start();
 header('Content-Type: application/json');
@@ -32,8 +35,10 @@ header('X-Content-Type-Options: nosniff');
 function send_progress($progress, $message) {
     $response = ['progress' => $progress, 'message' => $message];
     echo json_encode($response) . "\n";
-    ob_flush();
-    flush();
+    if (ob_get_level() > 0) {
+        ob_flush();
+        flush();
+    }
 }
 
 $pdo = Database::getConnection();
