@@ -256,56 +256,102 @@ document.getElementById('clearAssignments')?.addEventListener('click', () => {
     window.fullRefreshConflicts(); // Full refresh after clearing
 });
 
-document.getElementById('suggestAssignments')?.addEventListener('click', (event) => {
+document.getElementById('suggestAssignments')?.addEventListener('click', async (event) => {
     const suggestButton = event.target;
     const originalButtonText = suggestButton.textContent;
     suggestButton.disabled = true;
     suggestButton.textContent = 'Suggesting...';
 
+    const progressBarContainer = document.getElementById('suggestionProgressBarContainer');
+    const progressBar = document.getElementById('suggestionProgressBar');
+    const progressText = document.getElementById('suggestionProgressText');
+
+    progressBarContainer.style.display = 'block';
+    progressText.style.display = 'block';
+    progressBar.setAttribute('aria-valuenow', 0);
+    progressText.textContent = 'Starting...';
+
     const params = buildParamsFromCurrentFilters();
     const queryString = params.toString();
 
-    fetch(`suggest_assignments.php${queryString ? '?' + queryString : ''}`)
-        .then(response => {
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            return response.json();
-        })
-        .then(data => {
-            if (data.error) {
-                alert(data.error);
-                return;
-            }
-            // Apply to dropdowns and store in global object
-            for (const matchId in data) {
-                if (!suggestedAssignments[matchId]) {
-                    suggestedAssignments[matchId] = {};
+    try {
+        const response = await fetch(`suggest_assignments.php${queryString ? '?' + queryString : ''}`);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        const processStream = async () => {
+            while (true) {
+                const { value, done } = await reader.read();
+                if (done) {
+                    break;
                 }
-                const matchSuggestions = data[matchId];
 
-                for (const role in matchSuggestions) {
-                    const refId = matchSuggestions[role];
-                    suggestedAssignments[matchId][role] = refId;
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop(); // Keep the last partial line
 
-                    const select = document.querySelector(`select[name="assignments[${matchId}][${role}]"]`);
-                    if (select) {
-                        select.value = refId ?? "";
-                        const event = new Event('change', { bubbles: true });
-                        select.dispatchEvent(event);
+                for (const line of lines) {
+                    if (line.trim() === '') continue;
+                    try {
+                        const data = JSON.parse(line);
+
+                        // Update progress bar
+                        progressBar.style.setProperty('--progress-width', `${data.progress}%`);
+                        progressBar.setAttribute('aria-valuenow', data.progress);
+                        progressText.textContent = data.message;
+
+                        // If final data is here
+                        if (data.progress === 100 && data.suggestions) {
+                            // Apply to dropdowns and store in global object
+                            for (const matchId in data.suggestions) {
+                                if (!suggestedAssignments[matchId]) {
+                                    suggestedAssignments[matchId] = {};
+                                }
+                                const matchSuggestions = data.suggestions[matchId];
+
+                                for (const role in matchSuggestions) {
+                                    const refId = matchSuggestions[role];
+                                    suggestedAssignments[matchId][role] = refId;
+
+                                    const select = document.querySelector(`select[name="assignments[${matchId}][${role}]"]`);
+                                    if (select) {
+                                        select.value = refId ?? "";
+                                        const event = new Event('change', { bubbles: true });
+                                        select.dispatchEvent(event);
+                                    }
+                                }
+                            }
+                            window.fullRefreshConflicts(); // Full refresh after suggestions
+                        }
+                    } catch (e) {
+                        console.error('Error parsing progress update:', e, 'Line:', line);
                     }
                 }
             }
-            window.fullRefreshConflicts(); // Full refresh after suggestions
-        })
-        .catch(error => {
-            console.error('Error fetching suggestions:', error);
-            alert('Error fetching suggestions. Please check the console for details or try again.');
-        })
-        .finally(() => {
-            suggestButton.disabled = false;
-            suggestButton.textContent = originalButtonText;
-        });
+        };
+
+        await processStream();
+
+    } catch (error) {
+        console.error('Error fetching suggestions:', error);
+        alert('Error fetching suggestions. Please check the console for details or try again.');
+        progressText.textContent = 'An error occurred.';
+        progressBar.classList.add('bg-danger');
+    } finally {
+        suggestButton.disabled = false;
+        suggestButton.textContent = originalButtonText;
+        // Hide progress bar after a short delay
+        setTimeout(() => {
+            progressBarContainer.style.display = 'none';
+            progressText.style.display = 'none';
+            progressBar.classList.remove('bg-danger');
+        }, 3000);
+    }
 });
 
 // Handle date filter box
