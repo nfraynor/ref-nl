@@ -43,7 +43,7 @@ $districts = $pdo->query("
             <td><?= htmlspecialchars($district['id']) ?></td>
             <td><?= htmlspecialchars($district['name']) ?></td>
             <td>
-                <a href="edit_district.php?id=<?= $district['id'] ?>" class="btn btn-primary btn-sm">Edit</a>
+                <a href="edit_district.php?id=<?= $district['id'] ?>" class="btn btn-warning btn-sm">Edit</a>
                 <a href="remove_district.php?id=<?= $district['id'] ?>" class="btn btn-danger btn-sm" onclick="return confirm('Are you sure you want to delete this district?');">Remove</a>
             </td>
         </tr>
