@@ -14,7 +14,7 @@ function generate_uuid_v4() {
 
 // ----- Function to parse referee name -----
 function parse_referee_name($name_str) {
-    if (preg_match('/^^([^,]+),\s*([^()]+)\s*\(([^)]+)\)/', $name_str, $matches)) {
+    if (preg_match('/^([^,]+),\s*([^()]+)\s*\(([^)]+)\)/', $name_str, $matches)) {
         $surname = trim($matches[1]);
         $initials = trim($matches[2]);
         $first_name = trim($matches[3]);
@@ -34,16 +34,6 @@ function parse_referee_name($name_str) {
 
     return ['first_name' => $first_name, 'last_name' => $last_name];
 }
-
-// ----- District coordinates map (approximate) -----
-$district_coords = [
-    'Zuid West' => ['lat' => 51.9244, 'lon' => 4.4777], // Rotterdam
-    'Noord West' => ['lat' => 52.3702, 'lon' => 4.8952], // Amsterdam
-    'Oost' => ['lat' => 52.2215, 'lon' => 6.8937], // Enschede
-    'Midden' => ['lat' => 52.0907, 'lon' => 5.1214], // Utrecht
-    'Zuid' => ['lat' => 51.4416, 'lon' => 5.4697], // Eindhoven
-    'Noord' => ['lat' => 53.2194, 'lon' => 6.5665] // Groningen
-];
 
 // ----- Referee data array (from Excel/CSV, excluding header) -----
 $referee_rows = [
@@ -299,6 +289,16 @@ foreach ($referee_rows as $row) {
     // Extract district name (remove "District ")
     $district_name = trim(str_replace('District ', '', $district));
 
+    // Fetch district_id
+    $stmt_district = $pdo->prepare("SELECT id FROM districts WHERE name = ?");
+    $stmt_district->execute([$district_name]);
+    $district_row = $stmt_district->fetch();
+    if (!$district_row) {
+        echo "Warning: District '$district_name' not found for referee $name_str. Skipping.\n";
+        continue;
+    }
+    $district_id = $district_row['id'];
+
     // Get coords or default
     $base_lat = $district_coords[$district_name]['lat'] ?? 52.1326;
     $base_lon = $district_coords[$district_name]['lon'] ?? 5.2913; // Default to Netherlands center
@@ -321,11 +321,12 @@ foreach ($referee_rows as $row) {
         'email' => $primary_email,
         'phone' => null, // No phone in data
         'home_club_id' => null, // Ignored
-        'home_location_city' => $district_name,
+        'home_location_city' => null, // Set to null as per fix
         'grade' => $grade,
         'ar_grade' => $ar_grade,
         'home_lat' => $home_lat,
-        'home_lon' => $home_lon
+        'home_lon' => $home_lon,
+        'district_id' => $district_id
     ];
 }
 
@@ -335,8 +336,8 @@ $seeded_referees_count = 0;
 $existing_referees_count = 0;
 $stmt_insert_referee = $pdo->prepare("
     INSERT IGNORE INTO referees 
-        (uuid, referee_id, first_name, last_name, email, phone, home_club_id, home_location_city, grade, ar_grade, home_lat, home_lon) 
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (uuid, referee_id, first_name, last_name, email, phone, home_club_id, home_location_city, grade, ar_grade, home_lat, home_lon, district_id) 
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ");
 
 foreach ($referees_data as $index => $ref) {
@@ -361,11 +362,44 @@ foreach ($referees_data as $index => $ref) {
             $ref['grade'],
             $ref['ar_grade'],
             $ref['home_lat'],
-            $ref['home_lon']
+            $ref['home_lon'],
+            $ref['district_id']
         ]);
         $seeded_referees_count++;
     }
 }
 echo "Referees: {$seeded_referees_count} seeded, {$existing_referees_count} already existed.\n";
+
+// ----- Seed Referee Weekly Availability -----
+echo "Seeding Referee Weekly Availability...\n";
+$availability_seeded_count = 0;
+$availability_existing_count = 0;
+$stmt_insert_availability = $pdo->prepare("
+    INSERT IGNORE INTO referee_weekly_availability 
+        (uuid, referee_id, weekday, morning_available, afternoon_available, evening_available) 
+    VALUES (?, ?, ?, ?, ?, ?)
+");
+$stmt_check_availability = $pdo->prepare("SELECT COUNT(*) FROM referee_weekly_availability WHERE referee_id = ? AND weekday = ?");
+
+foreach ($referees_data as $ref) {
+    for ($weekday = 0; $weekday <= 6; $weekday++) {
+        $stmt_check_availability->execute([$ref['uuid'], $weekday]);
+        if ($stmt_check_availability->fetchColumn() > 0) {
+            $availability_existing_count++;
+        } else {
+            $availability_uuid = generate_uuid_v4();
+            $stmt_insert_availability->execute([
+                $availability_uuid,
+                $ref['uuid'],
+                $weekday,
+                true, // morning_available
+                true, // afternoon_available
+                true  // evening_available
+            ]);
+            $availability_seeded_count++;
+        }
+    }
+}
+echo "Availability: {$availability_seeded_count} seeded, {$availability_existing_count} already existed.\n";
 
 ?>

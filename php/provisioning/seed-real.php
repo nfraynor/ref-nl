@@ -15,8 +15,8 @@ function generate_uuid_v4() {
 // ----- Validate Divisions and Districts -----
 echo "Validating Divisions and Districts...\n";
 $divisions_districts_data = [
-    'Ereklasse' => ['National'],
-    '3e Klasse' => ['Noord', 'Zuid', 'Oost', 'West', 'Midden', 'Noord West', 'Zuid West']
+    'Ereklasse' => 'National',
+    '3e Klasse' => ['Noord West', 'Zuid West']
 ];
 
 $division_ids = [];
@@ -28,7 +28,7 @@ foreach ($divisions_districts_data as $division_name => $districts) {
     $division_row = $stmt_check_division->fetch(PDO::FETCH_ASSOC);
 
     if (!$division_row) {
-        echo "Error: Division {$division_name} not found in database. Please run seed-district.php first.\n";
+        echo "Error: Division {$division_name} not found in database. Please run seed_districts.php first.\n";
         exit(1);
     }
     $division_ids[$division_name] = $division_row['id'];
@@ -40,7 +40,7 @@ foreach ($divisions_districts_data as $division_name => $districts) {
         $district_row = $stmt_check_district->fetch(PDO::FETCH_ASSOC);
 
         if (!$district_row) {
-            echo "Error: District {$district_name} for division {$division_name} not found in database. Please run seed-district.php first.\n";
+            echo "Error: District {$district_name} for division {$division_name} not found in database. Please run seed_districts.php first.\n";
             exit(1);
         }
         $district_ids[$district_name] = $district_row['id'];
@@ -137,8 +137,6 @@ $sheets = [
         ['date' => '2025-11-16', 'time' => 0.5416666666666666, 'location' => 'Haagsche RC', 'home' => 'Haagsche RC Espoirs', 'away' => 'RC West-Friesland 1'],
         ['date' => '2025-11-16', 'time' => 0.6041666666666666, 'location' => 'Sportpark Groenoord Schagen', 'home' => 'SRC Rush 1', 'away' => 'RFC Haarlem 3'],
         ['date' => '2025-11-16', 'time' => 0.6041666666666666, 'location' => 'RC \'t Gooi', 'home' => 'RC \'t Gooi 3', 'away' => 'AAC 2'],
-        ['date' => '2025-11-16', 'time' => 0.625, 'location' => 'Sportpark de Eendracht', 'home' => 'Ascrum AA', 'away' => 'Amstelveense RC 2'],
-        ['date' => '2025-11-16', 'time' => 0.0, 'location' => 'Sportpark de Linie', 'home' => 'RC Den Helder 1', 'away' => 'CL Mokum Rugby 1'],
         ['date' => '2025-11-16', 'time' => 0.0, 'location' => 'Sportpark de Linie', 'home' => 'RC Den Helder 1', 'away' => 'CL Mokum Rugby 1'],
         ['date' => '2025-11-23', 'time' => 0.625, 'location' => 'Sportpark de Eendracht', 'home' => 'AAC 2', 'away' => 'SRC Rush 1'],
         ['date' => '2025-11-23', 'time' => 0.625, 'location' => 'Van der Aart Sportpark', 'home' => 'RFC Haarlem 3', 'away' => 'RC West-Friesland 1'],

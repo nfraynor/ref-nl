@@ -66,9 +66,9 @@ CREATE TABLE IF NOT EXISTS referee_weekly_availability (
     uuid CHAR(36) PRIMARY KEY,
     referee_id CHAR(36) NOT NULL,
     weekday SMALLINT NOT NULL, -- 0 = Sunday, 6 = Saturday
-    morning_available BOOLEAN DEFAULT FALSE,
-    afternoon_available BOOLEAN DEFAULT FALSE,
-    evening_available BOOLEAN DEFAULT FALSE,
+    morning_available BOOLEAN DEFAULT TRUE,
+    afternoon_available BOOLEAN DEFAULT TRUE,
+    evening_available BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
     FOREIGN KEY (referee_id) REFERENCES referees(uuid)
