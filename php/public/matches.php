@@ -121,7 +121,6 @@ $sql = "
     LEFT JOIN users assigner_user ON m.referee_assigner_uuid = assigner_user.uuid
     $whereSQL
     ORDER BY m.match_date ASC, m.kickoff_time ASC
-    LIMIT :limit OFFSET :offset
 ";
 
 $countSql = "SELECT COUNT(*) FROM matches m $whereSQL";
@@ -134,13 +133,17 @@ if ($loadInitialMatches) {
     $totalPages = ceil($totalMatches / $matchesPerPage);
 
     // Fetch matches for the current page
+    $sql .= " LIMIT ? OFFSET ?";
+    $params[] = $matchesPerPage;
+    $params[] = $offset;
+
     $stmt = $pdo->prepare($sql);
-    $stmt->bindValue(':limit', $matchesPerPage, PDO::PARAM_INT);
-    $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+
     foreach ($params as $key => $value) {
         // PDOStatement::bindValue uses 1-based indexing for placeholders
-        $stmt->bindValue($key + 1, $value);
+        $stmt->bindValue($key + 1, $value, is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR);
     }
+
     $stmt->execute();
     $matches = $stmt->fetchAll();
 } else {
