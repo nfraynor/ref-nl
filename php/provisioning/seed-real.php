@@ -3,6 +3,7 @@
 require_once __DIR__ . '/../utils/db.php'; // Assumes db.php sets up PDO using config/database.php
 
 $pdo = Database::getConnection();
+require_once __DIR__ . '/sheets_data.php';
 
 // ----- Function to generate a version 4 UUID -----
 function generate_uuid_v4() {
@@ -16,6 +17,10 @@ function generate_uuid_v4() {
 echo "Validating Divisions and Districts...\n";
 $divisions_districts_data = [
     'Ereklasse' => 'National',
+    'Futureklasse' => 'National',
+    'Ereklasse Dames' => 'National',
+    'Colts Cup' => 'National',
+    '1e Klasse' => 'National',
     '3e Klasse' => ['Noord West', 'Zuid West']
 ];
 
@@ -54,130 +59,6 @@ $locations_data = [];
 $teams_data = [];
 $matches_data = [];
 
-$sheets = [
-    'Ereklasse' => [
-        ['date' => '2025-09-06', 'time' => 0.625, 'location' => 'RC DIOK', 'home' => 'RC DIOK 1', 'away' => 'RC The Dukes 1'],
-        ['date' => '2025-09-06', 'time' => 0.625, 'location' => 'Sportpark Wouterland', 'home' => 'Cas RC 1', 'away' => 'RRC 1'],
-        ['date' => '2025-09-06', 'time' => 0.625, 'location' => 'Sportpark de Eendracht', 'home' => 'AAC 1', 'away' => 'BRC 1'],
-        ['date' => '2025-09-06', 'time' => 0.6666666666666666, 'location' => 'Sportpark de Bokkeduinen', 'home' => 'RC Eemland 1', 'away' => 'RC Hoek van Holland 1'],
-        ['date' => '2025-09-06', 'time' => 0.6666666666666666, 'location' => 'RC \'t Gooi', 'home' => 'RC \'t Gooi 1', 'away' => 'RFC Oisterwijk Oysters 1'],
-        ['date' => '2025-09-06', 'time' => 0.75, 'location' => 'Haagsche RC', 'home' => 'Haagsche RC 1', 'away' => 'RFC Haarlem 1'],
-        ['date' => '2025-09-13', 'time' => 0.625, 'location' => 'Sportboulevard Wisselaar', 'home' => 'BRC 1', 'away' => 'RC \'t Gooi 1'],
-        ['date' => '2025-09-13', 'time' => 0.625, 'location' => 'Sportpark de Wolfsputten', 'home' => 'RFC Oisterwijk Oysters 1', 'away' => 'Haagsche RC 1'],
-        ['date' => '2025-09-13', 'time' => 0.6666666666666666, 'location' => 'RC Hoek van Holland', 'home' => 'RC Hoek van Holland 1', 'away' => 'Cas RC 1'],
-        ['date' => '2025-09-13', 'time' => 0.6666666666666666, 'location' => 'Sportcomplex Duivensteijn', 'home' => 'RRC 1', 'away' => 'RC DIOK 1'],
-        ['date' => '2025-09-13', 'time' => 0.7083333333333334, 'location' => 'Van der Aart Sportpark', 'home' => 'RFC Haarlem 1', 'away' => 'RC Eemland 1'],
-        ['date' => '2025-09-13', 'time' => 0.7083333333333334, 'location' => 'RC The Dukes', 'home' => 'RC The Dukes 1', 'away' => 'AAC 1'],
-        ['date' => '2025-09-20', 'time' => 0.625, 'location' => 'Sportpark Wouterland', 'home' => 'Cas RC 1', 'away' => 'RFC Haarlem 1'],
-        ['date' => '2025-09-20', 'time' => 0.6666666666666666, 'location' => 'RC DIOK', 'home' => 'RC DIOK 1', 'away' => 'RC Hoek van Holland 1'],
-        ['date' => '2025-09-20', 'time' => 0.6666666666666666, 'location' => 'Sportpark de Bokkeduinen', 'home' => 'RC Eemland 1', 'away' => 'RFC Oisterwijk Oysters 1'],
-        ['date' => '2025-09-20', 'time' => 0.6666666666666666, 'location' => 'RC \'t Gooi', 'home' => 'RC \'t Gooi 1', 'away' => 'AAC 1'],
-        ['date' => '2025-09-20', 'time' => 0.6666666666666666, 'location' => 'Sportcomplex Duivensteijn', 'home' => 'RRC 1', 'away' => 'RC The Dukes 1'],
-        ['date' => '2025-09-20', 'time' => 0.6875, 'location' => 'Haagsche RC', 'home' => 'Haagsche RC 1', 'away' => 'BRC 1'],
-        ['date' => '2025-09-27', 'time' => 0.625, 'location' => 'Sportpark de Eendracht', 'home' => 'AAC 1', 'away' => 'Haagsche RC 1'],
-        ['date' => '2025-09-27', 'time' => 0.625, 'location' => 'Sportboulevard Wisselaar', 'home' => 'BRC 1', 'away' => 'RC Eemland 1'],
-        ['date' => '2025-09-27', 'time' => 0.625, 'location' => 'Sportpark de Wolfsputten', 'home' => 'RFC Oisterwijk Oysters 1', 'away' => 'Cas RC 1'],
-        ['date' => '2025-09-27', 'time' => 0.6666666666666666, 'location' => 'Van der Aart Sportpark', 'home' => 'RFC Haarlem 1', 'away' => 'RC DIOK 1'],
-        ['date' => '2025-09-27', 'time' => 0.6666666666666666, 'location' => 'RC Hoek van Holland', 'home' => 'RC Hoek van Holland 1', 'away' => 'RRC 1'],
-        ['date' => '2025-09-27', 'time' => 0.7083333333333334, 'location' => 'RC The Dukes', 'home' => 'RC The Dukes 1', 'away' => 'RC \'t Gooi 1'],
-        ['date' => '2025-10-11', 'time' => 0.625, 'location' => 'RC DIOK', 'home' => 'RC DIOK 1', 'away' => 'RFC Oisterwijk Oysters 1'],
-        ['date' => '2025-10-11', 'time' => 0.625, 'location' => 'Sportpark Wouterland', 'home' => 'Cas RC 1', 'away' => 'BRC 1'],
-        ['date' => '2025-10-11', 'time' => 0.6666666666666666, 'location' => 'Sportpark de Bokkeduinen', 'home' => 'RC Eemland 1', 'away' => 'AAC 1'],
-        ['date' => '2025-10-11', 'time' => 0.6666666666666666, 'location' => 'RC Hoek van Holland', 'home' => 'RC Hoek van Holland 1', 'away' => 'RC The Dukes 1'],
-        ['date' => '2025-10-11', 'time' => 0.6666666666666666, 'location' => 'Sportcomplex Duivensteijn', 'home' => 'RRC 1', 'away' => 'RFC Haarlem 1'],
-        ['date' => '2025-10-11', 'time' => 0.6875, 'location' => 'Haagsche RC', 'home' => 'Haagsche RC 1', 'away' => 'RC \'t Gooi 1'],
-        ['date' => '2025-10-18', 'time' => 0.625, 'location' => 'Sportboulevard Wisselaar', 'home' => 'BRC 1', 'away' => 'RC DIOK 1'],
-        ['date' => '2025-10-18', 'time' => 0.625, 'location' => 'Sportpark de Wolfsputten', 'home' => 'RFC Oisterwijk Oysters 1', 'away' => 'RRC 1'],
-        ['date' => '2025-10-18', 'time' => 0.625, 'location' => 'RC The Dukes', 'home' => 'RC The Dukes 1', 'away' => 'Haagsche RC 1'],
-        ['date' => '2025-10-18', 'time' => 0.6458333333333334, 'location' => 'Sportpark de Eendracht', 'home' => 'AAC 1', 'away' => 'Cas RC 1'],
-        ['date' => '2025-10-18', 'time' => 0.6666666666666666, 'location' => 'Van der Aart Sportpark', 'home' => 'RFC Haarlem 1', 'away' => 'RC Hoek van Holland 1'],
-        ['date' => '2025-10-25', 'time' => 0.625, 'location' => 'RC DIOK', 'home' => 'RC DIOK 1', 'away' => 'AAC 1'],
-        ['date' => '2025-10-25', 'time' => 0.625, 'location' => 'Sportpark Wouterland', 'home' => 'Cas RC 1', 'away' => 'RC \'t Gooi 1'],
-        ['date' => '2025-10-25', 'time' => 0.6666666666666666, 'location' => 'Sportpark de Bokkeduinen', 'home' => 'RC Eemland 1', 'away' => 'Haagsche RC 1'],
-        ['date' => '2025-10-25', 'time' => 0.6666666666666666, 'location' => 'Van der Aart Sportpark', 'home' => 'RFC Haarlem 1', 'away' => 'RC The Dukes 1'],
-        ['date' => '2025-10-25', 'time' => 0.6666666666666666, 'location' => 'RC Hoek van Holland', 'home' => 'RC Hoek van Holland 1', 'away' => 'RFC Oisterwijk Oysters 1'],
-        ['date' => '2025-10-25', 'time' => 0.6666666666666666, 'location' => 'Sportcomplex Duivensteijn', 'home' => 'RRC 1', 'away' => 'BRC 1'],
-        ['date' => '2025-11-01', 'time' => 0.625, 'location' => 'RC \'t Gooi', 'home' => 'RC \'t Gooi 1', 'away' => 'RC DIOK 1'],
-        ['date' => '2025-11-01', 'time' => 0.625, 'location' => 'Sportpark de Eendracht', 'home' => 'AAC 1', 'away' => 'RRC 1'],
-        ['date' => '2025-11-01', 'time' => 0.625, 'location' => 'Sportboulevard Wisselaar', 'home' => 'BRC 1', 'away' => 'RC Hoek van Holland 1'],
-        ['date' => '2025-11-01', 'time' => 0.625, 'location' => 'Sportpark de Wolfsputten', 'home' => 'RFC Oisterwijk Oysters 1', 'away' => 'RFC Haarlem 1'],
-        ['date' => '2025-11-01', 'time' => 0.625, 'location' => 'RC The Dukes', 'home' => 'RC The Dukes 1', 'away' => 'RC Eemland 1'],
-        ['date' => '2025-11-01', 'time' => 0.6875, 'location' => 'Haagsche RC', 'home' => 'Haagsche RC 1', 'away' => 'Cas RC 1'],
-        ['date' => '2025-11-08', 'time' => 0.625, 'location' => 'RC \'t Gooi', 'home' => 'RC \'t Gooi 1', 'away' => 'RC Eemland 1'],
-        ['date' => '2025-11-22', 'time' => 0.625, 'location' => 'RC DIOK', 'home' => 'RC DIOK 1', 'away' => 'Haagsche RC 1'],
-        ['date' => '2025-11-22', 'time' => 0.625, 'location' => 'RC The Dukes', 'home' => 'RC The Dukes 1', 'away' => 'RFC Oisterwijk Oysters 1'],
-        ['date' => '2025-11-22', 'time' => 0.6666666666666666, 'location' => 'Van der Aart Sportpark', 'home' => 'RFC Haarlem 1', 'away' => 'BRC 1'],
-        ['date' => '2025-11-22', 'time' => 0.6666666666666666, 'location' => 'RC Hoek van Holland', 'home' => 'RC Hoek van Holland 1', 'away' => 'AAC 1'],
-    ],
-    '3e klasse NW' => [
-        ['date' => '2025-09-21', 'time' => 0.6041666666666666, 'location' => 'Sportpark Groenoord Schagen', 'home' => 'SRC Rush 1', 'away' => 'RC Den Helder 1'],
-        ['date' => '2025-09-21', 'time' => 0.6041666666666666, 'location' => 'RC \'t Gooi', 'home' => 'RC \'t Gooi 3', 'away' => 'Ascrum AA'],
-        ['date' => '2025-09-21', 'time' => 0.625, 'location' => 'Sportpark de Eendracht', 'home' => 'AAC 2', 'away' => 'Haagsche RC Espoirs'],
-        ['date' => '2025-09-21', 'time' => 0.625, 'location' => 'Van der Aart Sportpark', 'home' => 'RFC Haarlem 3', 'away' => 'Amstelveense RC 2'],
-        ['date' => '2025-09-21', 'time' => 0.625, 'location' => 'Sportpark de Blauwe Berg', 'home' => 'RC West-Friesland 1', 'away' => 'CL Mokum Rugby 1'],
-        ['date' => '2025-09-28', 'time' => 0.5, 'location' => 'Sportpark de Eendracht', 'home' => 'Ascrum AA', 'away' => 'SRC Rush 1'],
-        ['date' => '2025-09-28', 'time' => 0.5416666666666666, 'location' => 'Sportpark Sportlaan West', 'home' => 'Amstelveense RC 2', 'away' => 'AAC 2'],
-        ['date' => '2025-09-28', 'time' => 0.625, 'location' => 'Sportpark de Linie', 'home' => 'RC Den Helder 1', 'away' => 'RC West-Friesland 1'],
-        ['date' => '2025-09-28', 'time' => 0.625, 'location' => 'RC Amsterdam', 'home' => 'CL Mokum Rugby 1', 'away' => 'RFC Haarlem 3'],
-        ['date' => '2025-09-28', 'time' => 0.625, 'location' => 'Haagsche RC', 'home' => 'Haagsche RC Espoirs', 'away' => 'RC \'t Gooi 3'],
-        ['date' => '2025-10-05', 'time' => 0.5208333333333334, 'location' => 'Sportpark Sportlaan West', 'home' => 'Amstelveense RC 2', 'away' => 'Haagsche RC Espoirs'],
-        ['date' => '2025-10-05', 'time' => 0.6041666666666666, 'location' => 'Sportpark Groenoord Schagen', 'home' => 'SRC Rush 1', 'away' => 'RC \'t Gooi 3'],
-        ['date' => '2025-10-05', 'time' => 0.625, 'location' => 'Sportpark de Eendracht', 'home' => 'AAC 2', 'away' => 'CL Mokum Rugby 1'],
-        ['date' => '2025-10-05', 'time' => 0.625, 'location' => 'Van der Aart Sportpark', 'home' => 'RFC Haarlem 3', 'away' => 'RC Den Helder 1'],
-        ['date' => '2025-10-12', 'time' => 0.6041666666666666, 'location' => 'RC \'t Gooi', 'home' => 'RC \'t Gooi 3', 'away' => 'RC West-Friesland 1'],
-        ['date' => '2025-10-12', 'time' => 0.625, 'location' => 'Sportpark de Linie', 'home' => 'RC Den Helder 1', 'away' => 'AAC 2'],
-        ['date' => '2025-10-19', 'time' => 0.625, 'location' => 'Sportpark de Blauwe Berg', 'home' => 'RC West-Friesland 1', 'away' => 'Ascrum AA'],
-        ['date' => '2025-10-26', 'time' => 0.5416666666666666, 'location' => 'Haagsche RC', 'home' => 'Haagsche RC Espoirs', 'away' => 'SRC Rush 1'],
-        ['date' => '2025-10-26', 'time' => 0.625, 'location' => 'RC Amsterdam', 'home' => 'CL Mokum Rugby 1', 'away' => 'Amstelveense RC 2'],
-        ['date' => '2025-11-09', 'time' => 0.5416666666666666, 'location' => 'Sportpark Sportlaan West', 'home' => 'Amstelveense RC 2', 'away' => 'RC Den Helder 1'],
-        ['date' => '2025-11-09', 'time' => 0.625, 'location' => 'Sportpark de Eendracht', 'home' => 'AAC 2', 'away' => 'Ascrum AA'],
-        ['date' => '2025-11-09', 'time' => 0.625, 'location' => 'Van der Aart Sportpark', 'home' => 'RFC Haarlem 3', 'away' => 'RC \'t Gooi 3'],
-        ['date' => '2025-11-09', 'time' => 0.625, 'location' => 'Sportpark de Blauwe Berg', 'home' => 'RC West-Friesland 1', 'away' => 'SRC Rush 1'],
-        ['date' => '2025-11-09', 'time' => 0.625, 'location' => 'RC Amsterdam', 'home' => 'CL Mokum Rugby 1', 'away' => 'Haagsche RC Espoirs'],
-        ['date' => '2025-11-16', 'time' => 0.5416666666666666, 'location' => 'Haagsche RC', 'home' => 'Haagsche RC Espoirs', 'away' => 'RC West-Friesland 1'],
-        ['date' => '2025-11-16', 'time' => 0.6041666666666666, 'location' => 'Sportpark Groenoord Schagen', 'home' => 'SRC Rush 1', 'away' => 'RFC Haarlem 3'],
-        ['date' => '2025-11-16', 'time' => 0.6041666666666666, 'location' => 'RC \'t Gooi', 'home' => 'RC \'t Gooi 3', 'away' => 'AAC 2'],
-        ['date' => '2025-11-16', 'time' => 0.0, 'location' => 'Sportpark de Linie', 'home' => 'RC Den Helder 1', 'away' => 'CL Mokum Rugby 1'],
-        ['date' => '2025-11-23', 'time' => 0.625, 'location' => 'Sportpark de Eendracht', 'home' => 'AAC 2', 'away' => 'SRC Rush 1'],
-        ['date' => '2025-11-23', 'time' => 0.625, 'location' => 'Van der Aart Sportpark', 'home' => 'RFC Haarlem 3', 'away' => 'RC West-Friesland 1'],
-        ['date' => '2025-11-23', 'time' => 0.625, 'location' => 'Sportpark de Linie', 'home' => 'RC Den Helder 1', 'away' => 'Haagsche RC Espoirs'],
-        ['date' => '2025-11-23', 'time' => 0.625, 'location' => 'Sportpark de Eendracht', 'home' => 'Ascrum AA', 'away' => 'CL Mokum Rugby 1'],
-    ],
-    '3e klasse ZW' => [
-        ['date' => '2024-09-23', 'time' => 0.5416666666666666, 'location' => 'Sportpark Rijnvliet', 'home' => 'URC 3', 'away' => 'A.S.R.V. Ascrum 2'],
-        ['date' => '2024-09-23', 'time' => 0.5833333333333334, 'location' => 'Sportpark het Schenge', 'home' => 'GRC Tovaal 1', 'away' => 'BRC 2'],
-        ['date' => '2024-09-23', 'time' => 0.6041666666666666, 'location' => 'Sportcomplex Beresteinlaan', 'home' => 'WRC Te Werve 1', 'away' => 'Haagsche RC 3'],
-        ['date' => '2024-09-23', 'time' => 0.625, 'location' => 'Sportcomplex Duivensteijn', 'home' => 'RRC 3', 'away' => 'SVRC 1'],
-        ['date' => '2024-09-28', 'time' => 0.5416666666666666, 'location' => 'Sportboulevard Wisselaar', 'home' => 'BRC 2', 'away' => 'WRC Te Werve 1'],
-        ['date' => '2024-09-28', 'time' => 0.5416666666666666, 'location' => 'Haagsche RC', 'home' => 'Haagsche RC 3', 'away' => 'RC Sparta 1'],
-        ['date' => '2024-09-28', 'time' => 0.5416666666666666, 'location' => 'Sportcomplex Beresteinlaan', 'home' => 'The Hague Hornets 1', 'away' => 'URC 3'],
-        ['date' => '2024-09-28', 'time' => 0.6041666666666666, 'location' => 'Sportpark de Eendracht', 'home' => 'A.S.R.V. Ascrum 2', 'away' => 'RRC 3'],
-        ['date' => '2024-09-28', 'time' => 0.625, 'location' => 'Sportcentrum TU Delft', 'home' => 'SVRC 1', 'away' => 'GRC Tovaal 1'],
-        ['date' => '2024-10-05', 'time' => 0.5416666666666666, 'location' => 'Haagsche RC', 'home' => 'Haagsche RC 3', 'away' => 'The Hague Hornets 1'],
-        ['date' => '2024-10-05', 'time' => 0.5833333333333334, 'location' => 'Sportpark het Schenge', 'home' => 'GRC Tovaal 1', 'away' => 'A.S.R.V. Ascrum 2'],
-        ['date' => '2024-10-05', 'time' => 0.6041666666666666, 'location' => 'Sportcomplex Beresteinlaan', 'home' => 'WRC Te Werve 1', 'away' => 'SVRC 1'],
-        ['date' => '2024-10-05', 'time' => 0.625, 'location' => 'Sportcomplex Duivensteijn', 'home' => 'RRC 3', 'away' => 'URC 3'],
-        ['date' => '2024-10-12', 'time' => 0.4375, 'location' => 'Sportboulevard Wisselaar', 'home' => 'BRC 2', 'away' => 'Haagsche RC 3'],
-        ['date' => '2024-10-12', 'time' => 0.5416666666666666, 'location' => 'Sportpark Rijnvliet', 'home' => 'URC 3', 'away' => 'GRC Tovaal 1'],
-        ['date' => '2024-10-12', 'time' => 0.5416666666666666, 'location' => 'Sportpark de Eendracht', 'home' => 'A.S.R.V. Ascrum 2', 'away' => 'WRC Te Werve 1'],
-        ['date' => '2024-10-12', 'time' => 0.5416666666666666, 'location' => 'Sportcentrum TU Delft', 'home' => 'SVRC 1', 'away' => 'RC Sparta 1'],
-        ['date' => '2024-10-12', 'time' => 0.625, 'location' => 'Sportcomplex Beresteinlaan', 'home' => 'The Hague Hornets 1', 'away' => 'RRC 3'],
-        ['date' => '2024-11-02', 'time' => 0.625, 'location' => 'Sportcomplex Beresteinlaan', 'home' => 'The Hague Hornets 1', 'away' => 'RC Sparta 1'],
-        ['date' => '2024-11-09', 'time' => 0.5416666666666666, 'location' => 'Sparta Rugby', 'home' => 'RC Sparta 1', 'away' => 'A.S.R.V. Ascrum 2'],
-        ['date' => '2024-11-09', 'time' => 0.5833333333333334, 'location' => 'Sportpark het Schenge', 'home' => 'GRC Tovaal 1', 'away' => 'RRC 3'],
-        ['date' => '2024-11-09', 'time' => 0.6041666666666666, 'location' => 'Sportcomplex Beresteinlaan', 'home' => 'WRC Te Werve 1', 'away' => 'URC 3'],
-        ['date' => '2024-11-09', 'time' => 0.625, 'location' => 'Sportboulevard Wisselaar', 'home' => 'BRC 2', 'away' => 'The Hague Hornets 1'],
-        ['date' => '2024-11-16', 'time' => 0.5416666666666666, 'location' => 'Sportcomplex Duivensteijn', 'home' => 'RRC 3', 'away' => 'WRC Te Werve 1'],
-        ['date' => '2024-11-16', 'time' => 0.5416666666666666, 'location' => 'Sportpark de Eendracht', 'home' => 'A.S.R.V. Ascrum 2', 'away' => 'Haagsche RC 3'],
-        ['date' => '2024-11-16', 'time' => 0.5416666666666666, 'location' => 'Sportcentrum TU Delft', 'home' => 'SVRC 1', 'away' => 'BRC 2'],
-        ['date' => '2024-11-16', 'time' => 0.625, 'location' => 'Sportcomplex Beresteinlaan', 'home' => 'The Hague Hornets 1', 'away' => 'GRC Tovaal 1'],
-        ['date' => '2024-11-16', 'time' => 0.0, 'location' => 'Sportpark Rijnvliet', 'home' => 'URC 3', 'away' => 'RC Sparta 1'],
-        ['date' => '2024-11-23', 'time' => 0.5416666666666666, 'location' => 'Sportpark de Eendracht', 'home' => 'A.S.R.V. Ascrum 2', 'away' => 'BRC 2'],
-        ['date' => '2024-11-23', 'time' => 0.5416666666666666, 'location' => 'Haagsche RC', 'home' => 'Haagsche RC 3', 'away' => 'URC 3'],
-        ['date' => '2024-11-23', 'time' => 0.6041666666666666, 'location' => 'Sportcomplex Beresteinlaan', 'home' => 'WRC Te Werve 1', 'away' => 'GRC Tovaal 1'],
-        ['date' => '2024-11-23', 'time' => 0.625, 'location' => 'Sportcentrum TU Delft', 'home' => 'SVRC 1', 'away' => 'The Hague Hornets 1'],
-    ]
-];
 
 // Extract unique clubs, locations, and teams
 $club_map = []; // Maps club name to UUID and details
@@ -188,18 +69,40 @@ $base_lon = 4.895168; // Approximate longitude for Amsterdam
 
 foreach ($sheets as $sheet_key => $sheet_matches) {
     // Determine division and district based on sheet
-    if ($sheet_key === 'Ereklasse') {
-        $division = 'Ereklasse';
-        $district = 'National';
-    } elseif ($sheet_key === '3e klasse NW') {
-        $division = '3e Klasse';
-        $district = 'Noord West';
-    } elseif ($sheet_key === '3e klasse ZW') {
-        $division = '3e Klasse';
-        $district = 'Zuid West';
-    } else {
-        echo "Warning: Skipping unknown sheet {$sheet_key}.\n";
-        continue;
+    $division = '';
+    $district = '';
+    switch ($sheet_key) {
+        case 'Ereklasse':
+            $division = 'Ereklasse';
+            $district = 'National';
+            break;
+        case 'Futureklasse':
+            $division = 'Futureklasse';
+            $district = 'National';
+            break;
+        case 'ereklasse dames':
+            $division = 'Ereklasse Dames';
+            $district = 'National';
+            break;
+        case 'colts cup':
+            $division = 'Colts Cup';
+            $district = 'National';
+            break;
+        case '1e klasse':
+            $division = '1e Klasse';
+            $district = 'National';
+            break;
+        case '3e klasse NW':
+            $division = '3e Klasse';
+            $district = 'Noord West';
+            break;
+        case '3e klasse ZW':
+            $division = '3e Klasse';
+            $district = 'Zuid West';
+            break;
+        default:
+            echo "Warning: Skipping unknown sheet {$sheet_key}.\n";
+            continue 2;
     }
 
     foreach ($sheet_matches as $match) {

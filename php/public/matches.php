@@ -73,6 +73,14 @@ if ($userRole !== 'super_admin') {
 }
 // --- END: Role-based permission logic ---
 
+// Pagination settings
+$matchesPerPage = 20;
+$currentPage = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+if ($currentPage < 1) {
+    $currentPage = 1;
+}
+$offset = ($currentPage - 1) * $matchesPerPage;
+
 // Existing filters from _GET parameters
 if (!empty($_GET['start_date'])) {
     $whereClauses[] = "m.match_date >= ?";
@@ -114,17 +122,32 @@ $sql = "
     LEFT JOIN users assigner_user ON m.referee_assigner_uuid = assigner_user.uuid
     $whereSQL
     ORDER BY m.match_date ASC, m.kickoff_time ASC
-    LIMIT 20
+    LIMIT :limit OFFSET :offset
 ";
 
+$countSql = "SELECT COUNT(*) FROM matches m $whereSQL";
+
 if ($loadInitialMatches) {
+    // Fetch total matches for pagination
+    $countStmt = $pdo->prepare($countSql);
+    $countStmt->execute($params);
+    $totalMatches = (int)$countStmt->fetchColumn();
+    $totalPages = ceil($totalMatches / $matchesPerPage);
+
+    // Fetch matches for the current page
     $stmt = $pdo->prepare($sql);
-    $stmt->execute($params);
+    $stmt->bindValue(':limit', $matchesPerPage, PDO::PARAM_INT);
+    $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+    foreach ($params as $key => $value) {
+        // PDOStatement::bindValue uses 1-based indexing for placeholders
+        $stmt->bindValue($key + 1, $value);
+    }
+    $stmt->execute();
     $matches = $stmt->fetchAll();
 } else {
-    if (!isset($matches)) {
-        $matches = [];
-    }
+    $matches = [];
+    $totalMatches = 0;
+    $totalPages = 0;
 }
 
 // --- START: Pre-computation for Conflict & Availability for initial load ---
@@ -338,6 +361,30 @@ if ($loadInitialMatches && !empty($referees)) { // Only compute if matches were 
                     </tbody>
                 </table>
             </div>
+
+            <!-- Pagination Controls -->
+            <nav aria-label="Page navigation">
+                <ul class="pagination justify-content-center">
+                    <?php if ($currentPage > 1): ?>
+                        <li class="page-item">
+                            <a class="page-link" href="?<?= buildQueryString(['page' => $currentPage - 1]) ?>">Previous</a>
+                        </li>
+                    <?php endif; ?>
+
+                    <?php for ($i = 1; $i <= $totalPages; $i++): ?>
+                        <li class="page-item <?= ($i == $currentPage) ? 'active' : '' ?>">
+                            <a class="page-link" href="?<?= buildQueryString(['page' => $i]) ?>"><?= $i ?></a>
+                        </li>
+                    <?php endfor; ?>
+
+                    <?php if ($currentPage < $totalPages): ?>
+                        <li class="page-item">
+                            <a class="page-link" href="?<?= buildQueryString(['page' => $currentPage + 1]) ?>">Next</a>
+                        </li>
+                    <?php endif; ?>
+                </ul>
+            </nav>
+
             <?php if ($assignMode): ?>
                 <button type="submit" class="btn btn-main-action" style="position: fixed; bottom: 20px; right: 20px; z-index: 999;">Save Assignments</button>
             <?php endif; ?>

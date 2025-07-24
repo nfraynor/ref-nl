@@ -219,19 +219,46 @@ function renderRefereeDropdown(
                   style="' . $option_style_str . '"
                   data-grade="' . htmlspecialchars($ref_option['grade']) . '" 
                   data-availability="' . $availability_data_attr . '">'
-                . htmlspecialchars($ref_option['first_name'] . ' ' . $ref_option['last_name'] . ' (Grade: ' . $ref_option['grade'] . ')') .
+                . htmlspecialchars($ref_option['first_name'] . ' ' . $ref_option['last_name'] . ' (' . $ref_option['grade'] . ')') .
                 '</option>';
         }
         echo '</select>';
     } else { // Display mode
-        echo '<select class="referee-select form-control" disabled style="' . $overall_style . '">';
+        $displayText = '-- Not Assigned --';
+        $grade = '';
+
         if ($currently_assigned_ref_id_for_this_role) {
-            $refName = get_ref_name_from_list($all_referees_list, $currently_assigned_ref_id_for_this_role);
-            echo '<option selected>' . htmlspecialchars($refName . ' (Grade: ' . $ref_option['grade'] . ')') . '</option>';
-        } else {
-            echo '<option>-- Not Assigned --</option>';
+            $assigned_ref = null;
+            foreach ($all_referees_list as $ref) {
+                if ($ref['uuid'] === $currently_assigned_ref_id_for_this_role) {
+                    $assigned_ref = $ref;
+                    break;
+                }
+            }
+
+            if ($assigned_ref) {
+                $displayText = $assigned_ref['first_name'] . ' ' . $assigned_ref['last_name'];
+                $grade = $assigned_ref['grade'];
+            } else {
+                $displayText = "Unknown Referee";
+            }
         }
-        echo '</select>';
+
+        // The 'form-control' class gives it the same height and basic styling as the select inputs.
+        // The 'disabled' attribute styling is mimicked by 'background-color: #e9ecef' (Bootstrap's default).
+        // The 'overall_style' is for conflict colors. If it exists, it overrides the default background.
+        $final_style = 'padding: .375rem .75rem; border: 1px solid #ced4da; border-radius: .25rem;';
+        $final_style .= 'background-color: #e9ecef;'; // Mimic disabled input
+        if (!empty($overall_style)) {
+            $final_style = $overall_style . ' ' . $final_style;
+        }
+
+        echo '<div class="form-control" style="' . $final_style . '">';
+        echo htmlspecialchars($displayText);
+        if ($grade) {
+            echo ' <span class="text-muted" style="font-size: 0.9em;">(' . htmlspecialchars($grade) . ')</span>';
+        }
+        echo '</div>';
     }
 }
 ?>
