@@ -148,6 +148,21 @@ error_log('Number of matches loaded: ' . count($matches));
 
 if (empty($matches)) {
     send_progress(100, 'No matches found in filtered view.');
+    // Construct the final data payload
+    $response = [
+        'progress' => 100,
+        'message' => 'No matches found to suggest.',
+        'suggestions' => []
+    ];
+    echo json_encode($response) . "\n";
+    ob_flush();
+    flush();
+    if (function_exists('fastcgi_finish_request')) {
+        fastcgi_finish_request();
+    }
+    if (ob_get_level() > 0) {
+        ob_end_flush();
+    }
     exit;
 }
 
@@ -455,8 +470,8 @@ function attemptAssignment(
 }
 
 // Process day by day
-$totalAssignmentsToMake = count($matches) * count(ROLES);
-$assignmentsMade = 0;
+$totalMatches = count($matches);
+$matchesProcessed = 0;
 
 foreach ($matchesByDate as $date => &$dayMatches) {
     usort($dayMatches, function($a, $b) {
@@ -466,27 +481,22 @@ foreach ($matchesByDate as $date => &$dayMatches) {
         return strcmp($a['division'], $b['division']);
     });
 
-    foreach (ROLES as $role) {
-        for ($pass = 1; $pass <= 2; $pass++) {
-            foreach ($dayMatches as &$match) {
-                attemptAssignment($role, $match, $referees, $suggestions, $suggestedAssignmentsCountThisRun, $existingAssignmentsByDateRef, $existingMatchDetailsByDateRef, $existingAssignmentsByWeekRef, $availabilityCache, $pass, $suggestedMatchDetailsByDateRef, false);
-                $assignmentsMade++;
-                $progress = 30 + (int)(($assignmentsMade / $totalAssignmentsToMake) * 60);
-                send_progress($progress, "Assigning role {$role} for match on {$match['match_date']} (Pass {$pass})");
+    foreach ($dayMatches as &$match) {
+        $matchesProcessed++;
+        foreach (ROLES as $role) {
+            // Attempt assignment in multiple passes
+            attemptAssignment($role, $match, $referees, $suggestions, $suggestedAssignmentsCountThisRun, $existingAssignmentsByDateRef, $existingMatchDetailsByDateRef, $existingAssignmentsByWeekRef, $availabilityCache, 1, $suggestedMatchDetailsByDateRef, false);
+            if ($suggestions[$match['uuid']][$role] === null) {
+                attemptAssignment($role, $match, $referees, $suggestions, $suggestedAssignmentsCountThisRun, $existingAssignmentsByDateRef, $existingMatchDetailsByDateRef, $existingAssignmentsByWeekRef, $availabilityCache, 2, $suggestedMatchDetailsByDateRef, false);
             }
-            unset($match);
-        }
-
-        foreach ($dayMatches as &$match) {
             if ($suggestions[$match['uuid']][$role] === null) {
                 attemptAssignment($role, $match, $referees, $suggestions, $suggestedAssignmentsCountThisRun, $existingAssignmentsByDateRef, $existingMatchDetailsByDateRef, $existingAssignmentsByWeekRef, $availabilityCache, 3, $suggestedMatchDetailsByDateRef, true);
-                $assignmentsMade++;
-                $progress = 30 + (int)(($assignmentsMade / $totalAssignmentsToMake) * 60);
-                send_progress($progress, "Assigning role {$role} for match on {$match['match_date']} (Relaxed Pass)");
             }
         }
-        unset($match);
+        $progress = 30 + (int)(($matchesProcessed / $totalMatches) * 65);
+        send_progress($progress, "Processed {$matchesProcessed} of {$totalMatches} matches...");
     }
+    unset($match);
 }
 unset($dayMatches);
 

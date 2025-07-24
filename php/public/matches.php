@@ -214,6 +214,11 @@ if ($loadInitialMatches && !empty($referees)) { // Only compute if matches were 
             <?php if ($assignMode): ?>
                 <a href="matches.php?<?= buildQueryString(['assign_mode' => null]) ?>" class="false-a btn btn-sm btn-secondary-action mb-3">Disable Assign Mode</a>
                 <button type="button" id="suggestAssignments" class="btn btn-sm btn-main-action mb-3">Suggest Assignments</button>
+                <style>
+                    #suggestionProgressBar {
+                        transition: width 0.2s ease-in-out;
+                    }
+                </style>
                 <div id="suggestionProgressBarContainer" class="progress mt-2 mb-3" style="display: none;">
                     <div id="suggestionProgressBar" class="progress-bar" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
                 </div>
