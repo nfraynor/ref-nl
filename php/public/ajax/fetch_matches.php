@@ -101,6 +101,16 @@ if ($proceedWithQuery) {
     error_log("[fetch_matches.php] SQL Query Data: WHERE Clauses: " . print_r($whereClauses, true) .
         ", Params: " . print_r($params, true));
 
+    $matchesPerPage = 50;
+    $currentPage = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+    $offset = ($currentPage - 1) * $matchesPerPage;
+
+    $countSql = "SELECT COUNT(*) FROM matches m $whereSQL";
+    $countStmt = $pdo->prepare($countSql);
+    $countStmt->execute($params);
+    $totalMatches = (int)$countStmt->fetchColumn();
+    $totalPages = ceil($totalMatches / $matchesPerPage);
+
     $sql = "
     SELECT 
         m.*,
@@ -120,14 +130,20 @@ if ($proceedWithQuery) {
     LEFT JOIN users assigner_user ON m.referee_assigner_uuid = assigner_user.uuid
     $whereSQL
     ORDER BY m.match_date ASC, m.kickoff_time ASC
-    LIMIT 100
+    LIMIT ? OFFSET ?
 ";
+    $params[] = $matchesPerPage;
+    $params[] = $offset;
 
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
+
     $matches = $stmt->fetchAll();
     error_log("[fetch_matches.php] SQL Query Result: Number of matches fetched: " . count($matches));
 } else {
+    $matches = [];
+    $totalMatches = 0;
+    $totalPages = 0;
     error_log("[fetch_matches.php] SQL Query Skipped. Proceed with query was false.");
 } // End of if ($proceedWithQuery)
 
@@ -148,7 +164,7 @@ foreach ($matches as $match_item) {
             }
             $refereeSchedule[$ref_id_for_schedule][] = [
                 'match_id' => $match_uuid,
-                'match_date_str' => $match_date_for_schedule, // Store date string
+                'match_date_str' => $date_for_schedule, // Store date string
                 'kickoff_time_str' => $kickoff_time_for_schedule, // Store time string
                 'role' => $role_key,
                 'location_uuid' => $match_item['location_uuid']
@@ -288,6 +304,7 @@ function get_assignment_details_for_referee(
 }
 // --- END: Pre-computation ---
 
+ob_start();
 foreach ($matches as $match): ?>
     <tr>
         <td><a href="match_detail.php?uuid=<?= htmlspecialchars($match['uuid']) ?>"><?= htmlspecialchars($match['match_date']) ?></a></td>
@@ -326,4 +343,41 @@ foreach ($matches as $match): ?>
         <td><?php renderRefereeDropdown("ar2_id", $match, $referees, $assignMode, $refereeSchedule, $refereeAvailabilityCache); ?></td>
         <td><?php renderRefereeDropdown("commissioner_id", $match, $referees, $assignMode, $refereeSchedule, $refereeAvailabilityCache); ?></td>
     </tr>
-<?php endforeach; ?>
+<?php endforeach;
+$matchesHtml = ob_get_clean();
+
+function buildPagination(int $currentPage, int $totalPages): string {
+    $output = '<ul class="pagination justify-content-center">';
+
+    // Previous Button
+    if ($currentPage > 1) {
+        $output .= '<li class="page-item"><a class="page-link" href="#" data-page="' . ($currentPage - 1) . '">Previous</a></li>';
+    } else {
+        $output .= '<li class="page-item disabled"><a class="page-link" href="#">Previous</a></li>';
+    }
+
+    // Page Numbers
+    for ($i = 1; $i <= $totalPages; $i++) {
+        $activeClass = $i == $currentPage ? 'active' : '';
+        $output .= '<li class="page-item ' . $activeClass . '"><a class="page-link" href="#" data-page="' . $i . '">' . $i . '</a></li>';
+    }
+
+    // Next Button
+    if ($currentPage < $totalPages) {
+        $output .= '<li class="page-item"><a class="page-link" href="#" data-page="' . ($currentPage + 1) . '">Next</a></li>';
+    } else {
+        $output .= '<li class="page-item disabled"><a class="page-link" href="#">Next</a></li>';
+    }
+
+    $output .= '</ul>';
+    return $output;
+}
+
+$paginationHtml = buildPagination($currentPage, $totalPages);
+
+header('Content-Type: application/json');
+echo json_encode([
+    'matchesHtml' => $matchesHtml,
+    'paginationHtml' => $paginationHtml,
+    'totalMatches' => $totalMatches
+]);

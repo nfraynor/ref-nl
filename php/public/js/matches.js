@@ -36,10 +36,15 @@ function buildParamsFromCurrentFilters() {
 
 function fetchAndUpdateMatches() {
     const params = buildParamsFromCurrentFilters();
+    // Ensure page is included for every fetch
+    if (!params.has('page')) {
+        params.set('page', '1'); // Default to page 1 if not set
+    }
     const queryString = params.toString();
 
+    // Update URL
     if (window.history.pushState) {
-        const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + (queryString ? '?' + queryString : '');
+        const newUrl = `${window.location.pathname}?${queryString}`;
         window.history.pushState({path: newUrl}, '', newUrl);
     }
 
@@ -48,22 +53,33 @@ function fetchAndUpdateMatches() {
             if (!res.ok) {
                 throw new Error(`HTTP error! status: ${res.status}`);
             }
-            return res.text();
+            return res.json(); // Expect JSON response
         })
-        .then(html => {
+        .then(data => {
             const tableBody = document.getElementById('matchesTableBody');
+            const paginationControls = document.getElementById('paginationControls');
+
             if (tableBody) {
-                tableBody.innerHTML = html;
-                initializeSelect2AndEvents();
-                reapplySuggestions();
-                window.fullRefreshConflicts(); // Ensure conflicts are rechecked
-                updateActiveFilterIndicators();
+                tableBody.innerHTML = data.matchesHtml;
             } else {
                 console.error('Error: matchesTableBody element not found.');
             }
+
+            if (paginationControls) {
+                paginationControls.innerHTML = data.paginationHtml;
+            } else {
+                console.error('Error: paginationControls element not found.');
+            }
+
+            // After content is updated, re-initialize scripts
+            initializeSelect2AndEvents();
+            reapplySuggestions();
+            window.fullRefreshConflicts();
+            updateActiveFilterIndicators();
         })
         .catch(error => {
             console.error('Error fetching or updating matches:', error);
+            // Optionally display an error message to the user
         });
 }
 
@@ -368,6 +384,17 @@ function updateDateFilters(startDate, endDate) {
     }
     fetchAndUpdateMatches();
 }
+
+document.addEventListener('click', function(event) {
+    // Check if a pagination link was clicked
+    const link = event.target.closest('.page-link');
+    if (link && link.dataset.page) {
+        event.preventDefault(); // Prevent default link behavior
+        const page = link.dataset.page;
+        currentFilters.page = page; // Update the current page in filters
+        fetchAndUpdateMatches(); // Fetch new data
+    }
+});
 
 document.getElementById('ajaxStartDate')?.addEventListener('change', (event) => {
     const start = event.target.value;
