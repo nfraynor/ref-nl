@@ -58,6 +58,7 @@
                 // Define script paths relative to the current script's directory
                 $clear_script = __DIR__ . '/../provisioning/clear_schema.php';
                 $provision_script = __DIR__ . '/../provisioning/provision.php';
+                $seed_district = __DIR__ . '/../provisioning/seed-district.php';
                 $seed_script = __DIR__ . '/../provisioning/seed-real.php';
                 $ref_seed_script = __DIR__ . '/../provisioning/seed-ref.php';
 
@@ -107,6 +108,33 @@
                     $output_log .= "--- End Stage 2 ---\n\n";
                 } else {
                     $output_log .= "--- Stage 2: Provisioning Database (SKIPPED due to previous errors) ---\n\n";
+                }
+
+                // Stage 3: Seed Database
+                if (!$error_occured) {
+                    $output_log .= "--- Stage 3: Seeding Database ---\n";
+                    $output_log .= "Executing: php " . basename($seed_district) . "\n";
+                    $current_output = shell_exec("php " . escapeshellarg($seed_district) . " 2>&1");
+                    if ($current_output === null) {
+                        $output_log .= "ERROR: Failed to execute seed.php. Check PHP error logs.\n";
+                        $error_occured = true;
+                    } else {
+                        $output_log .= "Output:\n" . htmlspecialchars(trim($current_output)) . "\n";
+                        // Seed script has multiple "echo" statements. Check for "Error" or "failed".
+                        // Assuming the last lines would indicate overall success if no errors.
+                        if (strpos(strtolower($current_output), 'error') !== false ||
+                            strpos(strtolower($current_output), 'failed') !== false) {
+                            $error_occured = true;
+                            $output_log .= "** Seeding: DETECTED ERRORS (or script did not complete as expected) **\n";
+                        } elseif (strpos(strtolower($current_output), 'admin user') !== false && strpos(strtolower($current_output), 'seeded') !== false ) { // A bit generic, but seed script ends with admin user
+                            $output_log .= "** Seeding: Success (based on typical output) **\n";
+                        } else {
+                            $output_log .= "** Seeding: Finished with output (check manually for full success) **\n";
+                        }
+                    }
+                    $output_log .= "--- End Stage 3 ---\n\n";
+                } else {
+                    $output_log .= "--- Stage 3: Seeding Database (SKIPPED due to previous errors) ---\n\n";
                 }
 
                 // Stage 3: Seed Database
