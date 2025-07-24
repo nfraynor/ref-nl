@@ -104,7 +104,7 @@ foreach (['division', 'district', 'poule', 'location', 'referee_assigner'] as $f
 $whereSQL = count($whereClauses) ? 'WHERE ' . implode(' AND ', $whereClauses) : '';
 
 $sql = "
-    SELECT 
+    SELECT
         m.*,
         hc.club_name AS home_club_name,
         ht.team_name AS home_team_name,
@@ -113,16 +113,21 @@ $sql = "
         l.name AS location_name,
         l.address_text AS location_address,
         assigner_user.username AS referee_assigner_username
-    FROM matches m
+    FROM (
+        SELECT uuid
+        FROM matches m
+        $whereSQL
+        ORDER BY m.match_date ASC, m.kickoff_time ASC
+        LIMIT :limit OFFSET :offset
+    ) AS paginated_matches
+    JOIN matches m ON paginated_matches.uuid = m.uuid
     JOIN teams ht ON m.home_team_id = ht.uuid
     JOIN clubs hc ON ht.club_id = hc.uuid
     JOIN teams at ON m.away_team_id = at.uuid
     JOIN clubs ac ON at.club_id = ac.uuid
     LEFT JOIN locations l ON m.location_uuid = l.uuid
     LEFT JOIN users assigner_user ON m.referee_assigner_uuid = assigner_user.uuid
-    $whereSQL
     ORDER BY m.match_date ASC, m.kickoff_time ASC
-    LIMIT :limit OFFSET :offset
 ";
 
 $countSql = "SELECT COUNT(*) FROM matches m $whereSQL";
