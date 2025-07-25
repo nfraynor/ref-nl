@@ -130,18 +130,13 @@ if ($proceedWithQuery) {
     LEFT JOIN users assigner_user ON m.referee_assigner_uuid = assigner_user.uuid
     $whereSQL
     ORDER BY m.match_date ASC, m.kickoff_time ASC
-    LIMIT :limit OFFSET :offset
+    LIMIT ? OFFSET ?
 ";
+    $params[] = $matchesPerPage;
+    $params[] = $offset;
 
     $stmt = $pdo->prepare($sql);
-    // Bind parameters from the main query
-    foreach ($params as $key => $value) {
-        $stmt->bindValue($key + 1, $value);
-    }
-    // Bind limit and offset
-    $stmt->bindValue(':limit', $matchesPerPage, PDO::PARAM_INT);
-    $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
-    $stmt->execute();
+    $stmt->execute($params);
 
     $matches = $stmt->fetchAll();
     error_log("[fetch_matches.php] SQL Query Result: Number of matches fetched: " . count($matches));
