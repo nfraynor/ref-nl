@@ -18,7 +18,6 @@ if (session_status() == PHP_SESSION_NONE) {
                 <li class="nav-item"><a class="nav-link" href="/districts.php">Districts</a></li>
                 <li class="nav-item"><a class="nav-link" href="/teams.php">Teams</a></li>
                 <li class="nav-item"><a class="nav-link" href="/users.php">Users</a></li>
-                <li class="nav-item"><a class="nav-link" href="/assign.php">Assign Matches</a></li>
             </ul>
             <ul class="navbar-nav ms-auto mb-2 mb-lg-0">
                 <?php if (isset($_SESSION['user_id']) && !empty($_SESSION['user_id'])): ?>
