@@ -101,7 +101,7 @@ require_once 'includes/nav.php';
         districtSelect.innerHTML = '<option value="">Loading...</option>';
 
         if (divisionId) {
-            fetch('/ajax/district_options.php?division_id=' + divisionId)
+            fetch('/ajax/district_options_json.php?division_id=' + divisionId)
                 .then(response => response.json())
                 .then(data => {
                     districtSelect.innerHTML = '<option value="">Select District</option>';
