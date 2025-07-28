@@ -1,290 +1,264 @@
 document.addEventListener('DOMContentLoaded', () => {
-    let existingAssignments = window.existingAssignments || [];
-    let processedExistingAssignments = [];
+    const existingAssignments = window.existingAssignments || [];
 
-    // Process existingAssignments to flat list
-    existingAssignments.forEach(match => {
-        const roles = ['referee_id', 'ar1_id', 'ar2_id', 'commissioner_id'];
-        roles.forEach(role => {
-            if (match[role]) {
-                processedExistingAssignments.push({
-                    matchId: match.uuid,
-                    role: role,
-                    refereeId: match[role],
-                    matchDate: match.match_date,
-                    kickoffTime: match.kickoff_time.substring(0, 5),
-                    locationUuid: match.location_uuid || ''
-                });
-            }
-        });
-    });
+    function getWeekNumber(dateStr) {
+        const date = new Date(dateStr);
+        const year = date.getFullYear();
+        const firstDayOfYear = new Date(year, 0, 1);
+        const pastDaysOfYear = (date - firstDayOfYear) / 86400000;
+        const weekNo = Math.ceil((pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7);
+        return `${year}-W${weekNo.toString().padStart(2, '0')}`;
+    }
 
-    // Configurable constants
-    const MATCH_DURATION_MS = 90 * 60 * 1000;
-    const BUFFER_MS = 30 * 60 * 1000;
-    const CONFLICT_COLORS = {
-        red: { bg: 'red', text: 'white' },
-        orange: { bg: 'orange', text: 'black' },
-        yellow: { bg: 'yellow', text: 'black' }
-    };
-
-    const CONFLICT_PRIORITY = {
-        red: 3,
-        orange: 2,
-        yellow: 1
-    };
+    function isWeekendDay(dateStr) {
+        const date = new Date(dateStr);
+        return date.getDay() === 0 || date.getDay() === 6; // Sunday (0) or Saturday (6)
+    }
 
     function getLiveAssignments() {
         const liveAssignments = [];
-        document.querySelectorAll('select.referee-select').forEach(select => {
-            const matchIdMatch = select.name.match(/\[(.*?)\]/);
-            if (!matchIdMatch) return;
-            const matchId = matchIdMatch[1];
 
-            const roleMatch = select.name.match(/\]\[(.*?)\]/);
-            if (!roleMatch) return;
-            const role = roleMatch[1];
-
+        document.querySelectorAll('select').forEach(select => {
+            const matchId = select.name.match(/\[(.*?)\]/)[1];
+            const role = select.name.match(/\[(.*?)\]\[(.*?)\]/)[2];
             const selectedRef = select.value;
-            if (!selectedRef) return;
 
             const matchRow = select.closest('tr');
-            const matchDateElem = matchRow.querySelector('td:nth-child(1)');
-            const kickoffTimeElem = matchRow.querySelector('td:nth-child(2)');
-            const locationCell = matchRow.querySelector('td[data-field-type="location"]');
-            if (!matchDateElem || !kickoffTimeElem || !locationCell) return;
+            const matchDate = matchRow.querySelector('td:nth-child(1)').innerText;
+            const kickoffTime = matchRow.querySelector('td:nth-child(2)').innerText;
 
-            let kickoffTime = kickoffTimeElem.innerText.trim();
-            if (kickoffTime.length === 5) kickoffTime += ':00';
-
-            const matchDate = matchDateElem.innerText.trim();
-            const locationUuid = locationCell.dataset.currentValue || '';
+            if (!selectedRef) return;
 
             liveAssignments.push({
                 matchId,
                 role,
                 refereeId: selectedRef,
                 matchDate,
-                kickoffTime,
-                locationUuid
+                kickoffTime
             });
         });
+
         return liveAssignments;
     }
 
-    function checkConflict(matchId, matchDate, kickoffTime, refereeId, locationUuid, allAssignments) {
-        let highestLevel = null;
-        let conflictDetails = [];
-
-        let kickoffTimeFull = kickoffTime;
-        if (kickoffTimeFull.length === 5) kickoffTimeFull += ':00';
-
-        const currentMatchDateTime = new Date(`${matchDate}T${kickoffTimeFull}`);
-        if (isNaN(currentMatchDateTime.getTime())) return null;
-
-        const currentStart = currentMatchDateTime.getTime();
-        const currentEnd = currentStart + MATCH_DURATION_MS;
+    function checkConflict(matchId, matchDate, kickoffTime, refereeId, allAssignments) {
+        let conflict = null;
+        const currentMatchDateObj = new Date(matchDate);
+        const currentStart = new Date(`1970-01-01T${kickoffTime}`);
+        const currentEnd = new Date(currentStart.getTime() + 90 * 60000); // Assuming 90 minutes match duration
 
         allAssignments.forEach(assign => {
-            if (assign.matchId === matchId) return;
+            if (assign.matchId === matchId) return; // Don't compare a match with itself
 
             if (assign.refereeId === refereeId) {
-                let assignKickoffTimeFull = assign.kickoffTime;
-                if (assignKickoffTimeFull.length === 5) assignKickoffTimeFull += ':00';
+                const otherMatchDateObj = new Date(assign.matchDate);
+                const timeDiff = otherMatchDateObj.getTime() - currentMatchDateObj.getTime();
+                const dayDiff = Math.round(timeDiff / (1000 * 60 * 60 * 24));
 
-                const otherMatchDateTime = new Date(`${assign.matchDate}T${assignKickoffTimeFull}`);
-                if (isNaN(otherMatchDateTime.getTime())) return;
+                if (dayDiff === 0) { // Same day
+                    const otherStart = new Date(`1970-01-01T${assign.kickoffTime}`);
+                    const otherEnd = new Date(otherStart.getTime() + 90 * 60000);
 
-                const otherStart = otherMatchDateTime.getTime();
-                const otherEnd = otherStart + MATCH_DURATION_MS;
-
-                let detail = `Conflict with match on ${assign.matchDate} at ${assign.kickoffTime}`;
-                let thisLevel = null;
-
-                if (matchDate === assign.matchDate) {
-                    if (locationUuid && assign.locationUuid && locationUuid !== assign.locationUuid) {
-                        thisLevel = 'red';
-                        detail += ' (different location)';
-                    } else if (currentStart < otherEnd + BUFFER_MS && otherStart < currentEnd + BUFFER_MS) {
-                        thisLevel = 'red';
-                        detail += ' (overlapping time)';
-                    } else {
-                        thisLevel = 'orange';
-                        detail += ' (same day, non-overlapping)';
+                    if (currentStart < otherEnd && otherStart < currentEnd) {
+                        conflict = 'red'; // Overlapping matches
+                    } else if (conflict !== 'red') {
+                        conflict = 'orange'; // Same day, non-overlapping
                     }
-                } else {
-                    const currentDateObj = new Date(matchDate);
-                    const otherDateObj = new Date(assign.matchDate);
-                    const timeDiffDays = otherDateObj - currentDateObj;
-                    const dayDiffAbs = Math.abs(timeDiffDays / (1000 * 60 * 60 * 24));
-                    if (dayDiffAbs <= 2 && dayDiffAbs > 0) {
-                        thisLevel = 'yellow';
-                        detail += ` (within ${Math.round(dayDiffAbs)} days)`;
-                    }
-                }
-
-                if (thisLevel) {
-                    conflictDetails.push(detail);
-                    const thisPri = CONFLICT_PRIORITY[thisLevel];
-                    const currentPri = CONFLICT_PRIORITY[highestLevel] || 0;
-                    if (thisPri > currentPri) {
-                        highestLevel = thisLevel;
+                } else if (Math.abs(dayDiff) <= 2) {
+                    if (conflict !== 'red' && conflict !== 'orange') {
+                        conflict = 'yellow';
                     }
                 }
             }
         });
 
-        return { level: highestLevel, details: conflictDetails.join('; ') };
+        return conflict;
+    }
+
+    function checkWeekendLimits(matchId, matchDate, refereeId, allAssignments, maxMatches, maxDays) {
+        if (!isWeekendDay(matchDate)) return null; // Only check for weekend days
+        let conflict = null;
+
+        const weekKey = getWeekNumber(matchDate);
+        const weekendAssignments = allAssignments.filter(a =>
+            a.refereeId === refereeId &&
+            getWeekNumber(a.matchDate) === weekKey &&
+            isWeekendDay(a.matchDate) &&
+            a.matchId !== matchId
+        );
+
+        // Check total matches (hard limit of 3)
+        if (weekendAssignments.length >= 3) {
+            return 'yellow';
+        }
+
+        // Check max matches per weekend
+        if (maxMatches === 1 && weekendAssignments.length >= 1) {
+            return 'yellow';
+        }
+
+        // Check max days per weekend
+        if (maxDays === 1) {
+            const uniqueDays = new Set(weekendAssignments.map(a => a.matchDate));
+            const isNewDay = !uniqueDays.has(matchDate);
+            if (isNewDay && uniqueDays.size >= 1) {
+                return 'yellow';
+            }
+        }
+
+        return conflict;
     }
 
     function refreshConflicts(changedSelect, previousRefereeId) {
         const currentRefereeId = changedSelect.value;
         const liveAssignments = getLiveAssignments();
 
+        console.log(`--- Refresh Start --- Changed: ${changedSelect.name}, Prev Ref: ${previousRefereeId}, Curr Ref: ${currentRefereeId}`);
+
         const updateSpecificSelect = (selectToEvaluate) => {
             const refereeIdForThisSelect = selectToEvaluate.value;
-            if (!refereeIdForThisSelect) {
-                resetSelectStyle(selectToEvaluate);
+            const matchIdMatch = selectToEvaluate.name.match(/\[(.*?)\]/);
+            if (!matchIdMatch || !matchIdMatch[1]) {
+                console.error("Could not extract matchId from select name:", selectToEvaluate.name);
                 return;
             }
-
-            const matchIdMatch = selectToEvaluate.name.match(/\[(.*?)\]/);
-            if (!matchIdMatch) return;
             const matchId = matchIdMatch[1];
 
             const matchRow = selectToEvaluate.closest('tr');
-            const matchDate = matchRow.querySelector('td:nth-child(1)')?.innerText.trim();
-            let kickoffTime = matchRow.querySelector('td:nth-child(2)')?.innerText.trim();
-            if (kickoffTime.length === 5) kickoffTime += ':00';
-            const locationCell = matchRow.querySelector('td[data-field-type="location"]');
-            const locationUuid = locationCell?.dataset.currentValue || '';
-
-            if (!matchDate || !kickoffTime) return;
-
-            const initialConflict = checkConflict(matchId, matchDate, kickoffTime, refereeIdForThisSelect, locationUuid, processedExistingAssignments);
-            const dynamicConflict = checkConflict(matchId, matchDate, kickoffTime, refereeIdForThisSelect, locationUuid, liveAssignments);
-
-            const initialPri = CONFLICT_PRIORITY[initialConflict?.level] || 0;
-            const dynamicPri = CONFLICT_PRIORITY[dynamicConflict?.level] || 0;
-            const maxPri = Math.max(initialPri, dynamicPri);
-            let highestLevel = Object.keys(CONFLICT_PRIORITY).find(key => CONFLICT_PRIORITY[key] === maxPri) || null;
-
-            let combinedDetails = [];
-            if (initialConflict?.details) combinedDetails.push(initialConflict.details);
-            if (dynamicConflict?.details) combinedDetails.push(dynamicConflict.details);
-
-            // Duplicate role in same match
-            const sameMatchLive = liveAssignments.filter(a => a.matchId === matchId && a.refereeId === refereeIdForThisSelect);
-            if (sameMatchLive.length > 1) {
-                highestLevel = 'red';
-                combinedDetails.push('Duplicate role in same match');
+            if (!matchRow) {
+                console.error("Could not find match row for select:", selectToEvaluate);
+                return;
             }
+            const matchDateElem = matchRow.querySelector('td:nth-child(1)');
+            const kickoffTimeElem = matchRow.querySelector('td:nth-child(2)');
 
-            applySelectStyle(selectToEvaluate, highestLevel, combinedDetails.filter(d => d).join('; '));
-        };
-
-        // Update all dropdowns for the affected referees
-        const refereesToUpdate = new Set([currentRefereeId, previousRefereeId].filter(id => id));
-        document.querySelectorAll('select.referee-select').forEach(s => {
-            if (s.value && refereesToUpdate.has(s.value)) {
-                updateSpecificSelect(s);
+            if (!matchDateElem || !kickoffTimeElem) {
+                console.error("Could not find date/time elements for select:", selectToEvaluate.name, "in row:", matchRow);
+                return;
             }
-        });
-    }
+            const matchDate = matchDateElem.innerText;
+            const kickoffTime = kickoffTimeElem.innerText;
 
-    function resetSelectStyle(select) {
-        const $select = $(select);
-        const $container = $select.next('.select2-container').find('.select2-selection');
-        $container.css({ backgroundColor: '', color: '' }).removeAttr('data-bs-toggle data-bs-placement title');
-        const tooltipInstance = bootstrap.Tooltip.getInstance($container[0]);
-        if (tooltipInstance) tooltipInstance.dispose();
-    }
+            let conflict = null;
+            const severity = { red: 3, orange: 2, yellow: 1, null: 0 };
 
-    function applySelectStyle(select, level, details) {
-        const $select = $(select);
-        const $container = $select.next('.select2-container').find('.select2-selection');
+            const $select = $(selectToEvaluate);
+            const $container = $select.next('.select2-container').find('.select2-selection');
 
-        if (level) {
-            const color = CONFLICT_COLORS[level];
-            $container.css({ backgroundColor: color.bg, color: color.text })
-                .attr('data-bs-toggle', 'tooltip')
-                .attr('data-bs-placement', 'top')
-                .attr('title', details || 'Conflict detected');
-            new bootstrap.Tooltip($container[0]);
-        } else {
-            resetSelectStyle(select);
-        }
-    }
+            // Reset style first
+            $container.css({ backgroundColor: '', color: '' });
 
-    function fullRefreshConflicts() {
-        const liveAssignments = getLiveAssignments();
-        const refereesWithAssignments = new Set(liveAssignments.map(a => a.refereeId));
+            if (refereeIdForThisSelect) {
+                // Time-based conflicts
+                const initialConflict = checkConflict(matchId, matchDate, kickoffTime, refereeIdForThisSelect, existingAssignments);
+                const dynamicConflict = checkConflict(matchId, matchDate, kickoffTime, refereeIdForThisSelect, liveAssignments);
 
-        document.querySelectorAll('select.referee-select').forEach(s => {
-            if (s.value && refereesWithAssignments.has(s.value)) {
-                const selectToEvaluate = s; // Use the function from refreshConflicts
-                const refereeIdForThisSelect = selectToEvaluate.value;
-
-                const matchIdMatch = selectToEvaluate.name.match(/\[(.*?)\]/);
-                if (!matchIdMatch) return;
-                const matchId = matchIdMatch[1];
-
-                const matchRow = selectToEvaluate.closest('tr');
-                const matchDate = matchRow.querySelector('td:nth-child(1)')?.innerText.trim();
-                let kickoffTime = matchRow.querySelector('td:nth-child(2)')?.innerText.trim();
-                if (kickoffTime.length === 5) kickoffTime += ':00';
-                const locationCell = matchRow.querySelector('td[data-field-type="location"]');
-                const locationUuid = locationCell?.dataset.currentValue || '';
-
-                if (!matchDate || !kickoffTime) return;
-
-                const initialConflict = checkConflict(matchId, matchDate, kickoffTime, refereeIdForThisSelect, locationUuid, processedExistingAssignments);
-                const dynamicConflict = checkConflict(matchId, matchDate, kickoffTime, refereeIdForThisSelect, locationUuid, liveAssignments);
-
-                const initialPri = CONFLICT_PRIORITY[initialConflict?.level] || 0;
-                const dynamicPri = CONFLICT_PRIORITY[dynamicConflict?.level] || 0;
-                const maxPri = Math.max(initialPri, dynamicPri);
-                let highestLevel = Object.keys(CONFLICT_PRIORITY).find(key => CONFLICT_PRIORITY[key] === maxPri) || null;
-
-                let combinedDetails = [];
-                if (initialConflict?.details) combinedDetails.push(initialConflict.details);
-                if (dynamicConflict?.details) combinedDetails.push(dynamicConflict.details);
-
-                const sameMatchLive = liveAssignments.filter(a => a.matchId === matchId && a.refereeId === refereeIdForThisSelect);
-                if (sameMatchLive.length > 1) {
-                    highestLevel = 'red';
-                    combinedDetails.push('Duplicate role in same match');
+                if (dynamicConflict === 'red' || initialConflict === 'red') {
+                    conflict = 'red';
+                } else if (dynamicConflict === 'orange' || initialConflict === 'orange') {
+                    if (severity[conflict] < severity['orange']) conflict = 'orange';
+                } else if (dynamicConflict === 'yellow' || initialConflict === 'yellow') {
+                    if (severity[conflict] < severity['yellow']) conflict = 'yellow';
                 }
 
-                applySelectStyle(selectToEvaluate, highestLevel, combinedDetails.filter(d => d).join('; '));
-            } else {
-                resetSelectStyle(s);
+                // Weekend limits check
+                if (window.refereePreferences && (window.refereePreferences[refereeIdForThisSelect]?.max_matches_per_weekend !== undefined ||
+                    window.refereePreferences[refereeIdForThisSelect]?.max_days_per_weekend !== undefined)) {
+                    const maxMatches = window.refereePreferences[refereeIdForThisSelect].max_matches_per_weekend;
+                    const maxDays = window.refereePreferences[refereeIdForThisSelect].max_days_per_weekend;
+                    const combinedAssignments = [...existingAssignments, ...liveAssignments];
+                    const weekendConflict = checkWeekendLimits(matchId, matchDate, refereeIdForThisSelect, combinedAssignments, maxMatches, maxDays);
+                    if (weekendConflict && severity[weekendConflict] > severity[conflict]) {
+                        conflict = weekendConflict;
+                    }
+                }
+
+                // Duplicate roles check
+                const sameMatchLiveAssignments = liveAssignments.filter(a => a.matchId === matchId && a.refereeId === refereeIdForThisSelect);
+                if (sameMatchLiveAssignments.length > 1) {
+                    conflict = 'red';
+                }
+
+                // Apply styles
+                if (conflict === 'yellow') {
+                    $container.css({ backgroundColor: 'yellow', color: 'black' });
+                } else if (conflict === 'orange') {
+                    $container.css({ backgroundColor: 'orange', color: 'black' });
+                } else if (conflict === 'red') {
+                    $container.css({ backgroundColor: 'red', color: 'white' });
+                }
             }
-        });
+        };
+
+        // Three-Stage Update
+        updateSpecificSelect(changedSelect);
+
+        if (previousRefereeId && previousRefereeId !== currentRefereeId) {
+            document.querySelectorAll('select.referee-select').forEach(s => {
+                if (s !== changedSelect && s.value === previousRefereeId) {
+                    updateSpecificSelect(s);
+                }
+            });
+        }
+
+        if (currentRefereeId) {
+            document.querySelectorAll('select.referee-select').forEach(s => {
+                if (s !== changedSelect && s.value === currentRefereeId) {
+                    updateSpecificSelect(s);
+                }
+            });
+        }
     }
 
     let selectPreviousValues = {};
 
     $(document).on('select2:opening', 'select.referee-select', function (e) {
         const selectName = e.target.name;
-        selectPreviousValues[selectName] = e.target.value;
+        const currentValue = e.target.value;
+        selectPreviousValues[selectName] = currentValue;
+        console.log(`Select2 Opening: Stored previous value for ${selectName}: ${currentValue}. Map:`, JSON.parse(JSON.stringify(selectPreviousValues)));
     });
 
     $('select.referee-select').on('change', function () {
         const selectName = this.name;
         const previousRefereeId = selectPreviousValues[selectName];
+        const currentRefereeId = this.value;
+
+        if (typeof previousRefereeId === 'undefined') {
+            console.warn(`Previous referee ID is undefined for ${selectName} during change event.`);
+        }
+
+        console.log(`Directly Bound Change event for ${selectName}. Prev from map: ${previousRefereeId}, Curr: ${currentRefereeId}`);
         refreshConflicts(this, previousRefereeId);
-        selectPreviousValues[selectName] = this.value;
+
+        selectPreviousValues[selectName] = currentRefereeId;
     });
 
     window.refreshConflicts = refreshConflicts;
     window.getLiveAssignments = getLiveAssignments;
     window.checkConflict = checkConflict;
-    window.fullRefreshConflicts = fullRefreshConflicts;
+    window.checkWeekendLimits = checkWeekendLimits;
 
     function safeRefreshConflicts(attempts = 10) {
         if ($('.select2-container').length > 0 && $('select.referee-select').length > 0) {
-            fullRefreshConflicts();
+            console.log("Attempting initial safe refresh conflicts...");
+            const allRefereeSelects = Array.from(document.querySelectorAll('select.referee-select'));
+
+            allRefereeSelects.forEach(selectElement => {
+                selectPreviousValues[selectElement.name] = selectElement.value;
+
+                if (selectElement.value) {
+                    refreshConflicts(selectElement, selectElement.value);
+                } else {
+                    const $select = $(selectElement);
+                    const $container = $select.next('.select2-container').find('.select2-selection');
+                    if ($container.length) {
+                        $container.css({ backgroundColor: '', color: '' });
+                    }
+                }
+            });
+
+            console.log("Initial safe refresh complete for " + allRefereeSelects.length + " select elements. Previous values map:", selectPreviousValues);
         } else if (attempts > 0) {
             setTimeout(() => safeRefreshConflicts(attempts - 1), 50);
         }

@@ -177,6 +177,8 @@ CREATE TABLE IF NOT EXISTS locations (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     );
 
--- Modify matches table to include location_uuid foreign key
+
 ALTER TABLE matches ADD COLUMN location_uuid CHAR(36) NULL;
 ALTER TABLE matches ADD CONSTRAINT fk_match_location FOREIGN KEY (location_uuid) REFERENCES locations(uuid);
+ALTER TABLE referees ADD COLUMN max_days_per_weekend TINYINT DEFAULT NULL CHECK (max_days_per_weekend IN (1, 2));
+ALTER TABLE referees ADD COLUMN max_matches_per_weekend TINYINT DEFAULT NULL CHECK (max_matches_per_weekend IN (1));

@@ -226,14 +226,15 @@ foreach ($existingAssignments as $assignment) {
 
 // Load referees with travel data (fixed UUID ambiguity)
 $referees = $pdo->query("
-    SELECT 
-        r.uuid, 
-        r.grade, 
-        IFNULL(r.home_lat, c.precise_location_lat) AS home_lat, 
-        IFNULL(r.home_lon, c.precise_location_lon) AS home_lon, 
-        r.max_travel_distance 
-    FROM referees r 
-    LEFT JOIN clubs c ON r.home_club_id = c.uuid 
+    SELECT
+        r.uuid,
+        r.grade,
+        r.ar_grade,
+        IFNULL(r.home_lat, c.precise_location_lat) AS home_lat,
+        IFNULL(r.home_lon, c.precise_location_lon) AS home_lon,
+        r.max_travel_distance
+    FROM referees r
+    LEFT JOIN clubs c ON r.home_club_id = c.uuid
     ORDER BY r.grade DESC
 ")->fetchAll(PDO::FETCH_ASSOC);
 
@@ -399,9 +400,13 @@ function canAssign($refId, $matchId, $matchDate, $matchWeek, $kickoffMinutes, $l
     }
 
     // Calculate score for "best" (higher = better)
-    $gradeScore = is_numeric($refData['grade']) ? (int)$refData['grade'] : (GRADE_ORDER[$refData['grade']] ?? 0);
+    $isAR = ($currentRole === 'ar1_id' || $currentRole === 'ar2_id');
+    $gradeToUse = $isAR ? $refData['ar_grade'] : $refData['grade'];
+    $gradeScore = is_numeric($gradeToUse) ? (int)$gradeToUse : (GRADE_ORDER[$gradeToUse] ?? 0);
+
     $preferredGrade = $preferredGradeByDivision[$division] ?? null;
-    $preferredBonus = ($preferredGrade && $refData['grade'] === $preferredGrade) ? 100 : 0;
+    $preferredBonus = ($preferredGrade && $gradeToUse === $preferredGrade) ? 100 : 0;
+
     $loadScore = 10 - min(10, $suggestedAssignmentsCountThisRun[$refId]); // Prefer less loaded, normalized to 0-10
     $distanceScore = $distance === INF ? 0 : (1 / (1 + $distance)); // Prefer closer (0-1 normalized)
 

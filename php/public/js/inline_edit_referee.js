@@ -33,25 +33,24 @@ document.addEventListener('DOMContentLoaded', function () {
             }
 
             const controlsWrapper = document.createElement('div');
-            controlsWrapper.classList.add('edit-controls', 'd-flex', 'align-items-center'); // Added d-flex for alignment
+            controlsWrapper.classList.add('edit-controls', 'd-flex', 'align-items-center');
 
             let inputElement;
 
             if (fieldName === 'home_club_id') {
                 inputElement = document.createElement('select');
-                inputElement.classList.add('form-control', 'form-control-sm', 'mr-2'); // Added mr-2 for spacing
-                inputElement.style.flexGrow = '1'; // Allow select to take available space
+                inputElement.classList.add('form-control', 'form-control-sm', 'mr-2');
+                inputElement.style.flexGrow = '1';
                 const currentClubId = ddElement.dataset.currentClubId;
 
-                // Add a default "loading" option
                 const loadingOption = document.createElement('option');
                 loadingOption.textContent = 'Loading clubs...';
                 inputElement.appendChild(loadingOption);
 
-                fetch('../ajax/club_options.php') // Adjusted path
+                fetch('../ajax/club_options.php')
                     .then(response => response.json())
                     .then(clubs => {
-                        inputElement.innerHTML = ''; // Clear loading option
+                        inputElement.innerHTML = '';
                         const pleaseSelectOption = document.createElement('option');
                         pleaseSelectOption.value = '';
                         pleaseSelectOption.textContent = 'Please select a club';
@@ -78,7 +77,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 inputElement.style.flexGrow = '1';
                 const currentDistrictId = ddElement.dataset.currentDistrictId;
 
-                // Add a default "loading" option
                 const loadingOption = document.createElement('option');
                 loadingOption.textContent = 'Loading districts...';
                 inputElement.appendChild(loadingOption);
@@ -86,7 +84,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 fetch('../ajax/district_options.php')
                     .then(response => response.json())
                     .then(districts => {
-                        inputElement.innerHTML = ''; // Clear loading option
+                        inputElement.innerHTML = '';
                         const pleaseSelectOption = document.createElement('option');
                         pleaseSelectOption.value = '';
                         pleaseSelectOption.textContent = 'Please select a district';
@@ -111,7 +109,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 inputElement = document.createElement('select');
                 inputElement.classList.add('form-control', 'form-control-sm', 'mr-2');
                 inputElement.style.flexGrow = '1';
-                const grades = ["A", "B", "C", "D", "E", ""]; // Added empty for clearing
+                const grades = ["A", "B", "C", "D", "E", ""];
 
                 const pleaseSelectOption = document.createElement('option');
                 pleaseSelectOption.value = '';
@@ -121,38 +119,72 @@ document.addEventListener('DOMContentLoaded', function () {
                 grades.forEach(grade => {
                     const option = document.createElement('option');
                     option.value = grade;
-                    option.textContent = grade;
+                    option.textContent = grade || "Clear selection";
                     if (grade === currentValue) {
                         option.selected = true;
                     }
-                    if (grade === "") { // Handle empty option text
-                        option.textContent = "Clear selection";
+                    inputElement.appendChild(option);
+                });
+            } else if (fieldName === 'max_matches_per_weekend') {
+                inputElement = document.createElement('select');
+                inputElement.classList.add('form-control', 'form-control-sm', 'mr-2');
+                inputElement.style.flexGrow = '1';
+                const options = [
+                    { value: '', text: 'Multiple (up to 3)' },
+                    { value: '1', text: '1 Match' }
+                ];
+
+                options.forEach(opt => {
+                    const option = document.createElement('option');
+                    option.value = opt.value;
+                    option.textContent = opt.text;
+                    if ((opt.value === '' && currentValue.includes('Multiple')) || (opt.value === '1' && currentValue === '1 Match')) {
+                        option.selected = true;
                     }
                     inputElement.appendChild(option);
                 });
-            } else if (fieldName === 'max_travel_distance') {
+            } else if (fieldName === 'max_days_per_weekend') {
+                inputElement = document.createElement('select');
+                inputElement.classList.add('form-control', 'form-control-sm', 'mr-2');
+                inputElement.style.flexGrow = '1';
+                const options = [
+                    { value: '', text: 'N/A (Both Days)' },
+                    { value: '1', text: '1 Day' },
+                    { value: '2', text: 'Both Days' }
+                ];
+
+                options.forEach(opt => {
+                    const option = document.createElement('option');
+                    option.value = opt.value;
+                    option.textContent = opt.text;
+                    if ((opt.value === '' && currentValue.includes('N/A')) || (opt.value === currentValue.replace(' Day(s)', ''))) {
+                        option.selected = true;
+                    }
+                    inputElement.appendChild(option);
+                });
+            } else if (fieldName === 'max_travel_distance' || fieldName === 'home_lat' || fieldName === 'home_lon') {
                 inputElement = document.createElement('input');
                 inputElement.type = 'number';
-                inputElement.value = currentValue;
-                inputElement.min = "0"; // Optional: prevent negative numbers on client side
+                inputElement.value = currentValue === 'N/A' ? '' : currentValue;
+                inputElement.min = fieldName === 'max_travel_distance' ? '0' : undefined;
                 inputElement.classList.add('form-control', 'form-control-sm', 'mr-2');
                 inputElement.style.flexGrow = '1';
             } else {
                 inputElement = document.createElement('input');
                 inputElement.type = (fieldName === 'email') ? 'email' : 'text';
                 inputElement.value = currentValue;
-                inputElement.classList.add('form-control', 'form-control-sm', 'mr-2'); // Added mr-2
-                inputElement.style.flexGrow = '1'; // Allow input to take available space
+                inputElement.classList.add('form-control', 'form-control-sm', 'mr-2');
+                inputElement.style.flexGrow = '1';
             }
-            inputElement.dataset.field = fieldName; // Keep track of the field
+            inputElement.dataset.field = fieldName;
 
             const saveIcon = document.createElement('i');
-            saveIcon.classList.add('bi', 'bi-check-lg', 'save-icon', 'text-success', 'mr-2'); // Bootstrap Icon
+            saveIcon.classList.add('bi', 'bi-check-lg', 'save-icon', 'text-success', 'mr-2');
             saveIcon.style.cursor = 'pointer';
             saveIcon.title = 'Save';
 
             const cancelIcon = document.createElement('i');
-            cancelIcon.classList.add('bi', 'bi-x-lg', 'cancel-icon', 'text-danger'); // Bootstrap Icon
+            cancelIcon.classList.add('bi', 'bi-x-lg', 'cancel-icon', 'text-danger');
             cancelIcon.style.cursor = 'pointer';
             cancelIcon.title = 'Cancel';
 
@@ -162,69 +194,55 @@ document.addEventListener('DOMContentLoaded', function () {
             displayValueSpan.parentNode.insertBefore(controlsWrapper, displayValueSpan.nextSibling);
             inputElement.focus();
 
-
             // Event listener for Save
             saveIcon.addEventListener('click', function () {
                 const newValue = inputElement.value;
-                // Client-side validation (basic)
-                if (fieldName === 'email' && !isValidEmail(newValue)) {
+                // Client-side validation
+                if (fieldName === 'email' && newValue && !isValidEmail(newValue)) {
                     displayMessage('Invalid email format.', 'danger');
                     return;
                 }
-                // Allow empty for max_travel_distance, grade, ar_grade
-                if (!newValue.trim() && (fieldName === 'first_name' || fieldName === 'last_name' || fieldName === 'home_location_city')) {
-                    displayMessage(fieldName.replace('_', ' ') + ' cannot be empty.', 'danger');
-                    return;
-                }
-                if ((fieldName === 'grade' || fieldName === 'ar_grade') && !newValue.trim()) {
-                    // This case is fine, means they are clearing the grade. Server will handle if it's not allowed.
-                    // Or, if you want to prevent clearing grades that are mandatory:
-                    // displayMessage(fieldName.replace('_', ' ') + ' cannot be empty. Select a grade or cancel.', 'danger');
-                    // return;
-                }
-                if (fieldName === 'home_club_id' && !newValue) {
-                    displayMessage('Please select a club.', 'danger');
-                    return;
-                }
-                if (fieldName === 'district_id' && !newValue) {
-                    displayMessage('Please select a district.', 'danger');
+                if (!newValue.trim() && ['first_name', 'last_name', 'home_location_city', 'home_club_id', 'district_id'].includes(fieldName)) {
+                    displayMessage(fieldName.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()) + ' cannot be empty.', 'danger');
                     return;
                 }
                 if (fieldName === 'max_travel_distance' && newValue.trim() !== '' && parseInt(newValue) < 0) {
                     displayMessage('Max travel distance cannot be negative.', 'danger');
                     return;
                 }
-
+                if (fieldName === 'max_matches_per_weekend' && newValue && newValue !== '1') {
+                    displayMessage('Max matches per weekend must be 1 or empty (multiple).', 'danger');
+                    return;
+                }
+                if (fieldName === 'max_days_per_weekend' && newValue && ![1, 2].includes(parseInt(newValue))) {
+                    displayMessage('Max days per weekend must be 1 or 2.', 'danger');
+                    return;
+                }
 
                 const formData = new FormData();
-                formData.append('referee_uuid', refereeUUID); // refereeUUID should be available globally from referee_detail.php
+                formData.append('referee_uuid', refereeUUID);
                 formData.append('field_name', fieldName);
                 formData.append('field_value', newValue);
 
-                fetch('update_referee_field.php', { // Assuming this script is in the same directory
+                fetch('update_referee_field.php', {
                     method: 'POST',
                     body: formData
                 })
                     .then(response => response.json())
                     .then(data => {
                         if (data.status === 'success') {
-                            if ((fieldName === 'home_club_id' || fieldName === 'district_id') && inputElement.selectedIndex > 0) {
-                                displayValueSpan.textContent = inputElement.options[inputElement.selectedIndex].text;
-                            } else {
-                                displayValueSpan.textContent = newValue;
+                            displayValueSpan.textContent = data.newValueDisplay || (newValue === '' ? 'N/A' : newValue);
+                            displayValueSpan.dataset.originalValue = newValue;
+                            if (fieldName === 'home_club_id') {
+                                ddElement.dataset.currentClubId = newValue;
                             }
-                            displayValueSpan.dataset.originalValue = newValue; // Update original value store
-                            if(fieldName === 'home_club_id') {
-                                ddElement.dataset.currentClubId = newValue; // Update current club ID for next edit
-                            }
-                            if(fieldName === 'district_id') {
+                            if (fieldName === 'district_id') {
                                 ddElement.dataset.currentDistrictId = newValue;
                             }
                             displayMessage(data.message || 'Field updated successfully.', 'success');
                             toggleToViewMode();
                         } else {
                             displayMessage(data.message || 'Error updating field.', 'danger');
-                            // Optionally, don't revert and let user correct
                         }
                     })
                     .catch(error => {
@@ -244,7 +262,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 }
                 controlsWrapper.remove();
                 displayValueSpan.style.display = '';
-                icon.style.display = ''; // Show the original edit icon
+                icon.style.display = '';
             }
         });
     });
@@ -253,18 +271,15 @@ document.addEventListener('DOMContentLoaded', function () {
         if (!messagesDiv) return;
         messagesDiv.innerHTML = `<div class="alert alert-${type} alert-dismissible fade show" role="alert">
             ${message}
-            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                <span aria-hidden="true">&times;</span>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close">
             </button>
         </div>`;
-        // Auto-dismiss after 5 seconds
         setTimeout(() => {
             const alert = messagesDiv.querySelector('.alert');
             if (alert) {
-                // bootstrap's close method if available, otherwise just remove
                 if (typeof(bootstrap) !== 'undefined' && bootstrap.Alert) {
-                    const bsAlert = bootstrap.Alert.getInstance(alert);
-                    if (bsAlert) bsAlert.close();
+                    const bsAlert = bootstrap.Alert.getInstance(alert) || new bootstrap.Alert(alert);
+                    bsAlert.close();
                 } else {
                     alert.remove();
                 }

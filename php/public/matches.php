@@ -22,6 +22,70 @@ $referees = $pdo->query("
     ORDER BY first_name
 ")->fetchAll();
 
+// Fetch referee preferences for weekend availability
+$refereePreferences = [];
+$refPrefsStmt = $pdo->prepare("
+    SELECT uuid, max_matches_per_weekend, max_days_per_weekend 
+    FROM referees 
+    WHERE max_matches_per_weekend IS NOT NULL 
+    OR max_days_per_weekend IS NOT NULL
+");
+$refPrefsStmt->execute();
+while ($row = $refPrefsStmt->fetch(PDO::FETCH_ASSOC)) {
+    $refereePreferences[$row['uuid']] = [
+        'max_matches_per_weekend' => $row['max_matches_per_weekend'],
+        'max_days_per_weekend' => $row['max_days_per_weekend']
+    ];
+}
+
+// Fetch all future assignments for conflict checking
+$allAssignments = [];
+$stmtAll = $pdo->prepare("
+    SELECT m.uuid, m.match_date, m.kickoff_time, m.referee_id, m.ar1_id, m.ar2_id, m.commissioner_id
+    FROM matches m
+    WHERE m.match_date >= CURDATE()
+    ORDER BY m.match_date ASC, m.kickoff_time ASC
+");
+$stmtAll->execute();
+while ($m = $stmtAll->fetch(PDO::FETCH_ASSOC)) {
+    if ($m['referee_id']) {
+        $allAssignments[] = [
+            'matchId' => $m['uuid'],
+            'role' => 'referee',
+            'refereeId' => $m['referee_id'],
+            'matchDate' => $m['match_date'],
+            'kickoffTime' => $m['kickoff_time']
+        ];
+    }
+    if ($m['ar1_id']) {
+        $allAssignments[] = [
+            'matchId' => $m['uuid'],
+            'role' => 'ar1',
+            'refereeId' => $m['ar1_id'],
+            'matchDate' => $m['match_date'],
+            'kickoffTime' => $m['kickoff_time']
+        ];
+    }
+    if ($m['ar2_id']) {
+        $allAssignments[] = [
+            'matchId' => $m['uuid'],
+            'role' => 'ar2',
+            'refereeId' => $m['ar2_id'],
+            'matchDate' => $m['match_date'],
+            'kickoffTime' => $m['kickoff_time']
+        ];
+    }
+    if ($m['commissioner_id']) {
+        $allAssignments[] = [
+            'matchId' => $m['uuid'],
+            'role' => 'commissioner',
+            'refereeId' => $m['commissioner_id'],
+            'matchDate' => $m['match_date'],
+            'kickoffTime' => $m['kickoff_time']
+        ];
+    }
+}
+
 // Fetch matches
 // Build dynamic SQL with optional date filters
 $whereClauses = [];
@@ -139,7 +203,6 @@ if ($loadInitialMatches) {
     $stmt->bindValue(':limit', $matchesPerPage, PDO::PARAM_INT);
     $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
     foreach ($params as $key => $value) {
-        // PDOStatement::bindValue uses 1-based indexing for placeholders
         $stmt->bindValue($key + 1, $value);
     }
     $stmt->execute();
@@ -152,8 +215,8 @@ if ($loadInitialMatches) {
 
 // --- START: Pre-computation for Conflict & Availability for initial load ---
 $refereeSchedule_initial = [];
-if ($loadInitialMatches) { // Only compute if matches were loaded
-    foreach ($matches as $match_item_initial) { // Use unique var name
+if ($loadInitialMatches) {
+    foreach ($matches as $match_item_initial) {
         $match_uuid_initial = $match_item_initial['uuid'];
         $match_date_for_schedule_initial = $match_item_initial['match_date'];
         $kickoff_time_for_schedule_initial = $match_item_initial['kickoff_time'];
@@ -167,7 +230,7 @@ if ($loadInitialMatches) { // Only compute if matches were loaded
                 $refereeSchedule_initial[$ref_id_for_schedule_initial][] = [
                     'match_id' => $match_uuid_initial,
                     'match_date_str' => $match_date_for_schedule_initial,
-                    'kickoff_time_str' => $kickoff_time_for_schedule_initial,
+                    'kickoff_time_str' => $match_item_initial['kickoff_time'],
                     'role' => $role_key_initial,
                     'location_uuid' => $match_item_initial['location_uuid']
                 ];
@@ -177,7 +240,7 @@ if ($loadInitialMatches) { // Only compute if matches were loaded
 }
 
 $refereeAvailabilityCache_initial = [];
-if ($loadInitialMatches && !empty($referees)) { // Only compute if matches were loaded and referees exist
+if ($loadInitialMatches && !empty($referees)) {
     $allRefereeIds_initial = array_map(function($ref) { return $ref['uuid']; }, $referees);
 
     if (!empty($allRefereeIds_initial)) {
@@ -212,8 +275,8 @@ if ($loadInitialMatches && !empty($referees)) { // Only compute if matches were 
             <?php endif; ?>
 
             <?php if ($assignMode): ?>
-                <a href="matches.php?<?= buildQueryString(['assign_mode' => null]) ?>" class="false-a btn btn-sm btn-secondary-action mb-3">Disable Assign Mode</a>
-                <button type="button" id="suggestAssignments" class="btn btn-sm btn-main-action mb-3">Suggest Assignments</button>
+                <a href="matches.php?<?= buildQueryString(['assign_mode' => null]) ?>" class="false-a btn-sm btn-secondary-action mb-3">Disable Assign Mode</a>
+                <button type="button" id="suggestAssignments" class="btn-sm btn-main-action mb-3">Suggest Assignments</button>
                 <style>
                     #suggestionProgressBar {
                         width: var(--progress-width, 0%);
@@ -225,16 +288,16 @@ if ($loadInitialMatches && !empty($referees)) { // Only compute if matches were 
                     <div id="suggestionProgressBar" class="progress-bar" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
                 </div>
                 <p id="suggestionProgressText" class="mt-2" style="display: none;"></p>
-                <button type="button" id="clearAssignments" class="btn btn-sm btn-destructive-action mb-3">Clear Assignments</button>
+                <button type="button" id="clearAssignments" class="btn-sm btn-destructive-action mb-3">Clear Assignments</button>
             <?php else: ?>
-                <a href="matches.php?<?= buildQueryString(['assign_mode' => 1]) ?>" class="btn btn-sm btn-warning-action mb-3">Enable Assign Mode</a>
+                <a href="matches.php?<?= buildQueryString(['assign_mode' => 1]) ?>" class="btn-sm btn-warning-action mb-3">Enable Assign Mode</a>
             <?php endif; ?>
-            <a href="export_matches.php?<?= buildQueryString([]) ?>" class="btn btn-sm btn-info-action mb-3 ms-2">Export to Excel (CSV)</a>
-            <a href="assign_assigner.php" class="btn btn-sm btn-primary-action mb-3 ms-2">Assign Assigner</a>
+            <a href="export_matches.php?<?= buildQueryString([]) ?>" class="btn-sm btn-info-action mb-3 ms-2">Export to Excel (CSV)</a>
+            <a href="assign_assigner.php" class="btn-sm btn-primary-action mb-3 ms-2">Assign Assigner</a>
 
             <form method="POST" action="bulk_assign.php">
                 <?php if ($assignMode): ?>
-                    <button type="submit" class="btn btn-main-action sticky-assign-button">Save Assignments</button>
+                    <button type="submit" class="btn-main-action sticky-assign-button">Save Assignments</button>
                 <?php endif; ?>
                 <div class="table-responsive-custom">
                     <table class="table table-bordered">
@@ -255,7 +318,7 @@ if ($loadInitialMatches && !empty($referees)) { // Only compute if matches were 
                             <th>
                                 Division
                                 <div class="dropdown d-inline-block">
-                                    <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" id="divisionFilterToggle" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+                                    <button type="button" class="btn-sm btn-outline-secondary dropdown-toggle" id="divisionFilterToggle" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
                                         <i class="bi bi-filter"></i>
                                     </button>
                                     <ul id="divisionFilterBox" class="dropdown-menu scrollable shadow rounded" aria-labelledby="divisionFilterToggle">
@@ -263,64 +326,64 @@ if ($loadInitialMatches && !empty($referees)) { // Only compute if matches were 
                                             <!-- checkboxes will load here via AJAX -->
                                         </li>
                                         <li class="dropdown-divider"></li>
-                                        <li class="px-3"><button type="button" id="clearDivisionFilter" class="btn btn-sm btn-light w-100">Clear</button></li>
-                                        <li class="px-3"><button type="button" id="applyDivisionFilter" class="btn btn-sm btn-primary w-100">Apply</button></li>
+                                        <li class="px-3"><button type="button" id="clearDivisionFilter" class="btn-sm btn-light w-100">Clear</button></li>
+                                        <li class="px-3"><button type="button" id="applyDivisionFilter" class="btn-sm btn-primary w-100">Apply</button></li>
                                     </ul>
                                 </div>
                             </th>
                             <th>
                                 District
                                 <div class="dropdown d-inline-block">
-                                    <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" id="districtFilterToggle" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+                                    <button type="button" class="btn-sm btn-outline-secondary dropdown-toggle" id="districtFilterToggle" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
                                         <i class="bi bi-filter"></i>
                                     </button>
                                     <ul id="districtFilterBox" class="dropdown-menu scrollable shadow rounded" aria-labelledby="districtFilterToggle">
                                         <li id="districtFilterOptions" class="px-3 py-2 d-flex flex-column gap-1"></li>
                                         <li class="dropdown-divider"></li>
-                                        <li class="px-3"><button type="button" id="clearDistrictFilter" class="btn btn-sm btn-light w-100">Clear</button></li>
-                                        <li class="px-3"><button type="button" id="applyDistrictFilter" class="btn btn-sm btn-primary w-100">Apply</button></li>
+                                        <li class="px-3"><button type="button" id="clearDistrictFilter" class="btn-sm btn-light w-100">Clear</button></li>
+                                        <li class="px-3"><button type="button" id="applyDistrictFilter" class="btn-sm btn-primary w-100">Apply</button></li>
                                     </ul>
                                 </div>
                             </th>
                             <th>
                                 Poule
                                 <div class="dropdown d-inline-block">
-                                    <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" id="pouleFilterToggle" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+                                    <button type="button" class="btn-sm btn-outline-secondary dropdown-toggle" id="pouleFilterToggle" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
                                         <i class="bi bi-filter"></i>
                                     </button>
                                     <ul id="pouleFilterBox" class="dropdown-menu scrollable shadow rounded" aria-labelledby="pouleFilterToggle">
                                         <li id="pouleFilterOptions" class="px-3 py-2 d-flex flex-column gap-1"></li>
                                         <li class="dropdown-divider"></li>
-                                        <li class="px-3"><button type="button" id="clearPouleFilter" class="btn btn-sm btn-light w-100">Clear</button></li>
-                                        <li class="px-3"><button type="button" id="applyPouleFilter" class="btn btn-sm btn-primary w-100">Apply</button></li>
+                                        <li class="px-3"><button type="button" id="clearPouleFilter" class="btn-sm btn-light w-100">Clear</button></li>
+                                        <li class="px-3"><button type="button" id="applyPouleFilter" class="btn-sm btn-primary w-100">Apply</button></li>
                                     </ul>
                                 </div>
                             </th>
                             <th>
                                 Location
                                 <div class="dropdown d-inline-block">
-                                    <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" id="locationFilterToggle" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+                                    <button type="button" class="btn-sm btn-outline-secondary dropdown-toggle" id="locationFilterToggle" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
                                         <i class="bi bi-filter"></i>
                                     </button>
                                     <ul id="locationFilterBox" class="dropdown-menu scrollable shadow rounded" aria-labelledby="locationFilterToggle">
                                         <li id="locationFilterOptions" class="px-3 py-2 d-flex flex-column gap-1"></li>
                                         <li class="dropdown-divider"></li>
-                                        <li class="px-3"><button type="button" id="clearLocationFilter" class="btn btn-sm btn-light w-100">Clear</button></li>
-                                        <li class="px-3"><button type="button" id="applyLocationFilter" class="btn btn-sm btn-primary w-100">Apply</button></li>
+                                        <li class="px-3"><button type="button" id="clearLocationFilter" class="btn-sm btn-light w-100">Clear</button></li>
+                                        <li class="px-3"><button type="button" id="applyLocationFilter" class="btn-sm btn-primary w-100">Apply</button></li>
                                     </ul>
                                 </div>
                             </th>
                             <th>
                                 Referee Assigner
                                 <div class="dropdown d-inline-block">
-                                    <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" id="refereeAssignerFilterToggle" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+                                    <button type="button" class="btn-sm btn-outline-secondary dropdown-toggle" id="refereeAssignerFilterToggle" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
                                         <i class="bi bi-filter"></i>
                                     </button>
                                     <ul id="refereeAssignerFilterBox" class="dropdown-menu scrollable shadow rounded" aria-labelledby="refereeAssignerFilterToggle">
                                         <li id="refereeAssignerFilterOptions" class="px-3 py-2 d-flex flex-column gap-1"></li>
                                         <li class="dropdown-divider"></li>
-                                        <li class="px-3"><button type="button" id="clearRefereeAssignerFilter" class="btn btn-sm btn-light w-100">Clear</button></li>
-                                        <li class="px-3"><button type="button" id="applyRefereeAssignerFilter" class="btn btn-sm btn-primary w-100">Apply</button></li>
+                                        <li class="px-3"><button type="button" id="clearRefereeAssignerFilter" class="btn-sm btn-light w-100">Clear</button></li>
+                                        <li class="px-3"><button type="button" id="applyRefereeAssignerFilter" class="btn-sm btn-primary w-100">Apply</button></li>
                                     </ul>
                                 </div>
                             </th>
@@ -374,7 +437,7 @@ if ($loadInitialMatches && !empty($referees)) { // Only compute if matches were 
                     </table>
                 </div>
 
-                <!-- Pagination Controls will be loaded here via AJAX -->
+                <!-- Pagination Controls -->
                 <nav aria-label="Page navigation" id="paginationControls">
                     <ul class="pagination justify-content-center">
                         <?php if ($currentPage > 1): ?>
@@ -400,7 +463,8 @@ if ($loadInitialMatches && !empty($referees)) { // Only compute if matches were 
             </form>
 
             <script>
-                const existingAssignments = <?= json_encode($matches); ?>;
+                const existingAssignments = <?= json_encode($allAssignments); ?>;
+                const refereePreferences = <?= json_encode($refereePreferences); ?>;
             </script>
 
             <script src="/js/matches.js"></script>

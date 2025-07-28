@@ -251,7 +251,17 @@ if ($referee && isset($referee['uuid'])) { // Ensure $currentRefereeUuid is avai
                             <span class="display-value" data-field="ar_grade"><?= htmlspecialchars($referee['ar_grade'] ?? '') ?></span>
                             <i class="bi bi-pencil-square edit-icon" data-field="ar_grade" style="cursor:pointer; margin-left: 5px;"></i>
                         </dd>
+                        <dt class="col-sm-3">Max Matches Per Weekend</dt>
+                        <dd class="col-sm-9 editable-field" id="max-matches-per-weekend-dd">
+                            <span class="display-value" data-field="max_matches_per_weekend"><?= htmlspecialchars($referee['max_matches_per_weekend'] === null ? 'Multiple (up to 3)' : $referee['max_matches_per_weekend'] . ' Match') ?></span>
+                            <i class="bi bi-pencil-square edit-icon" data-field="max_matches_per_weekend" style="cursor:pointer; margin-left: 5px;"></i>
+                        </dd>
 
+                        <dt class="col-sm-3">Max Days Per Weekend</dt>
+                        <dd class="col-sm-9 editable-field" id="max-days-per-weekend-dd">
+                            <span class="display-value" data-field="max_days_per_weekend"><?= htmlspecialchars($referee['max_days_per_weekend'] === null ? 'N/A (Both Days)' : $referee['max_days_per_weekend'] . ' Day(s)') ?></span>
+                            <i class="bi bi-pencil-square edit-icon" data-field="max_days_per_weekend" style="cursor:pointer; margin-left: 5px;"></i>
+                        </dd>
                         <dt class="col-sm-3">Max Travel Distance (km)</dt>
                         <dd class="col-sm-9 editable-field">
                             <span class="display-value" data-field="max_travel_distance"><?= htmlspecialchars($referee['max_travel_distance'] ?? '') ?></span>
