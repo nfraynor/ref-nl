@@ -3,13 +3,11 @@
 
 body {
     background: linear-gradient(to right, #74ebd5, #ACB6E5); /* Example gradient */
-    /* Fallback for browsers that don't support gradient */
-    background-color: #f0f2f5;
+    background-color: #f0f2f5; /* Fallback for browsers that don't support gradient */
     min-height: 100vh; /* Use min-height for content pages that might scroll */
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; /* Cleaner font */
-    /* display: flex; align-items: center; justify-content: center; /* Not for general pages */
-    padding-top: 20px; /* Add some padding at the top */
-    padding-bottom: 20px; /* Add some padding at the bottom */
+    padding-top: 20px; /* Add padding at the top */
+    padding-bottom: 20px; /* Add padding at the bottom */
     text-align: center; /* Center inline-block children like .content-card */
 }
 
@@ -25,7 +23,7 @@ body {
     text-align: left; /* Ensure content within the card is left-aligned */
 }
 
-/* Responsive adjustments for the content card if needed */
+/* Responsive adjustments for the content card */
 @media (max-width: 768px) {
     .content-card {
         margin-left: 10px;
@@ -36,7 +34,6 @@ body {
 
 /* Navbar styling */
 .main-navbar {
-    /* background-color: #343a40 !important; /* Bootstrap dark color, or choose one that fits the gradient */
     background-color: rgba(0, 0, 0, 0.6) !important; /* Darker, semi-transparent */
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
@@ -58,7 +55,7 @@ body {
 }
 
 .main-navbar .nav-link:hover,
-.main-navbar .nav-link.active { /* Assuming 'active' class might be used */
+.main-navbar .nav-link.active {
     color: #ffffff;
 }
 
@@ -84,19 +81,17 @@ body {
 .content-card h1 {
     font-size: 1.8rem; /* Slightly smaller H1 inside cards */
     font-weight: 300; /* Lighter for main titles within cards */
-    /* text-shadow: 1px 1px 2px rgba(0,0,0,0.1); /* Optional subtle shadow */
 }
 
-
-/* General button styling based on login button */
+/* General button styling */
 .btn-main-action {
     background-color: #007bff;
     border-color: #007bff;
     color: #fff;
-    padding: 10px 15px; /* Adjusted padding for general use */
+    padding: 10px 15px;
     font-weight: 500;
     transition: background-color 0.15s ease-in-out, border-color 0.15s ease-in-out, transform 0.15s ease-in-out;
-    border-radius: 0.3rem; /* Standard bootstrap button radius */
+    border-radius: 0.3rem;
 }
 
 .btn-main-action:hover {
@@ -107,7 +102,7 @@ body {
 }
 
 .btn-secondary-action {
-    background-color: #6c757d; /* Bootstrap secondary color */
+    background-color: #6c757d;
     border-color: #6c757d;
     color: #fff;
     padding: 10px 15px;
@@ -123,38 +118,8 @@ body {
     transform: translateY(-1px);
 }
 
-/* Make sure Bootstrap tables look good inside content-card */
-.content-card .table {
-    margin-bottom: 0; /* Remove default bottom margin if card has padding */
-}
-
-.content-card .table th {
-    background-color: #f8f9fa; /* Light grey for table headers */
-    color: #212529; /* Dark text for header */
-    border-bottom-width: 2px; /* Emphasize header bottom border */
-}
-
-/* Styling for striped tables */
-.content-card .table-striped tbody tr:nth-of-type(odd) {
-    background-color: rgba(0, 0, 0, 0.03); /* Subtler striping */
-}
-
-/* Links within content cards */
-.content-card a {
-    color: #007bff; /* Standard primary color for links */
-}
-
-.content-card a:hover {
-    color: #0056b3;
-    text-decoration: underline;
-}
-.false-a {
-    color:white !important;
-    font-weight: 500 !important;
-}
-
 .btn-destructive-action {
-    background-color: #dc3545; /* Bootstrap danger color */
+    background-color: #dc3545;
     border-color: #dc3545;
     color: #fff;
     padding: 10px 15px;
@@ -164,16 +129,16 @@ body {
 }
 
 .btn-destructive-action:hover {
-    background-color: #bb2d3b; /* Darker danger */
+    background-color: #bb2d3b;
     border-color: #b02a37;
     color: #fff;
     transform: translateY(-1px);
 }
 
 .btn-warning-action {
-    background-color: #ffc107; /* Bootstrap warning color */
+    background-color: #ffc107;
     border-color: #ffc107;
-    color: #000; /* Warning buttons usually have dark text for contrast */
+    color: #000;
     padding: 10px 15px;
     font-weight: 500;
     transition: background-color 0.15s ease-in-out, border-color 0.15s ease-in-out, transform 0.15s ease-in-out;
@@ -187,41 +152,175 @@ body {
     transform: translateY(-1px);
 }
 
-/* Overrides for filter buttons if needed, or ensure they have enough contrast */
-.content-card .btn-outline-secondary {
-    color: #333; /* Darker text for better contrast on light card */
-    border-color: #bbb; /* Slightly darker border */
+.btn-info-action {
+    background-color: #17a2b8;
+    border-color: #17a2b8;
+    color: #fff;
+    padding: 10px 15px;
+    font-weight: 500;
+    transition: background-color 0.15s ease-in-out, border-color 0.15s ease-in-out, transform 0.15s ease-in-out;
+    border-radius: 0.3rem;
 }
+
+.btn-info-action:hover {
+    background-color: #138496;
+    border-color: #117a8b;
+    color: #fff;
+    transform: translateY(-1px);
+}
+
+/* Filter buttons */
+.content-card .btn-outline-secondary {
+    color: #333;
+    border-color: #bbb;
+}
+
 .content-card .btn-outline-secondary:hover {
-    color: #fff; /* Keep text white on hover when background changes */
+    color: #fff;
     background-color: #6c757d;
     border-color: #6c757d;
 }
 
 .content-card .btn-light {
-    color: #000; /* Ensure black text on light button */
+    color: #000;
     background-color: #f8f9fa;
-    border-color: #ddd; /* Slightly more defined border */
+    border-color: #ddd;
 }
+
 .content-card .btn-light:hover {
     color: #000;
     background-color: #e2e6ea;
     border-color: #ccc;
 }
 
+/* Table styling */
+.content-card .table {
+    margin-bottom: 0; /* Remove default bottom margin */
+}
+
+.content-card .table th {
+    background-color: #f8f9fa;
+    color: #212529;
+    border-bottom-width: 2px;
+    text-align: left;
+}
+
+.content-card .table-striped tbody tr:nth-of-type(odd) {
+    background-color: rgba(0, 0, 0, 0.03); /* Subtle striping */
+}
+
+.content-card .table-hover tbody tr:hover {
+    background-color: #f5f5f5; /* Subtle hover effect */
+    transition: background-color 0.15s ease-in-out;
+}
+
+.content-card .table td.text-center {
+    text-align: center;
+}
+
+.content-card .table .fw-bold {
+    font-weight: 500;
+}
+
+.content-card .table .table-primary {
+    background-color: #e7f1ff; /* Lighter blue for division headers */
+    color: #003087; /* Darker blue text for contrast */
+    font-weight: 600;
+    border-bottom: 2px solid #dee2e6; /* Clear separation */
+}
+
+.content-card .table td, .content-card .table th {
+    padding: 0.75rem;
+    border-color: #dee2e6;
+}
+
+.content-card .table tr:has(.district-checkbox:checked) {
+    background-color: #e9f7ff; /* Light blue for selected rows */
+}
+
+/* Enhanced table styling for add_user.php */
+.content-card .district-permissions-table {
+    border-collapse: separate;
+    border-spacing: 0;
+    border-radius: 8px;
+    overflow: hidden; /* Ensure rounded corners clip content */
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); /* Subtle shadow for table */
+}
+
+.content-card .district-permissions-table th {
+    background-color: #007bff; /* Match .btn-main-action */
+    color: #fff;
+    font-weight: 500;
+    text-transform: uppercase;
+    font-size: 0.85rem;
+    letter-spacing: 0.05rem;
+}
+
+.content-card .district-permissions-table .division-header {
+    background-color: #e7f1ff;
+    color: #003087;
+    font-weight: 600;
+    font-size: 1.1rem;
+    padding: 1rem;
+    border-bottom: 2px solid #dee2e6;
+}
+
+.content-card .district-permissions-table .division-header td {
+    border-bottom: 2px solid #dee2e6;
+}
+
+.content-card .district-permissions-table tbody tr {
+    transition: background-color 0.2s ease-in-out;
+}
+
+.content-card .district-permissions-table tbody tr:hover {
+    background-color: #f5f5f5;
+}
+
+.content-card .district-permissions-table .form-check-input {
+    margin: 0 auto;
+    transform: scale(1.2); /* Slightly larger checkboxes */
+}
+
+.content-card .district-permissions-table tr:has(.district-checkbox:checked) {
+    background-color: #e9f7ff;
+    font-weight: 500;
+}
+
+/* Links within content cards */
+.content-card a {
+    color: #007bff;
+}
+
+.content-card a:hover {
+    color: #0056b3;
+    text-decoration: underline;
+}
+
+.false-a {
+    color: white !important;
+    font-weight: 500 !important;
+}
+
 /* Inline editing styles for referee_detail.php */
 .editable-field .edit-icon,
-h1 .edit-icon { /* Targeting edit icons in h1 as well */
-    font-size: 0.9em; /* Slightly larger for better clickability */
+h1 .edit-icon {
+    font-size: 0.9em;
     margin-left: 8px;
     cursor: pointer;
-    color: #007bff; /* Bootstrap primary color for edit icons */
-    vertical-align: middle; /* Align icons with text */
+    color: #007bff;
+    vertical-align: middle;
+    visibility: hidden;
+}
+
+.editable-field:hover .edit-icon,
+h1:hover .edit-icon {
+    visibility: visible;
 }
 
 .editable-field .edit-icon:hover,
 h1 .edit-icon:hover {
-    color: #0056b3; /* Darker on hover */
+    color: #0056b3;
 }
 
 .edit-controls {
@@ -231,21 +330,57 @@ h1 .edit-icon:hover {
 
 .edit-controls input.form-control-sm,
 .edit-controls select.form-control-sm {
-    flex-grow: 1; /* Allow input/select to take available space */
-    margin-right: 8px; /* Spacing before save icon */
+    flex-grow: 1;
+    margin-right: 8px;
 }
 
 .edit-controls .save-icon,
 .edit-controls .cancel-icon {
-    font-size: 1.2em; /* Make save/cancel icons a bit larger */
+    font-size: 1.2em;
     cursor: pointer;
 }
 
 .edit-controls .save-icon {
-    margin-right: 8px; /* Spacing between save and cancel */
+    margin-right: 8px;
 }
 
-/* Ensure messages div has some bottom margin if messages are shown */
+/* Ensure messages div has some bottom margin */
 #referee-details-messages .alert {
     margin-bottom: 1rem;
+}
+
+/* Conflict colors for matches.php */
+.conflict-red {
+    background-color: #dc3545;
+    color: white;
+    padding: 2px 5px;
+    border-radius: 3px;
+}
+
+.conflict-orange {
+    background-color: #fd7e14;
+    color: black;
+    padding: 2px 5px;
+    border-radius: 3px;
+}
+
+.conflict-yellow {
+    background-color: #ffc107;
+    color: black;
+    padding: 2px 5px;
+    border-radius: 3px;
+}
+
+.referee-display {
+    display: inline-block;
+}
+
+/* Button spacing */
+.content-card .d-flex.gap-2 {
+    gap: 0.5rem;
+}
+
+/* Checkbox alignment */
+.content-card .form-check-input {
+    margin-top: 0.3rem;
 }

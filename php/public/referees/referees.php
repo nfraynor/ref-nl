@@ -50,15 +50,15 @@ $referees = $pdo->query("
                     </td>
                     <td>
                         <a href="referee_detail.php?id=<?= urlencode($ref['referee_id']) ?>">
-                            <?= htmlspecialchars($ref['first_name'] . ' ' . $ref['last_name']) ?>
+                            <?= htmlspecialchars($ref['first_name'] . ' ' . $ref['last_name'] ?? '') ?>
                         </a>
                     </td>
-                    <td><?= htmlspecialchars($ref['email']) ?></td>
-                    <td><?= htmlspecialchars($ref['phone']) ?></td>
-                    <td><?= htmlspecialchars($ref['home_club_name']) ?></td>
-                    <td><?= htmlspecialchars($ref['home_location_city']) ?></td>
-                    <td><?= htmlspecialchars($ref['grade']) ?></td>
-                    <td><?= htmlspecialchars($ref['ar_grade']) ?></td>
+                    <td><?= htmlspecialchars($ref['email'] ?? '') ?></td>
+                    <td><?= htmlspecialchars($ref['phone'] ?? '') ?></td>
+                    <td><?= htmlspecialchars($ref['home_club_name'] ?? '') ?></td>
+                    <td><?= htmlspecialchars($ref['home_location_city'] ?? '') ?></td>
+                    <td><?= htmlspecialchars($ref['grade'] ?? '') ?></td>
+                    <td><?= htmlspecialchars($ref['ar_grade'] ?? '') ?></td>
                 </tr>
             <?php endforeach; ?>
             </tbody>

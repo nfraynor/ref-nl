@@ -1,18 +1,22 @@
 -- Divisions Table
 CREATE TABLE IF NOT EXISTS divisions (
-     id INT AUTO_INCREMENT PRIMARY KEY,
-     name VARCHAR(255) UNIQUE NOT NULL
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) UNIQUE NOT NULL
 );
 
 -- Districts Table
 CREATE TABLE IF NOT EXISTS districts (
-     id INT AUTO_INCREMENT PRIMARY KEY,
-     name VARCHAR(255) NOT NULL,
-     division_id INT NOT NULL,
-     FOREIGN KEY (division_id) REFERENCES divisions(id),
-     UNIQUE (name, division_id) -- Ensure district names are unique within a division
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) UNIQUE NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS division_districts (
+    division_id INT NOT NULL,
+    district_id INT NOT NULL,
+    PRIMARY KEY (division_id, district_id),
+    FOREIGN KEY (division_id) REFERENCES divisions(id) ON DELETE CASCADE,
+    FOREIGN KEY (district_id) REFERENCES districts(id) ON DELETE CASCADE
+);
 -- Clubs
 CREATE TABLE IF NOT EXISTS clubs (
     uuid CHAR(36) PRIMARY KEY,
@@ -66,9 +70,9 @@ CREATE TABLE IF NOT EXISTS referee_weekly_availability (
     uuid CHAR(36) PRIMARY KEY,
     referee_id CHAR(36) NOT NULL,
     weekday SMALLINT NOT NULL, -- 0 = Sunday, 6 = Saturday
-    morning_available BOOLEAN DEFAULT FALSE,
-    afternoon_available BOOLEAN DEFAULT FALSE,
-    evening_available BOOLEAN DEFAULT FALSE,
+    morning_available BOOLEAN DEFAULT TRUE,
+    afternoon_available BOOLEAN DEFAULT TRUE,
+    evening_available BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
     FOREIGN KEY (referee_id) REFERENCES referees(uuid)
@@ -173,6 +177,8 @@ CREATE TABLE IF NOT EXISTS locations (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     );
 
--- Modify matches table to include location_uuid foreign key
+
 ALTER TABLE matches ADD COLUMN location_uuid CHAR(36) NULL;
 ALTER TABLE matches ADD CONSTRAINT fk_match_location FOREIGN KEY (location_uuid) REFERENCES locations(uuid);
+ALTER TABLE referees ADD COLUMN max_days_per_weekend TINYINT DEFAULT NULL CHECK (max_days_per_weekend IN (1, 2));
+ALTER TABLE referees ADD COLUMN max_matches_per_weekend TINYINT DEFAULT NULL CHECK (max_matches_per_weekend IN (1));

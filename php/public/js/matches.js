@@ -1,8 +1,4 @@
-// matches.js (Full Updated File with Full Conflict Refresh on Suggestions)
-
 let currentFilters = {};
-let tempSelected = {};
-let suggestedAssignments = {};
 
 function initializeCurrentFiltersFromURL() {
     const params = new URLSearchParams(window.location.search);
@@ -55,9 +51,6 @@ function fetchAndUpdateMatches() {
             if (tableBody) {
                 tableBody.innerHTML = html;
                 initializeSelect2AndEvents();
-                reapplySuggestions();
-                window.fullRefreshConflicts(); // Ensure conflicts are rechecked
-                updateActiveFilterIndicators();
             } else {
                 console.error('Error: matchesTableBody element not found.');
             }
@@ -65,20 +58,6 @@ function fetchAndUpdateMatches() {
         .catch(error => {
             console.error('Error fetching or updating matches:', error);
         });
-}
-
-function reapplySuggestions() {
-    for (const matchId in suggestedAssignments) {
-        for (const role in suggestedAssignments[matchId]) {
-            const refId = suggestedAssignments[matchId][role];
-            const select = document.querySelector(`select[name="assignments[${matchId}][${role}]"]`);
-            if (select) {
-                select.value = refId ?? "";
-                const event = new Event('change', { bubbles: true });
-                select.dispatchEvent(event);
-            }
-        }
-    }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -206,207 +185,295 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Apply active indicators on initial load
-    updateActiveFilterIndicators();
-});
+    document.getElementById('clearAssignments')?.addEventListener('click', () => {
+        document.querySelectorAll('select.referee-select').forEach(select => {
+            select.value = "";
+            select.removeAttribute('style');
 
-function updateActiveFilterIndicators() {
-    ['division', 'district', 'poule', 'location', 'referee_assigner'].forEach(paramName => {
-        const toggleId = `${paramName}FilterToggle`;
-        const toggleBtn = document.getElementById(toggleId);
-        if (toggleBtn) {
-            const isActive = currentFilters[paramName] && currentFilters[paramName].length > 0;
-            if (isActive) {
-                toggleBtn.classList.add('filter-active');
-            } else {
-                toggleBtn.classList.remove('filter-active');
-            }
-        }
-    });
-}
-
-document.getElementById('clearAssignments')?.addEventListener('click', () => {
-    document.querySelectorAll('select.referee-select').forEach(select => {
-        select.value = "";
-        select.removeAttribute('style');
-
-        const selectId = select.id;
-        if (selectId) {
-            const select2Container = document.querySelector(`[aria-labelledby="select2-${selectId}-container"]`);
-            if (select2Container && select2Container.parentElement) {
-                const selectionElement = select2Container.parentElement.querySelector('.select2-selection');
-                if (selectionElement) {
-                    selectionElement.removeAttribute('style');
-                }
-            } else {
-                let sibling = select.nextElementSibling;
-                if (sibling && sibling.classList.contains('select2-container')) {
-                    const selectionRendered = sibling.querySelector('.select2-selection');
-                    if (selectionRendered) {
-                        selectionRendered.removeAttribute('style');
+            const selectId = select.id;
+            if (selectId) {
+                const select2Container = document.querySelector(`[aria-labelledby="select2-${selectId}-container"]`);
+                if (select2Container && select2Container.parentElement) {
+                    const selectionElement = select2Container.parentElement.querySelector('.select2-selection');
+                    if (selectionElement) {
+                        selectionElement.removeAttribute('style');
+                    }
+                } else {
+                    let sibling = select.nextElementSibling;
+                    if (sibling && sibling.classList.contains('select2-container')) {
+                        const selectionRendered = sibling.querySelector('.select2-selection');
+                        if (selectionRendered) {
+                            selectionRendered.removeAttribute('style');
+                        }
                     }
                 }
             }
-        }
 
-        const event = new Event('change', { bubbles: true });
-        select.dispatchEvent(event);
-    });
-    suggestedAssignments = {};
-    window.fullRefreshConflicts(); // Full refresh after clearing
-});
-
-document.getElementById('suggestAssignments')?.addEventListener('click', (event) => {
-    const suggestButton = event.target;
-    const originalButtonText = suggestButton.textContent;
-    suggestButton.disabled = true;
-    suggestButton.textContent = 'Suggesting...';
-
-    const params = buildParamsFromCurrentFilters();
-    const queryString = params.toString();
-
-    fetch(`suggest_assignments.php${queryString ? '?' + queryString : ''}`)
-        .then(response => {
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            return response.json();
-        })
-        .then(data => {
-            if (data.error) {
-                alert(data.error);
-                return;
-            }
-            // Apply to dropdowns and store in global object
-            for (const matchId in data) {
-                if (!suggestedAssignments[matchId]) {
-                    suggestedAssignments[matchId] = {};
-                }
-                const matchSuggestions = data[matchId];
-
-                for (const role in matchSuggestions) {
-                    const refId = matchSuggestions[role];
-                    suggestedAssignments[matchId][role] = refId;
-
-                    const select = document.querySelector(`select[name="assignments[${matchId}][${role}]"]`);
-                    if (select) {
-                        select.value = refId ?? "";
-                        const event = new Event('change', { bubbles: true });
-                        select.dispatchEvent(event);
-                    }
-                }
-            }
-            window.fullRefreshConflicts(); // Full refresh after suggestions
-        })
-        .catch(error => {
-            console.error('Error fetching suggestions:', error);
-            alert('Error fetching suggestions. Please check the console for details or try again.');
-        })
-        .finally(() => {
-            suggestButton.disabled = false;
-            suggestButton.textContent = originalButtonText;
+            const event = new Event('change', { bubbles: true });
+            select.dispatchEvent(event);
         });
-});
-
-// Handle date filter box
-function updateDateFilters(startDate, endDate) {
-    if (startDate) {
-        currentFilters.start_date = startDate;
-    } else {
-        delete currentFilters.start_date;
-    }
-    if (endDate) {
-        currentFilters.end_date = endDate;
-    } else {
-        delete currentFilters.end_date;
-    }
-    fetchAndUpdateMatches();
-}
-
-document.getElementById('ajaxStartDate')?.addEventListener('change', (event) => {
-    const start = event.target.value;
-    const end = document.getElementById('ajaxEndDate').value;
-    updateDateFilters(start, end);
-});
-
-document.getElementById('ajaxEndDate')?.addEventListener('change', (event) => {
-    const start = document.getElementById('ajaxStartDate').value;
-    const end = event.target.value;
-    updateDateFilters(start, end);
-});
-
-document.getElementById('clearDateFilter')?.addEventListener('click', () => {
-    document.getElementById('ajaxStartDate').value = '';
-    document.getElementById('ajaxEndDate').value = '';
-    delete currentFilters.start_date;
-    delete currentFilters.end_date;
-    fetchAndUpdateMatches();
-});
-
-function updateTempSelected(paramName, checkboxClass) {
-    tempSelected[paramName] = [];
-    document.querySelectorAll(`.${checkboxClass}:checked`).forEach(cb => {
-        tempSelected[paramName].push(cb.value);
     });
-}
 
-function applyFilter(paramName) {
-    if (tempSelected[paramName] && tempSelected[paramName].length > 0) {
-        currentFilters[paramName] = [...tempSelected[paramName]];
-    } else {
-        delete currentFilters[paramName];
-    }
-    fetchAndUpdateMatches();
-}
+    document.getElementById('suggestAssignments')?.addEventListener('click', (event) => {
+        const suggestButton = event.target;
+        const originalButtonText = suggestButton.textContent;
+        suggestButton.disabled = true;
+        suggestButton.textContent = 'Suggesting...';
 
-function initializeSelect2AndEvents() {
-    $('.referee-select').select2({
-        placeholder: "-- Select Referee --",
-        width: 'resolve',
-        dropdownParent: $('body'),
-        matcher: refereeMatcher
+        fetch('suggest_assignments.php')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                for (const matchId in data) {
+                    const matchSuggestions = data[matchId];
+
+                    for (const role in matchSuggestions) {
+                        const refId = matchSuggestions[role];
+                        const select = document.querySelector(`select[name="assignments[${matchId}][${role}]"]`);
+
+                        if (select) {
+                            select.value = refId ?? "";
+                            const event = new Event('change', { bubbles: true });
+                            select.dispatchEvent(event);
+                        }
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching suggestions:', error);
+                alert('Error fetching suggestions. Please check the console for details or try again.');
+            })
+            .finally(() => {
+                suggestButton.disabled = false;
+                suggestButton.textContent = originalButtonText;
+            });
     });
-}
 
-function setupFilterDropdown(toggleId, boxId, optionsId, checkboxClass, paramName, clearId, applyId) {
-    const dropdownElement = document.getElementById(boxId)?.closest('.dropdown');
-    if (dropdownElement) {
-        dropdownElement.addEventListener('show.bs.dropdown', () => {
-            tempSelected[paramName] = currentFilters[paramName] ? [...currentFilters[paramName]] : [];
+    const toggle = document.getElementById('dateFilterToggle');
+    const box = document.getElementById('dateFilterBox');
 
-            // Build query params from currentFilters, not the URL
-            const params = new URLSearchParams();
-            if (currentFilters[paramName] && Array.isArray(currentFilters[paramName])) {
-                currentFilters[paramName].forEach(item => params.append(paramName + '[]', item));
+    document.addEventListener('click', function (event) {
+        if (toggle?.contains(event.target)) {
+            box.style.display = (box.style.display === 'none' || box.style.display === '') ? 'block' : 'none';
+        } else if (!box?.contains(event.target)) {
+            if (box) {
+                box.style.display = (box.style.display === 'none' || box.style.display === '') ? 'block' : 'none';
             }
-            const queryString = params.toString();
+        }
+    });
 
-            fetch(`/ajax/${paramName}_options.php?${queryString}`)
-                .then(res => res.text())
-                .then(html => {
-                    document.getElementById(optionsId).innerHTML = html;
-                    document.querySelectorAll('.' + checkboxClass).forEach(cb => {
-                        cb.addEventListener('change', () => {
-                            updateTempSelected(paramName, checkboxClass);
-                        });
+    function updateDateFilters(startDate, endDate) {
+        if (startDate) {
+            currentFilters.start_date = startDate;
+        } else {
+            delete currentFilters.start_date;
+        }
+
+        if (endDate) {
+            currentFilters.end_date = endDate;
+        } else {
+            delete currentFilters.end_date;
+        }
+        fetchAndUpdateMatches();
+    }
+
+    document.getElementById('ajaxStartDate')?.addEventListener('change', (event) => {
+        const start = event.target.value;
+        const end = document.getElementById('ajaxEndDate').value;
+        updateDateFilters(start, end);
+    });
+
+    document.getElementById('ajaxEndDate')?.addEventListener('change', (event) => {
+        const start = document.getElementById('ajaxStartDate').value;
+        const end = event.target.value;
+        updateDateFilters(start, end);
+    });
+
+    document.getElementById('clearDateFilter')?.addEventListener('click', () => {
+        document.getElementById('ajaxStartDate').value = '';
+        document.getElementById('ajaxEndDate').value = '';
+        delete currentFilters.start_date;
+        delete currentFilters.end_date;
+        fetchAndUpdateMatches();
+    });
+
+    function loadDivisionFilterOptions() {
+        const selectedDivisions = new URLSearchParams(window.location.search).getAll('division[]');
+        fetch('/ajax/division_options.php?' + new URLSearchParams({ 'division[]': selectedDivisions }))
+            .then(res => res.text())
+            .then(html => {
+                document.getElementById('divisionFilterOptions').innerHTML = html;
+
+                document.querySelectorAll('.division-filter-checkbox').forEach(box => {
+                    box.addEventListener('change', () => {
+                        applyDivisionFilter();
                     });
                 });
+            });
+    }
+
+    function applyDivisionFilter() {
+        const selectedDivisions = [];
+        document.querySelectorAll('.division-filter-checkbox:checked').forEach(cb => {
+            selectedDivisions.push(cb.value);
+        });
+
+        if (selectedDivisions.length > 0) {
+            currentFilters.division = selectedDivisions;
+        } else {
+            delete currentFilters.division;
+        }
+        fetchAndUpdateMatches();
+    }
+
+    document.getElementById('divisionFilterToggle')?.addEventListener('click', () => {
+        const box = document.getElementById('divisionFilterBox');
+        box.style.display = (box.style.display === 'none' || box.style.display === '') ? 'block' : 'none';
+        loadDivisionFilterOptions();
+    });
+
+    document.getElementById('clearDivisionFilter')?.addEventListener('click', () => {
+        document.querySelectorAll('.division-filter-checkbox').forEach(cb => cb.checked = false);
+        delete currentFilters.division;
+        fetchAndUpdateMatches();
+    });
+
+    document.addEventListener('click', function (e) {
+        const filters = [
+            { toggleId: 'divisionFilterToggle', boxId: 'divisionFilterBox' },
+            { toggleId: 'districtFilterToggle', boxId: 'districtFilterBox' },
+            { toggleId: 'pouleFilterToggle', boxId: 'pouleFilterBox' },
+            { toggleId: 'locationFilterToggle', boxId: 'locationFilterBox' },
+            { toggleId: 'refereeAssignerFilterToggle', boxId: 'refereeAssignerFilterBox' }
+        ];
+
+        filters.forEach(({ toggleId, boxId }) => {
+            const toggle = document.getElementById(toggleId);
+            const box = document.getElementById(boxId);
+            if (box && toggle && !box.contains(e.target) && !toggle.contains(e.target)) {
+                box.style.display = 'none';
+            }
+        });
+    });
+
+    function applyMultiFilter(paramName, checkboxClass) {
+        const selectedValues = [];
+        document.querySelectorAll(`.${checkboxClass}:checked`).forEach(cb => {
+            selectedValues.push(cb.value);
+        });
+
+        if (selectedValues.length > 0) {
+            currentFilters[paramName] = selectedValues;
+        } else {
+            delete currentFilters[paramName];
+        }
+        fetchAndUpdateMatches();
+    }
+
+    function loadFilterOptions(type, targetBoxId, targetHtmlId, checkboxClass, paramName) {
+        const selected = new URLSearchParams(window.location.search).getAll(paramName + '[]');
+
+        const box = document.getElementById(targetBoxId);
+        box.style.display = 'block';
+
+        fetch(`/ajax/${type}_options.php?${new URLSearchParams({ [paramName + '[]']: selected })}`)
+            .then(res => res.text())
+            .then(html => {
+                document.getElementById(targetHtmlId).innerHTML = html;
+
+                document.querySelectorAll('.' + checkboxClass).forEach(cb => {
+                    cb.addEventListener('change', () => {
+                        applyMultiFilter(paramName, checkboxClass);
+                    });
+                });
+            });
+    }
+
+    function initializeSelect2AndEvents() {
+        console.log('Initializing Select2 for .referee-select elements');
+        const selectElements = document.querySelectorAll('.referee-select');
+        console.log(`Found ${selectElements.length} referee-select elements`);
+
+        $('.referee-select').select2({
+            placeholder: "-- Select Referee --",
+            width: 'resolve',
+            dropdownParent: $('body'),
+            matcher: function(params, data) {
+                if (!data.id) return null; // Skip optgroup
+
+                const grade = $(data.element).attr('data-grade');
+                const availability = $(data.element).attr('data-availability');
+                const matchesGrade = window.currentFilters.grades.length === 0 || window.currentFilters.grades.includes(grade);
+                const matchesAvailability = !window.currentFilters.availability || availability === window.currentFilters.availability;
+                const matchesSearch = !params.term || data.text.toLowerCase().includes(params.term.toLowerCase());
+
+                console.log(`Matcher for ${data.text}: grade=${grade}, availability=${availability}, matchesGrade=${matchesGrade}, matchesAvailability=${matchesAvailability}, matchesSearch=${matchesSearch}`);
+
+                if (matchesGrade && matchesAvailability && matchesSearch) {
+                    return data;
+                }
+                return null;
+            }
+        }).on('select2:open', function() {
+            console.log('Select2 opened for:', this.name);
+            const options = this.querySelectorAll('option[value]:not([value=""])');
+            console.log(`Options for ${this.name}:`, Array.from(options).map(opt => ({
+                text: opt.textContent,
+                grade: opt.getAttribute('data-grade'),
+                availability: opt.getAttribute('data-availability')
+            })));
+        }).on('select2:select', function() {
+            console.log('Select2 selected value:', this.value, 'for:', this.name);
+        });
+
+        // Debug Select2 options
+        selectElements.forEach(select => {
+            const options = select.querySelectorAll('option[value]:not([value=""])');
+            console.log(`Select ${select.name} has ${options.length} options:`, Array.from(options).map(opt => ({
+                text: opt.textContent,
+                grade: opt.getAttribute('data-grade'),
+                availability: opt.getAttribute('data-availability')
+            })));
         });
     }
 
-    document.getElementById(clearId)?.addEventListener('click', () => {
-        document.querySelectorAll('.' + checkboxClass).forEach(cb => cb.checked = false);
-        tempSelected[paramName] = [];
+    document.getElementById('districtFilterToggle')?.addEventListener('click', () => {
+        loadFilterOptions('district', 'districtFilterBox', 'districtFilterOptions', 'district-filter-checkbox', 'district');
+    });
+    document.getElementById('clearDistrictFilter')?.addEventListener('click', () => {
+        document.querySelectorAll('.district-filter-checkbox').forEach(cb => cb.checked = false);
+        delete currentFilters.district;
+        fetchAndUpdateMatches();
     });
 
-    document.getElementById(applyId)?.addEventListener('click', () => {
-        applyFilter(paramName);
+    document.getElementById('pouleFilterToggle')?.addEventListener('click', () => {
+        loadFilterOptions('poule', 'pouleFilterBox', 'pouleFilterOptions', 'poule-filter-checkbox', 'poule');
     });
-}
+    document.getElementById('clearPouleFilter')?.addEventListener('click', () => {
+        document.querySelectorAll('.poule-filter-checkbox').forEach(cb => cb.checked = false);
+        delete currentFilters.poule;
+        fetchAndUpdateMatches();
+    });
 
-// Setup each filter with applyId
-setupFilterDropdown('divisionFilterToggle', 'divisionFilterBox', 'divisionFilterOptions', 'division-filter-checkbox', 'division', 'clearDivisionFilter', 'applyDivisionFilter');
-setupFilterDropdown('districtFilterToggle', 'districtFilterBox', 'districtFilterOptions', 'district-filter-checkbox', 'district', 'clearDistrictFilter', 'applyDistrictFilter');
-setupFilterDropdown('pouleFilterToggle', 'pouleFilterBox', 'pouleFilterOptions', 'poule-filter-checkbox', 'poule', 'clearPouleFilter', 'applyPouleFilter');
-setupFilterDropdown('locationFilterToggle', 'locationFilterBox', 'locationFilterOptions', 'location-filter-checkbox', 'location', 'clearLocationFilter', 'applyLocationFilter');
-setupFilterDropdown('refereeAssignerFilterToggle', 'refereeAssignerFilterBox', 'refereeAssignerFilterOptions', 'referee-assigner-filter-checkbox', 'referee_assigner', 'clearRefereeAssignerFilter', 'applyRefereeAssignerFilter');
+    document.getElementById('locationFilterToggle')?.addEventListener('click', () => {
+        loadFilterOptions('location_filter', 'locationFilterBox', 'locationFilterOptions', 'location-filter-checkbox', 'location');
+    });
+    document.getElementById('clearLocationFilter')?.addEventListener('click', () => {
+        document.querySelectorAll('.location-filter-checkbox').forEach(cb => cb.checked = false);
+        delete currentFilters.location;
+        fetchAndUpdateMatches();
+    });
+
+    document.getElementById('refereeAssignerFilterToggle')?.addEventListener('click', () => {
+        loadFilterOptions('referee_assigner', 'refereeAssignerFilterBox', 'refereeAssignerFilterOptions', 'referee-assigner-filter-checkbox', 'referee_assigner');
+    });
+    document.getElementById('clearRefereeAssignerFilter')?.addEventListener('click', () => {
+        document.querySelectorAll('.referee-assigner-filter-checkbox').forEach(cb => cb.checked = false);
+        delete currentFilters.referee_assigner;
+        fetchAndUpdateMatches();
+    });
+});

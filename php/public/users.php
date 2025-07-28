@@ -72,13 +72,13 @@ try {
             // Based on user request, global role is one of the roles.
             // To avoid adding it multiple times if user has district permissions too:
             if (empty($users_processed[$user_uuid]['permissions']) || $users_processed[$user_uuid]['permissions'][0] !== $row['global_role']) {
-                 // If permissions list is empty, or global role is not already the first item.
-                 // This logic might need refinement based on how we want to prioritize display if both exist.
-                 // For now, let's add it if it's not there. A user should ideally have a global role OR specific permissions.
-                 // The add_user.php logic enforces this.
-                 if(!in_array($row['global_role'], $users_processed[$user_uuid]['permissions'])) { // ensure it's not duplicately added
+                // If permissions list is empty, or global role is not already the first item.
+                // This logic might need refinement based on how we want to prioritize display if both exist.
+                // For now, let's add it if it's not there. A user should ideally have a global role OR specific permissions.
+                // The add_user.php logic enforces this.
+                if(!in_array($row['global_role'], $users_processed[$user_uuid]['permissions'])) { // ensure it's not duplicately added
                     $users_processed[$user_uuid]['permissions'][] = $row['global_role'];
-                 }
+                }
             }
         }
 
@@ -115,6 +115,7 @@ require_once 'includes/nav.php';
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h1>User Management</h1>
         <?php if (isset($_SESSION['user_role']) && ($_SESSION['user_role'] === 'super_admin' || $_SESSION['user_role'] === 'user_admin')): ?>
+            <a href="assign_user_to_division.php" class="btn btn-info">Assign User to Division</a>
             <a href="add_user.php" class="btn btn-success">Add New User</a>
         <?php endif; ?>
     </div>
@@ -131,28 +132,28 @@ require_once 'includes/nav.php';
         <?php else: ?>
             <table class="table table-striped table-hover">
                 <thead class="table-dark">
-                    <tr>
-                        <th>Username</th>
-                        <th>Roles</th>
-                        <th>Date Created</th>
-                    </tr>
+                <tr>
+                    <th>Username</th>
+                    <th>Roles</th>
+                    <th>Date Created</th>
+                </tr>
                 </thead>
                 <tbody>
-                    <?php foreach ($users_processed as $user_uuid => $user_data): ?>
-                        <tr>
-                            <td><?php echo htmlspecialchars($user_data['username']); ?></td>
-                            <td>
-                                <?php
-                                if (!empty($user_data['permissions'])) {
-                                    echo implode('<br>', array_map('htmlspecialchars', $user_data['permissions']));
-                                } else {
-                                    echo 'N/A'; // Or leave blank if preferred: echo '';
-                                }
-                                ?>
-                            </td>
-                            <td><?php echo htmlspecialchars(date('Y-m-d H:i:s', strtotime($user_data['created_at']))); ?></td>
-                        </tr>
-                    <?php endforeach; ?>
+                <?php foreach ($users_processed as $user_uuid => $user_data): ?>
+                    <tr>
+                        <td><?php echo htmlspecialchars($user_data['username']); ?></td>
+                        <td>
+                            <?php
+                            if (!empty($user_data['permissions'])) {
+                                echo implode('<br>', array_map('htmlspecialchars', $user_data['permissions']));
+                            } else {
+                                echo 'N/A'; // Or leave blank if preferred: echo '';
+                            }
+                            ?>
+                        </td>
+                        <td><?php echo htmlspecialchars(date('Y-m-d H:i:s', strtotime($user_data['created_at']))); ?></td>
+                    </tr>
+                <?php endforeach; ?>
                 </tbody>
             </table>
         <?php endif; ?>

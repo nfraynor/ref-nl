@@ -24,6 +24,23 @@
 require_once __DIR__ . '/../utils/session_auth.php';
 require_once __DIR__ . '/../utils/db.php';
 
+// Suppress notices and warnings
+error_reporting(E_ALL & ~E_NOTICE & ~E_WARNING);
+
+// Prepare for streaming
+if (ob_get_level() == 0) ob_start();
+header('Content-Type: application/json');
+header('X-Content-Type-Options: nosniff');
+
+function send_progress($progress, $message) {
+    $response = ['progress' => $progress, 'message' => $message];
+    echo json_encode($response) . "\n";
+    if (ob_get_level() > 0) {
+        ob_flush();
+        flush();
+    }
+}
+
 $pdo = Database::getConnection();
 
 // Constants for configuration
@@ -35,6 +52,17 @@ const ROLES = ['referee_id', 'ar1_id', 'ar2_id']; // Removed commissioner_id
 
 // Grade order for non-numeric grades
 const GRADE_ORDER = ['A' => 4, 'B' => 3, 'C' => 2, 'D' => 1, '' => 0];
+
+// Preferred grade by division
+$preferredGradeByDivision = [
+    'Ereklasse' => 'A',
+    'Futureklasse' => 'B',
+    'Ereklasse Dames' => 'B',
+    'Colts Cup' => 'B',
+    '1e Klasse' => 'B',
+    '2e Klasse' => 'C',
+    '3e Klasse' => 'D'
+];
 
 $testingMode = isset($_GET['testing']) && $_GET['testing'] === 'true';
 
@@ -69,59 +97,77 @@ if ($userRole !== 'super_admin') {
         $loadMatches = false;
     } else {
         $divisionPlaceholders = implode(',', array_fill(0, count($allowedDivisionNames), '?'));
-        $whereClauses[] = "division IN ($divisionPlaceholders)";
+        $whereClauses[] = "m.division IN ($divisionPlaceholders)";
         $params = array_merge($params, $allowedDivisionNames);
 
         $districtPlaceholders = implode(',', array_fill(0, count($allowedDistrictNames), '?'));
-        $whereClauses[] = "district IN ($districtPlaceholders)";
+        $whereClauses[] = "m.district IN ($districtPlaceholders)";
         $params = array_merge($params, $allowedDistrictNames);
     }
 }
 
 if (!empty($_GET['start_date'])) {
-    $whereClauses[] = "match_date >= ?";
+    $whereClauses[] = "m.match_date >= ?";
     $params[] = $_GET['start_date'];
 }
 
 if (!empty($_GET['end_date'])) {
-    $whereClauses[] = "match_date <= ?";
+    $whereClauses[] = "m.match_date <= ?";
     $params[] = $_GET['end_date'];
 }
 
 foreach (['division', 'district', 'poule', 'location', 'referee_assigner'] as $filter) {
     if (!empty($_GET[$filter]) && is_array($_GET[$filter])) {
         $placeholders = implode(',', array_fill(0, count($_GET[$filter]), '?'));
-        $whereClauses[] = "$filter IN ($placeholders)";
+        $whereClauses[] = "m.$filter IN ($placeholders)";
         $params = array_merge($params, $_GET[$filter]);
     }
 }
 
 $whereSQL = count($whereClauses) ? 'WHERE ' . implode(' AND ', $whereClauses) : '';
 
+send_progress(5, 'Filtering matches based on criteria...');
+
 // Load filtered matches
 $matches = [];
 if ($loadMatches) {
     $stmt = $pdo->prepare("
         SELECT 
-            uuid,
-            match_date,
-            kickoff_time,
-            location_lat,
-            location_lon,
-            division
-        FROM matches
+            m.uuid,
+            m.match_date,
+            m.kickoff_time,
+            l.latitude AS location_lat,
+            l.longitude AS location_lon,
+            m.division
+        FROM matches m
+        LEFT JOIN locations l ON m.location_uuid = l.uuid
         $whereSQL
-        ORDER BY match_date ASC, kickoff_time ASC
+        ORDER BY m.match_date ASC, m.kickoff_time ASC
     ");
     $stmt->execute($params);
     $matches = $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
+send_progress(10, 'Loaded ' . count($matches) . ' matches to be assigned.');
 error_log('Number of matches loaded: ' . count($matches));
 
 if (empty($matches)) {
-    header('Content-Type: application/json');
-    echo json_encode(['error' => 'No matches found in filtered view']);
+    send_progress(100, 'No matches found in filtered view.');
+    // Construct the final data payload
+    $response = [
+        'progress' => 100,
+        'message' => 'No matches found to suggest.',
+        'suggestions' => []
+    ];
+    echo json_encode($response) . "\n";
+    ob_flush();
+    flush();
+    if (function_exists('fastcgi_finish_request')) {
+        fastcgi_finish_request();
+    }
+    if (ob_get_level() > 0) {
+        ob_end_flush();
+    }
     exit;
 }
 
@@ -138,9 +184,10 @@ $existingAssignments = [];
 if (!$testingMode) {
     $existingAssignments = $pdo->query("
         SELECT 
-            uuid AS match_id, match_date, kickoff_time, location_lat, location_lon,
-            referee_id, ar1_id, ar2_id, commissioner_id
-        FROM matches
+            m.uuid AS match_id, m.match_date, m.kickoff_time, l.latitude AS location_lat, l.longitude AS location_lon,
+            m.referee_id, m.ar1_id, m.ar2_id, m.commissioner_id
+        FROM matches m
+        LEFT JOIN locations l ON m.location_uuid = l.uuid
         WHERE referee_id IS NOT NULL OR ar1_id IS NOT NULL OR ar2_id IS NOT NULL OR commissioner_id IS NOT NULL
     ")->fetchAll(PDO::FETCH_ASSOC);
 
@@ -152,6 +199,7 @@ if (!$testingMode) {
     unset($assign);
 }
 
+send_progress(15, 'Loaded all existing assignments for conflict checking.');
 error_log('Number of existing assignments: ' . count($existingAssignments));
 
 // Process existing for per-ref per-date/week
@@ -178,17 +226,19 @@ foreach ($existingAssignments as $assignment) {
 
 // Load referees with travel data (fixed UUID ambiguity)
 $referees = $pdo->query("
-    SELECT 
-        r.uuid, 
-        r.grade, 
-        IFNULL(r.home_lat, c.precise_location_lat) AS home_lat, 
-        IFNULL(r.home_lon, c.precise_location_lon) AS home_lon, 
-        r.max_travel_distance 
-    FROM referees r 
-    LEFT JOIN clubs c ON r.home_club_id = c.uuid 
+    SELECT
+        r.uuid,
+        r.grade,
+        r.ar_grade,
+        IFNULL(r.home_lat, c.precise_location_lat) AS home_lat,
+        IFNULL(r.home_lon, c.precise_location_lon) AS home_lon,
+        r.max_travel_distance
+    FROM referees r
+    LEFT JOIN clubs c ON r.home_club_id = c.uuid
     ORDER BY r.grade DESC
 ")->fetchAll(PDO::FETCH_ASSOC);
 
+send_progress(20, 'Loaded all referees and their data.');
 error_log('Number of referees loaded: ' . count($referees));
 
 // Pre-fetch unavailability/weekly
@@ -214,10 +264,12 @@ foreach ($referees as $ref) {
     }
 }
 
-// Group filtered matches by date
-$matchesByDate = [];
+send_progress(30, 'Pre-cached referee availability for all matches.');
+
+// Group filtered matches by week
+$matchesByWeek = [];
 foreach ($matches as $match) {
-    $matchesByDate[$match['match_date']][] = $match;
+    $matchesByWeek[$match['week_key']][] = $match;
 }
 
 // Initialize suggestions
@@ -226,8 +278,11 @@ foreach ($matches as $match) {
     $suggestions[$match['uuid']] = array_fill_keys(ROLES, null);
 }
 
-// Suggested counts this run (global, since weekly spans multiple days)
+// Suggested counts this run (global, for overall load balancing)
 $suggestedAssignmentsCountThisRun = array_fill_keys(array_column($referees, 'uuid'), 0);
+
+// Suggested counts per week (for weekly limits)
+$suggestedAssignmentsByWeekRef = [];
 
 // Suggested details by date by ref
 $suggestedMatchDetailsByDateRef = [];
@@ -260,7 +315,9 @@ function haversine($lat1, $lon1, $lat2, $lon2) {
 }
 
 // canAssign function (returns false or score; higher score = better)
-function canAssign($refId, $matchId, $matchDate, $matchWeek, $kickoffMinutes, $locationLat, $locationLon, $currentRole, $existingAssignmentsByDateRef, $existingMatchDetailsByDateRef, $existingAssignmentsByWeekRef, $suggestedAssignmentsCountThisRun, $suggestedMatchDetailsByDateRef, $allowOrange, $referees) {
+function canAssign($refId, $matchId, $matchDate, $matchWeek, $kickoffMinutes, $locationLat, $locationLon, $currentRole, $existingAssignmentsByDateRef, $existingMatchDetailsByDateRef, $existingAssignmentsByWeekRef, $suggestedAssignmentsCountThisRun, $suggestedMatchDetailsByDateRef, $suggestedAssignmentsByWeekRef, $allowOrange, $referees, $division) {
+    global $preferredGradeByDivision;
+
     // Find ref data
     $refData = null;
     foreach ($referees as $r) {
@@ -283,7 +340,8 @@ function canAssign($refId, $matchId, $matchDate, $matchWeek, $kickoffMinutes, $l
 
     // Weekly limit (hard)
     $existingGamesThisWeek = $existingAssignmentsByWeekRef[$matchWeek][$refId] ?? 0;
-    $totalGamesThisWeek = $existingGamesThisWeek + $suggestedAssignmentsCountThisRun[$refId] + 1;
+    $suggestedGamesThisWeek = $suggestedAssignmentsByWeekRef[$matchWeek][$refId] ?? 0;
+    $totalGamesThisWeek = $existingGamesThisWeek + $suggestedGamesThisWeek + 1;
     if ($totalGamesThisWeek > MAX_GAMES_PER_WEEK) {
         error_log("Ref $refId skipped for match $matchId: Weekly limit exceeded (total $totalGamesThisWeek)");
         return false;
@@ -305,7 +363,7 @@ function canAssign($refId, $matchId, $matchDate, $matchWeek, $kickoffMinutes, $l
     // Check suggested conflicts
     $suggestedDetails = $suggestedMatchDetailsByDateRef[$matchDate][$refId] ?? [];
     foreach ($suggestedDetails as $sDetail) {
-        if (($locationLat !== null || $sDetail['location_lat'] !== null) && ($locationLat !== $sDetail['location_lat'] || $locationLon !== $sDetail['location_lon'])) {
+        if ($locationLat !== null && $sDetail['location_lat'] !== null && ($locationLat !== $sDetail['location_lat'] || $locationLon !== $sDetail['location_lon'])) {
             error_log("Ref $refId skipped for match $matchId: Red - Different location");
             return false; // Red
         }
@@ -322,7 +380,7 @@ function canAssign($refId, $matchId, $matchDate, $matchWeek, $kickoffMinutes, $l
     // Check existing conflicts
     $existingDetails = $existingMatchDetailsByDateRef[$matchDate][$refId] ?? [];
     foreach ($existingDetails as $eDetail) {
-        if (($locationLat !== null || $eDetail['location_lat'] !== null) && ($locationLat !== $eDetail['location_lat'] || $locationLon !== $eDetail['location_lon'])) {
+        if ($locationLat !== null && $eDetail['location_lat'] !== null && ($locationLat !== $eDetail['location_lat'] || $locationLon !== $eDetail['location_lon'])) {
             error_log("Ref $refId skipped for match $matchId: Red - Different location (existing)");
             return false; // Red
         }
@@ -342,12 +400,18 @@ function canAssign($refId, $matchId, $matchDate, $matchWeek, $kickoffMinutes, $l
     }
 
     // Calculate score for "best" (higher = better)
-    $gradeScore = is_numeric($refData['grade']) ? (int)$refData['grade'] : (GRADE_ORDER[$refData['grade']] ?? 0);
-    $loadScore = MAX_GAMES_PER_WEEK - $suggestedAssignmentsCountThisRun[$refId]; // Prefer less loaded
+    $isAR = ($currentRole === 'ar1_id' || $currentRole === 'ar2_id');
+    $gradeToUse = $isAR ? $refData['ar_grade'] : $refData['grade'];
+    $gradeScore = is_numeric($gradeToUse) ? (int)$gradeToUse : (GRADE_ORDER[$gradeToUse] ?? 0);
+
+    $preferredGrade = $preferredGradeByDivision[$division] ?? null;
+    $preferredBonus = ($preferredGrade && $gradeToUse === $preferredGrade) ? 100 : 0;
+
+    $loadScore = 10 - min(10, $suggestedAssignmentsCountThisRun[$refId]); // Prefer less loaded, normalized to 0-10
     $distanceScore = $distance === INF ? 0 : (1 / (1 + $distance)); // Prefer closer (0-1 normalized)
 
-    $score = $gradeScore * 10 + $loadScore * 5 + $distanceScore; // Weighted score
-    error_log("Ref $refId eligible for match $matchId: Score $score (grade $gradeScore, load $loadScore, distance $distance)");
+    $score = $preferredBonus + $gradeScore * 10 + $loadScore * 5 + $distanceScore; // Weighted score
+    error_log("Ref $refId eligible for match $matchId: Score $score (preferred $preferredBonus, grade $gradeScore, load $loadScore, distance $distance)");
 
     return $score;
 }
@@ -365,7 +429,9 @@ function attemptAssignment(
     $availabilityCache,
     $pass,
     &$suggestedMatchDetailsByDateRef,
-    $allowOrange = false
+    &$suggestedAssignmentsByWeekRef,
+    $allowOrange = false,
+    $suggestedInThisWeek
 ) {
     $matchId = $match['uuid'];
     if ($suggestions[$matchId][$role] !== null) return;
@@ -375,21 +441,50 @@ function attemptAssignment(
 
     error_log("Attempting assignment for match $matchId, role $role, pass $pass, allowOrange " . ($allowOrange ? 'true' : 'false'));
 
+    $preferredGrade = $preferredGradeByDivision[$match['division']] ?? null;
+
     // Collect eligible refs with scores
     $eligibleRefs = [];
-    foreach ($referees as $ref) {
-        $refId = $ref['uuid'];
+    $triedPreferred = false;
 
-        if ($pass === 1 && $suggestedAssignmentsCountThisRun[$refId] > 0) continue;
+    if ($preferredGrade) {
+        // First try only preferred grade
+        $triedPreferred = true;
+        foreach ($referees as $ref) {
+            $refId = $ref['uuid'];
 
-        if (!$availabilityCache[$refId][$matchId]) {
-            error_log("Ref $refId skipped for match $matchId: Not available");
-            continue;
+            if ($ref['grade'] !== $preferredGrade) continue;
+
+            if ($pass === 1 && $suggestedInThisWeek[$refId] > 0) continue;
+
+            if (!$availabilityCache[$refId][$matchId]) {
+                error_log("Ref $refId skipped for match $matchId: Not available");
+                continue;
+            }
+
+            $score = canAssign($refId, $matchId, $matchDate, $matchWeek, $match['kickoff_minutes'], $match['location_lat'], $match['location_lon'], $role, $existingAssignmentsByDateRef, $existingMatchDetailsByDateRef, $existingAssignmentsByWeekRef, $suggestedAssignmentsCountThisRun, $suggestedMatchDetailsByDateRef, $suggestedAssignmentsByWeekRef, $allowOrange, $referees, $match['division']);
+            if ($score !== false) {
+                $eligibleRefs[] = ['refId' => $refId, 'score' => $score];
+            }
         }
+    }
 
-        $score = canAssign($refId, $matchId, $matchDate, $matchWeek, $match['kickoff_minutes'], $match['location_lat'], $match['location_lon'], $role, $existingAssignmentsByDateRef, $existingMatchDetailsByDateRef, $existingAssignmentsByWeekRef, $suggestedAssignmentsCountThisRun, $suggestedMatchDetailsByDateRef, $allowOrange, $referees);
-        if ($score !== false) {
-            $eligibleRefs[] = ['refId' => $refId, 'score' => $score];
+    if (empty($eligibleRefs)) {
+        // If no preferred or no eligible preferred, try all
+        foreach ($referees as $ref) {
+            $refId = $ref['uuid'];
+
+            if ($pass === 1 && $suggestedInThisWeek[$refId] > 0) continue;
+
+            if (!$availabilityCache[$refId][$matchId]) {
+                error_log("Ref $refId skipped for match $matchId:Not available");
+                continue;
+            }
+
+            $score = canAssign($refId, $matchId, $matchDate, $matchWeek, $match['kickoff_minutes'], $match['location_lat'], $match['location_lon'], $role, $existingAssignmentsByDateRef, $existingMatchDetailsByDateRef, $existingAssignmentsByWeekRef, $suggestedAssignmentsCountThisRun, $suggestedMatchDetailsByDateRef, $suggestedAssignmentsByWeekRef, $allowOrange, $referees, $match['division']);
+            if ($score !== false) {
+                $eligibleRefs[] = ['refId' => $refId, 'score' => $score];
+            }
         }
     }
 
@@ -406,7 +501,10 @@ function attemptAssignment(
         error_log("Best ref for match $matchId, role $role: $bestRefId with score $bestScore");
 
         $suggestions[$matchId][$role] = $bestRefId;
-        $suggestedAssignmentsCountThisRun[$bestRefId]++;
+        $suggestedInThisWeek[$bestRefId]++;
+
+        if (!isset($suggestedAssignmentsByWeekRef[$matchWeek][$bestRefId])) $suggestedAssignmentsByWeekRef[$matchWeek][$bestRefId] = 0;
+        $suggestedAssignmentsByWeekRef[$matchWeek][$bestRefId]++;
 
         if (!isset($suggestedMatchDetailsByDateRef[$matchDate][$bestRefId])) $suggestedMatchDetailsByDateRef[$matchDate][$bestRefId] = [];
         $suggestedMatchDetailsByDateRef[$matchDate][$bestRefId][] = [
@@ -419,35 +517,68 @@ function attemptAssignment(
     }
 }
 
-// Process day by day
-foreach ($matchesByDate as $date => &$dayMatches) {
-    usort($dayMatches, function($a, $b) {
-        $aNum = preg_match('/\d+/', $a['division'], $m) ? (int)$m[0] : 0;
-        $bNum = preg_match('/\d+/', $b['division'], $m) ? (int)$m[0] : 0;
-        if ($aNum !== $bNum) return $bNum - $aNum;
-        return strcmp($a['division'], $b['division']);
+// Process week by week
+$totalAssignments = count($matches) * count(ROLES);
+$processedAssignments = 0;
+
+ksort($matchesByWeek); // Process weeks in order
+
+foreach ($matchesByWeek as $week => $weekMatches) {
+    $suggestedInThisWeek = array_fill_keys(array_column($referees, 'uuid'), 0);
+
+    // Sort matches by division priority (higher preferred grade first, then lower class number)
+    usort($weekMatches, function($a, $b) {
+        $prefA = GRADE_ORDER[$preferredGradeByDivision[$a['division']] ?? ''] ?? 0;
+        $prefB = GRADE_ORDER[$preferredGradeByDivision[$b['division']] ?? ''] ?? 0;
+        if ($prefA !== $prefB) {
+            return $prefB - $prefA; // higher pref grade first
+        }
+        $aNum = preg_match('/\d+/', $a['division'], $m) ? (int)$m[0] : 999;
+        $bNum = preg_match('/\d+/', $b['division'], $m) ? (int)$m[0] : 999;
+        return $aNum - $bNum; // lower class number first
     });
 
-    foreach (ROLES as $role) {
-        for ($pass = 1; $pass <= 2; $pass++) {
-            foreach ($dayMatches as &$match) {
-                attemptAssignment($role, $match, $referees, $suggestions, $suggestedAssignmentsCountThisRun, $existingAssignmentsByDateRef, $existingMatchDetailsByDateRef, $existingAssignmentsByWeekRef, $availabilityCache, $pass, $suggestedMatchDetailsByDateRef, false);
+    foreach (ROLES as $role) { // Assign main refs first, then AR1, AR2
+        foreach ($weekMatches as &$match) {
+            if (($role === 'ar1_id' || $role === 'ar2_id') && $match['division'] !== 'Ereklasse') {
+                $processedAssignments++;
+                continue;
             }
-            unset($match);
-        }
 
-        foreach ($dayMatches as &$match) {
+            // Attempt assignment in multiple passes
+            attemptAssignment($role, $match, $referees, $suggestions, $suggestedAssignmentsCountThisRun, $existingAssignmentsByDateRef, $existingMatchDetailsByDateRef, $existingAssignmentsByWeekRef, $availabilityCache, 1, $suggestedMatchDetailsByDateRef, $suggestedAssignmentsByWeekRef, false, $suggestedInThisWeek);
             if ($suggestions[$match['uuid']][$role] === null) {
-                attemptAssignment($role, $match, $referees, $suggestions, $suggestedAssignmentsCountThisRun, $existingAssignmentsByDateRef, $existingMatchDetailsByDateRef, $existingAssignmentsByWeekRef, $availabilityCache, 3, $suggestedMatchDetailsByDateRef, true);
+                attemptAssignment($role, $match, $referees, $suggestions, $suggestedAssignmentsCountThisRun, $existingAssignmentsByDateRef, $existingMatchDetailsByDateRef, $existingAssignmentsByWeekRef, $availabilityCache, 2, $suggestedMatchDetailsByDateRef, $suggestedAssignmentsByWeekRef, false, $suggestedInThisWeek);
             }
+            if ($suggestions[$match['uuid']][$role] === null) {
+                attemptAssignment($role, $match, $referees, $suggestions, $suggestedAssignmentsCountThisRun, $existingAssignmentsByDateRef, $existingMatchDetailsByDateRef, $existingAssignmentsByWeekRef, $availabilityCache, 3, $suggestedMatchDetailsByDateRef, $suggestedAssignmentsByWeekRef, true, $suggestedInThisWeek);
+            }
+
+            $processedAssignments++;
+            $progress = (int)(($processedAssignments / $totalAssignments) * 100);
+            send_progress($progress, "Processed {$processedAssignments} of {$totalAssignments} assignments...");
         }
         unset($match);
     }
 }
-unset($dayMatches);
 
-error_log('Final suggestions: ' . json_encode($suggestions));
+send_progress(95, 'Finalizing suggestions...');
 
-header('Content-Type: application/json');
-echo json_encode($suggestions, JSON_PRETTY_PRINT);
+// Construct the final data payload
+$response = [
+    'progress' => 100,
+    'message' => 'Suggestions complete!',
+    'suggestions' => $suggestions
+];
+echo json_encode($response) . "\n";
+ob_flush();
+flush();
+
+// Close the connection
+if (function_exists('fastcgi_finish_request')) {
+    fastcgi_finish_request();
+}
+if (ob_get_level() > 0) {
+    ob_end_flush();
+}
 ?>
