@@ -12,28 +12,33 @@ $pdo = Database::getConnection();
 
 $divisions = [];
 $districts = [];
+$permission_pairs = []; // To store division-district pairs
 $error_message = '';
 $success_message = '';
 
 // Variables to hold form data on POST to repopulate the form
 $username_form = '';
-$global_role_form = 'none';
-$user_district_ids_form = [];
+$global_role_form = 'none'; // Default to 'none'
+$user_permission_pairs_form = []; // Array of "div_id:dist_id"
 
 try {
     // Fetch divisions for the form
     $stmt_divisions = $pdo->query("SELECT id, name FROM divisions ORDER BY name ASC");
     $divisions = $stmt_divisions->fetchAll();
 
-    // Fetch districts with their associated divisions
-    $stmt_districts = $pdo->query("
-        SELECT DISTINCT d.id, d.name, dd.division_id, divis.name AS division_name
-        FROM districts d
-        LEFT JOIN division_districts dd ON d.id = dd.district_id
-        LEFT JOIN divisions divis ON dd.division_id = divis.id
+    // Fetch districts for the form
+    $stmt_districts = $pdo->query("SELECT id, name FROM districts ORDER BY name ASC");
+    $districts = $stmt_districts->fetchAll();
+
+    // Fetch all division-district pairs for the permissions table
+    $stmt_pairs = $pdo->query("
+        SELECT dd.division_id, dd.district_id, divis.name AS division_name, d.name AS district_name
+        FROM division_districts dd
+        JOIN divisions divis ON dd.division_id = divis.id
+        JOIN districts d ON dd.district_id = d.id
         ORDER BY divis.name ASC, d.name ASC
     ");
-    $districts = $stmt_districts->fetchAll();
+    $permission_pairs = $stmt_pairs->fetchAll();
 
 } catch (PDOException $e) {
     $error_message = "Error fetching divisions or districts for form: " . $e->getMessage();
@@ -46,7 +51,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $password = $_POST['password'] ?? '';
     $password_confirm = $_POST['password_confirm'] ?? '';
     $global_role_form = $_POST['global_role'] ?? 'none';
-    $user_district_ids_form = $_POST['districts'] ?? [];
+    $user_permission_pairs_form = $_POST['permissions'] ?? [];
 
     if (empty($username_form) || empty($password) || empty($password_confirm)) {
         $error_message = "Username and password (including confirmation) are required.";
@@ -83,35 +88,21 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             ]);
 
             // Only add to user_permissions if no global role
-            if ($role_to_insert === null && !empty($user_district_ids_form)) {
+            if ($role_to_insert === null && !empty($user_permission_pairs_form)) {
                 $sql_permission = "INSERT INTO user_permissions (user_id, division_id, district_id) VALUES (:user_id, :division_id, :district_id)";
                 $stmt_permission = $pdo->prepare($sql_permission);
 
                 $inserted_permissions = [];
-                foreach ($user_district_ids_form as $dist_id) {
-                    // Fetch division_id(s) for this district
-                    $stmt_get_dist_div = $pdo->prepare("
-                        SELECT division_id
-                        FROM division_districts
-                        WHERE district_id = :district_id
-                    ");
-                    $stmt_get_dist_div->execute([':district_id' => $dist_id]);
-                    $division_ids = $stmt_get_dist_div->fetchAll(PDO::FETCH_COLUMN);
-
-                    if (!empty($division_ids)) {
-                        foreach ($division_ids as $div_id) {
-                            $permission_key = $div_id . '-' . $dist_id;
-                            if (!isset($inserted_permissions[$permission_key])) {
-                                $stmt_permission->execute([
-                                    ':user_id' => $user_uuid_actual,
-                                    ':division_id' => $div_id,
-                                    ':district_id' => $dist_id
-                                ]);
-                                $inserted_permissions[$permission_key] = true;
-                            }
-                        }
-                    } else {
-                        error_log("District ID $dist_id has no associated divisions for user $user_uuid_actual.");
+                foreach ($user_permission_pairs_form as $pair) {
+                    list($div_id, $dist_id) = explode(':', $pair);
+                    $permission_key = $div_id . '-' . $dist_id;
+                    if (!isset($inserted_permissions[$permission_key])) {
+                        $stmt_permission->execute([
+                            ':user_id' => $user_uuid_actual,
+                            ':division_id' => $div_id,
+                            ':district_id' => $dist_id
+                        ]);
+                        $inserted_permissions[$permission_key] = true;
                     }
                 }
             }
@@ -120,7 +111,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $success_message = "User '{$username_form}' added successfully!";
             $username_form = '';
             $global_role_form = 'none';
-            $user_district_ids_form = [];
+            $user_permission_pairs_form = [];
 
         } catch (PDOException $e) {
             if ($pdo->inTransaction()) {
@@ -182,8 +173,8 @@ require_once 'includes/nav.php';
                 <fieldset class="mb-3" id="permissions_fieldset">
                     <legend class="h6">District Permissions (Active if Global Role is 'None')</legend>
                     <div class="mb-3">
-                        <label class="form-label">Select Districts (Access to associated divisions is implied)</label>
-                        <?php if (!empty($districts)): ?>
+                        <label class="form-label">Select Division-District Combinations (Access to the specific division-district pair)</label>
+                        <?php if (!empty($permission_pairs)): ?>
                             <div class="table-responsive">
                                 <table class="table table-striped table-bordered table-hover district-permissions-table">
                                     <thead>
@@ -195,31 +186,31 @@ require_once 'includes/nav.php';
                                     </thead>
                                     <tbody>
                                     <?php
-                                    // Group districts by division
-                                    $districts_by_division = [];
-                                    foreach ($districts as $district) {
-                                        $div_id = $district['division_id'] ?? 0;
-                                        $div_name = $district['division_name'] ?? 'Unassigned Districts';
-                                        if (!isset($districts_by_division[$div_id])) {
-                                            $districts_by_division[$div_id] = [
+                                    // Group pairs by division
+                                    $pairs_by_division = [];
+                                    foreach ($permission_pairs as $pair) {
+                                        $div_id = $pair['division_id'] ?? 0;
+                                        $div_name = $pair['division_name'] ?? 'Unassigned Divisions';
+                                        if (!isset($pairs_by_division[$div_id])) {
+                                            $pairs_by_division[$div_id] = [
                                                 'name' => $div_name,
-                                                'districts' => []
+                                                'pairs' => []
                                             ];
                                         }
-                                        $districts_by_division[$div_id]['districts'][] = $district;
+                                        $pairs_by_division[$div_id]['pairs'][] = $pair;
                                     }
-                                    ksort($districts_by_division); // Sort by division ID
+                                    ksort($pairs_by_division); // Sort by division ID
                                     ?>
-                                    <?php foreach ($districts_by_division as $div_id => $div_data): ?>
+                                    <?php foreach ($pairs_by_division as $div_id => $div_data): ?>
                                         <tr class="division-header">
                                             <td colspan="3"><?php echo htmlspecialchars($div_data['name']); ?></td>
                                         </tr>
-                                        <?php foreach ($div_data['districts'] as $district): ?>
+                                        <?php foreach ($div_data['pairs'] as $pair): ?>
                                             <tr>
                                                 <td></td>
-                                                <td><?php echo htmlspecialchars($district['name']); ?></td>
+                                                <td><?php echo htmlspecialchars($pair['district_name']); ?></td>
                                                 <td class="text-center">
-                                                    <input class="form-check-input district-checkbox" type="checkbox" name="districts[]" value="<?php echo $district['id']; ?>" id="dist_<?php echo $district['id']; ?>" <?php echo in_array($district['id'], $user_district_ids_form) ? 'checked' : ''; ?>>
+                                                    <input class="form-check-input district-checkbox" type="checkbox" name="permissions[]" value="<?php echo $pair['division_id'] . ':' . $pair['district_id']; ?>" id="perm_<?php echo $pair['division_id'] . '_' . $pair['district_id']; ?>" <?php echo in_array($pair['division_id'] . ':' . $pair['district_id'], $user_permission_pairs_form) ? 'checked' : ''; ?>>
                                                 </td>
                                             </tr>
                                         <?php endforeach; ?>
@@ -228,7 +219,7 @@ require_once 'includes/nav.php';
                                 </table>
                             </div>
                         <?php elseif (empty($error_message)): ?>
-                            <p class="text-muted">No districts found. Please add districts in the system first.</p>
+                            <p class="text-muted">No division-district pairs found. Please add districts and link them to divisions first.</p>
                         <?php endif; ?>
                     </div>
                 </fieldset>

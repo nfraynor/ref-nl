@@ -5,11 +5,6 @@ include 'includes/header.php';
 include 'includes/nav.php';
 include 'components/referee_dropdown.php';
 
-// Enable error reporting for debugging (remove in production)
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
-error_reporting(E_ALL);
-
 $assignMode = isset($_GET['assign_mode']);
 $pdo = Database::getConnection();
 
@@ -17,30 +12,16 @@ function buildQueryString(array $overrides = []): string {
     return http_build_query(array_merge($_GET, $overrides));
 }
 
-// Fetch referees with error handling
-try {
-    $refereesStmt = $pdo->query("
-        SELECT 
-            uuid, 
-            first_name, 
-            last_name, 
-            grade,
-            ar_grade
-        FROM referees 
-        ORDER BY first_name
-    ");
-    $referees = $refereesStmt->fetchAll(PDO::FETCH_ASSOC);
-    if (empty($referees)) {
-        error_log("No referees found in the database.");
-        echo "<div class='alert alert-warning'>No referees found in the database. Please check the referees table.</div>";
-    } else {
-        error_log("Found " . count($referees) . " referees.");
-    }
-} catch (PDOException $e) {
-    error_log("Referees query failed: " . $e->getMessage());
-    echo "<div class='alert alert-danger'>Database error fetching referees: " . htmlspecialchars($e->getMessage()) . "</div>";
-    $referees = [];
-}
+$referees = $pdo->query("
+    SELECT 
+        uuid, 
+        first_name, 
+        last_name, 
+        grade,
+        ar_grade
+    FROM referees 
+    ORDER BY first_name
+")->fetchAll();
 
 // Fetch referee preferences for weekend availability
 $refereePreferences = [];
@@ -58,7 +39,6 @@ while ($row = $refPrefsStmt->fetch(PDO::FETCH_ASSOC)) {
     ];
 }
 
-// Make refereePreferences globally accessible for referee_dropdown.php
 global $refereePreferences;
 
 // Fetch all future assignments for conflict checking
@@ -110,18 +90,17 @@ while ($m = $stmtAll->fetch(PDO::FETCH_ASSOC)) {
 }
 
 // Fetch matches
-// Build dynamic SQL with optional date filters
 $whereClauses = [];
 $params = [];
 
-// --- START: Role-based permission logic for initial query ---
+// Role-based permission logic for initial query
 $userRole = $_SESSION['user_role'] ?? null;
 $userDivisionIds = $_SESSION['division_ids'] ?? [];
 $userDistrictIds = $_SESSION['district_ids'] ?? [];
 
 $allowedDivisionNames = [];
 $allowedDistrictNames = [];
-$loadInitialMatches = true; // Flag to control if the initial query runs
+$loadInitialMatches = true;
 
 if ($userRole !== 'super_admin') {
     // Fetch allowed division names
@@ -142,23 +121,21 @@ if ($userRole !== 'super_admin') {
 
     if (empty($allowedDivisionNames) || empty($allowedDistrictNames)) {
         $loadInitialMatches = false;
-        $matches = []; // Ensure matches is empty if not loading
+        $matches = [];
     } else {
-        // Add permission-based WHERE clauses
         $divisionPlaceholders = implode(',', array_fill(0, count($allowedDivisionNames), '?'));
         $whereClauses[] = "m.division IN ($divisionPlaceholders)";
         foreach ($allowedDivisionNames as $name) {
             $params[] = $name;
         }
 
-        $districtPlaceholders = implode(',', array_fill(0, count($allowedDivisionNames), '?'));
+        $districtPlaceholders = implode(',', array_fill(0, count($allowedDistrictNames), '?'));
         $whereClauses[] = "m.district IN ($districtPlaceholders)";
         foreach ($allowedDistrictNames as $name) {
             $params[] = $name;
         }
     }
 }
-// --- END: Role-based permission logic ---
 
 // Pagination settings
 $matchesPerPage = 50;
@@ -180,7 +157,7 @@ if (!empty($_GET['end_date'])) {
 }
 foreach (['division', 'district', 'poule', 'location', 'referee_assigner'] as $filter) {
     if (!empty($_GET[$filter]) && is_array($_GET[$filter])) {
-        $placeholders = implode(',', array_fill(0, count($GET[$filter]), '?'));
+        $placeholders = implode(',', array_fill(0, count($_GET[$filter]), '?'));
         $whereClauses[] = "m.$filter IN ($placeholders)";
         foreach ($_GET[$filter] as $value) {
             $params[] = $value;
@@ -209,25 +186,37 @@ $sql = "
     LEFT JOIN users assigner_user ON m.referee_assigner_uuid = assigner_user.uuid
     $whereSQL
     ORDER BY m.match_date ASC, m.kickoff_time ASC
-    LIMIT :limit OFFSET :offset
+    LIMIT ? OFFSET ?
 ";
+
+// Append positional placeholders for LIMIT and OFFSET
+$params[] = $matchesPerPage;
+$params[] = $offset;
 
 $countSql = "SELECT COUNT(*) FROM matches m $whereSQL";
 
 if ($loadInitialMatches) {
     // Fetch total matches for pagination
     $countStmt = $pdo->prepare($countSql);
-    $countStmt->execute($params);
+    $paramIndex = 1;
+    foreach ($params as $value) {
+        if ($paramIndex <= count($params) - 2) { // Exclude LIMIT and OFFSET params for count query
+            $countStmt->bindValue($paramIndex, $value);
+            $paramIndex++;
+        }
+    }
+    $countStmt->execute();
     $totalMatches = (int)$countStmt->fetchColumn();
     $totalPages = ceil($totalMatches / $matchesPerPage);
 
     // Fetch matches for the current page
     $stmt = $pdo->prepare($sql);
-    $stmt->bindValue(':limit', $matchesPerPage, PDO::PARAM_INT);
-    $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
-    foreach ($params as $key => $value) {
-        $stmt->bindValue($key + 1, $value);
+    $paramIndex = 1;
+    foreach ($params as $value) {
+        $stmt->bindValue($paramIndex, $value, is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR);
+        $paramIndex++;
     }
+    error_log("Executing query: $sql with params: " . json_encode($params));
     $stmt->execute();
     $matches = $stmt->fetchAll();
 } else {
@@ -289,6 +278,7 @@ if ($loadInitialMatches && !empty($referees)) {
 }
 // --- END: Pre-computation ---
 ?>
+
     <div class="container-fluid">
         <div class="content-card">
             <h1>Matches</h1>
@@ -382,7 +372,6 @@ if ($loadInitialMatches && !empty($referees)) {
                                     </ul>
                                 </div>
                             </th>
-                            <!-- Remove location from table
                             <th>
                                 Location
                                 <div class="dropdown d-inline-block">
@@ -397,7 +386,6 @@ if ($loadInitialMatches && !empty($referees)) {
                                     </ul>
                                 </div>
                             </th>
-                            -->
                             <th>
                                 Referee Assigner
                                 <div class="dropdown d-inline-block">
@@ -421,33 +409,28 @@ if ($loadInitialMatches && !empty($referees)) {
                         <tbody id="matchesTableBody">
                         <?php foreach ($matches as $match): ?>
                             <tr>
-                                <td><a href="match_detail.php?uuid=<?= htmlspecialchars($match['uuid']) ?>" data-match-id="<?= htmlspecialchars($match['uuid']) ?>"><?= htmlspecialchars($match['match_date']) ?></a></td>
+                                <td><a href="match_detail.php?uuid=<?= htmlspecialchars($match['uuid']) ?>"><?= htmlspecialchars($match['match_date']) ?></a></td>
                                 <td><?= htmlspecialchars(substr($match['kickoff_time'], 0, 5)) ?></td>
                                 <td><?= htmlspecialchars($match['home_team_name']) ?></td>
                                 <td><?= htmlspecialchars($match['away_team_name']) ?></td>
                                 <td><?= htmlspecialchars($match['division']) ?></td>
                                 <td><?= htmlspecialchars($match['district']) ?></td>
                                 <td><?= htmlspecialchars($match['poule']) ?></td>
-<?php /*
-                                <!-- Edit out Location
                                 <td class="editable-cell location-cell"
                                     data-match-uuid="<?= htmlspecialchars($match['uuid']) ?>"
                                     data-field-type="location"
                                     data-current-value="<?= htmlspecialchars($match['location_uuid'] ?? '') ?>">
-                            <span class="cell-value">
-                                <?php
-                                $locationName = htmlspecialchars($match['location_name'] ?? 'N/A');
-                                $locationAddress = htmlspecialchars($match['location_address'] ?? '');
-                                $tooltip = '';
-                                if (!empty($locationAddress) && $locationName !== $locationAddress) {
-                                    $tooltip = 'title="' . $locationAddress . '"';
-                                }
-                                echo '<span ' . $tooltip . '>' . $locationName . '</span>';
-                                ?>
-                            </span>
-                            -->
- */ ?>
-
+                                <span class="cell-value">
+                                    <?php
+                                    $locationName = htmlspecialchars($match['location_name'] ?? 'N/A');
+                                    $locationAddress = htmlspecialchars($match['location_address'] ?? '');
+                                    $tooltip = '';
+                                    if (!empty($locationAddress) && $locationName !== $locationAddress) {
+                                        $tooltip = 'title="' . $locationAddress . '"';
+                                    }
+                                    echo '<span ' . $tooltip . '>' . $locationName . '</span>';
+                                    ?>
+                                </span>
                                     <i class="bi bi-pencil-square edit-icon"></i>
                                 </td>
                                 <td class="editable-cell"
@@ -457,18 +440,10 @@ if ($loadInitialMatches && !empty($referees)) {
                                     <span class="cell-value"><?= htmlspecialchars($match['referee_assigner_username'] ?? 'N/A') ?></span>
                                     <i class="bi bi-pencil-square edit-icon"></i>
                                 </td>
-                                <td class="<?= $assignMode ? 'referee-select-cell' : '' ?>">
-                                    <?php renderRefereeDropdown("referee_id", $match, $referees, $assignMode, $refereeSchedule_initial, $refereeAvailabilityCache_initial); ?>
-                                </td>
-                                <td class="<?= $assignMode ? 'referee-select-cell' : '' ?>">
-                                    <?php renderRefereeDropdown("ar1_id", $match, $referees, $assignMode, $refereeSchedule_initial, $refereeAvailabilityCache_initial); ?>
-                                </td>
-                                <td class="<?= $assignMode ? 'referee-select-cell' : '' ?>">
-                                    <?php renderRefereeDropdown("ar2_id", $match, $referees, $assignMode, $refereeSchedule_initial, $refereeAvailabilityCache_initial); ?>
-                                </td>
-                                <td class="<?= $assignMode ? 'referee-select-cell' : '' ?>">
-                                    <?php renderRefereeDropdown("commissioner_id", $match, $referees, $assignMode, $refereeSchedule_initial, $refereeAvailabilityCache_initial); ?>
-                                </td>
+                                <td class="<?= $assignMode ? 'referee-select-cell' : '' ?>"><?php renderRefereeDropdown("referee_id", $match, $referees, $assignMode, $refereeSchedule_initial, $refereeAvailabilityCache_initial); ?></td>
+                                <td class="<?= $assignMode ? 'referee-select-cell' : '' ?>"><?php renderRefereeDropdown("ar1_id", $match, $referees, $assignMode, $refereeSchedule_initial, $refereeAvailabilityCache_initial); ?></td>
+                                <td class="<?= $assignMode ? 'referee-select-cell' : '' ?>"><?php renderRefereeDropdown("ar2_id", $match, $referees, $assignMode, $refereeSchedule_initial, $refereeAvailabilityCache_initial); ?></td>
+                                <td class="<?= $assignMode ? 'referee-select-cell' : '' ?>"><?php renderRefereeDropdown("commissioner_id", $match, $referees, $assignMode, $refereeSchedule_initial, $refereeAvailabilityCache_initial); ?></td>
                             </tr>
                         <?php endforeach; ?>
                         </tbody>
@@ -497,7 +472,6 @@ if ($loadInitialMatches && !empty($referees)) {
                         <?php endif; ?>
                     </ul>
                 </nav>
-
             </form>
 
             <script>
