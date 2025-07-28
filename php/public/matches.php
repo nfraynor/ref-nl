@@ -382,6 +382,7 @@ if ($loadInitialMatches && !empty($referees)) {
                                     </ul>
                                 </div>
                             </th>
+                            <!-- Remove location from table
                             <th>
                                 Location
                                 <div class="dropdown d-inline-block">
@@ -396,6 +397,7 @@ if ($loadInitialMatches && !empty($referees)) {
                                     </ul>
                                 </div>
                             </th>
+                            -->
                             <th>
                                 Referee Assigner
                                 <div class="dropdown d-inline-block">
@@ -426,6 +428,8 @@ if ($loadInitialMatches && !empty($referees)) {
                                 <td><?= htmlspecialchars($match['division']) ?></td>
                                 <td><?= htmlspecialchars($match['district']) ?></td>
                                 <td><?= htmlspecialchars($match['poule']) ?></td>
+<?php /*
+                                <!-- Edit out Location
                                 <td class="editable-cell location-cell"
                                     data-match-uuid="<?= htmlspecialchars($match['uuid']) ?>"
                                     data-field-type="location"
@@ -441,6 +445,9 @@ if ($loadInitialMatches && !empty($referees)) {
                                 echo '<span ' . $tooltip . '>' . $locationName . '</span>';
                                 ?>
                             </span>
+                            -->
+ */ ?>
+
                                     <i class="bi bi-pencil-square edit-icon"></i>
                                 </td>
                                 <td class="editable-cell"
