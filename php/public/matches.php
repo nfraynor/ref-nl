@@ -5,6 +5,11 @@ include 'includes/header.php';
 include 'includes/nav.php';
 include 'components/referee_dropdown.php';
 
+// Enable error reporting for debugging (remove in production)
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
 $assignMode = isset($_GET['assign_mode']);
 $pdo = Database::getConnection();
 
@@ -12,15 +17,30 @@ function buildQueryString(array $overrides = []): string {
     return http_build_query(array_merge($_GET, $overrides));
 }
 
-$referees = $pdo->query("
-    SELECT 
-        uuid, 
-        first_name, 
-        last_name, 
-        grade
-    FROM referees 
-    ORDER BY first_name
-")->fetchAll();
+// Fetch referees with error handling
+try {
+    $refereesStmt = $pdo->query("
+        SELECT 
+            uuid, 
+            first_name, 
+            last_name, 
+            grade,
+            ar_grade
+        FROM referees 
+        ORDER BY first_name
+    ");
+    $referees = $refereesStmt->fetchAll(PDO::FETCH_ASSOC);
+    if (empty($referees)) {
+        error_log("No referees found in the database.");
+        echo "<div class='alert alert-warning'>No referees found in the database. Please check the referees table.</div>";
+    } else {
+        error_log("Found " . count($referees) . " referees.");
+    }
+} catch (PDOException $e) {
+    error_log("Referees query failed: " . $e->getMessage());
+    echo "<div class='alert alert-danger'>Database error fetching referees: " . htmlspecialchars($e->getMessage()) . "</div>";
+    $referees = [];
+}
 
 // Fetch referee preferences for weekend availability
 $refereePreferences = [];
@@ -37,6 +57,9 @@ while ($row = $refPrefsStmt->fetch(PDO::FETCH_ASSOC)) {
         'max_days_per_weekend' => $row['max_days_per_weekend']
     ];
 }
+
+// Make refereePreferences globally accessible for referee_dropdown.php
+global $refereePreferences;
 
 // Fetch all future assignments for conflict checking
 $allAssignments = [];
@@ -128,7 +151,7 @@ if ($userRole !== 'super_admin') {
             $params[] = $name;
         }
 
-        $districtPlaceholders = implode(',', array_fill(0, count($allowedDistrictNames), '?'));
+        $districtPlaceholders = implode(',', array_fill(0, count($allowedDivisionNames), '?'));
         $whereClauses[] = "m.district IN ($districtPlaceholders)";
         foreach ($allowedDistrictNames as $name) {
             $params[] = $name;
@@ -157,7 +180,7 @@ if (!empty($_GET['end_date'])) {
 }
 foreach (['division', 'district', 'poule', 'location', 'referee_assigner'] as $filter) {
     if (!empty($_GET[$filter]) && is_array($_GET[$filter])) {
-        $placeholders = implode(',', array_fill(0, count($_GET[$filter]), '?'));
+        $placeholders = implode(',', array_fill(0, count($GET[$filter]), '?'));
         $whereClauses[] = "m.$filter IN ($placeholders)";
         foreach ($_GET[$filter] as $value) {
             $params[] = $value;
@@ -219,7 +242,7 @@ if ($loadInitialMatches) {
     foreach ($matches as $match_item_initial) {
         $match_uuid_initial = $match_item_initial['uuid'];
         $match_date_for_schedule_initial = $match_item_initial['match_date'];
-        $kickoff_time_for_schedule_initial = $match_item_initial['kickoff_time'];
+        $match_kickoff_time_initial = $match_item_initial['kickoff_time'];
 
         foreach (['referee_id', 'ar1_id', 'ar2_id', 'commissioner_id'] as $role_key_initial) {
             if (!empty($match_item_initial[$role_key_initial])) {
@@ -230,7 +253,7 @@ if ($loadInitialMatches) {
                 $refereeSchedule_initial[$ref_id_for_schedule_initial][] = [
                     'match_id' => $match_uuid_initial,
                     'match_date_str' => $match_date_for_schedule_initial,
-                    'kickoff_time_str' => $match_item_initial['kickoff_time'],
+                    'kickoff_time_str' => $match_kickoff_time_initial,
                     'role' => $role_key_initial,
                     'location_uuid' => $match_item_initial['location_uuid']
                 ];
@@ -396,7 +419,7 @@ if ($loadInitialMatches && !empty($referees)) {
                         <tbody id="matchesTableBody">
                         <?php foreach ($matches as $match): ?>
                             <tr>
-                                <td><a href="match_detail.php?uuid=<?= htmlspecialchars($match['uuid']) ?>"><?= htmlspecialchars($match['match_date']) ?></a></td>
+                                <td><a href="match_detail.php?uuid=<?= htmlspecialchars($match['uuid']) ?>" data-match-id="<?= htmlspecialchars($match['uuid']) ?>"><?= htmlspecialchars($match['match_date']) ?></a></td>
                                 <td><?= htmlspecialchars(substr($match['kickoff_time'], 0, 5)) ?></td>
                                 <td><?= htmlspecialchars($match['home_team_name']) ?></td>
                                 <td><?= htmlspecialchars($match['away_team_name']) ?></td>
@@ -427,10 +450,18 @@ if ($loadInitialMatches && !empty($referees)) {
                                     <span class="cell-value"><?= htmlspecialchars($match['referee_assigner_username'] ?? 'N/A') ?></span>
                                     <i class="bi bi-pencil-square edit-icon"></i>
                                 </td>
-                                <td class="<?= $assignMode ? 'referee-select-cell' : '' ?>"><?php renderRefereeDropdown("referee_id", $match, $referees, $assignMode, $refereeSchedule_initial, $refereeAvailabilityCache_initial); ?></td>
-                                <td class="<?= $assignMode ? 'referee-select-cell' : '' ?>"><?php renderRefereeDropdown("ar1_id", $match, $referees, $assignMode, $refereeSchedule_initial, $refereeAvailabilityCache_initial); ?></td>
-                                <td class="<?= $assignMode ? 'referee-select-cell' : '' ?>"><?php renderRefereeDropdown("ar2_id", $match, $referees, $assignMode, $refereeSchedule_initial, $refereeAvailabilityCache_initial); ?></td>
-                                <td class="<?= $assignMode ? 'referee-select-cell' : '' ?>"><?php renderRefereeDropdown("commissioner_id", $match, $referees, $assignMode, $refereeSchedule_initial, $refereeAvailabilityCache_initial); ?></td>
+                                <td class="<?= $assignMode ? 'referee-select-cell' : '' ?>">
+                                    <?php renderRefereeDropdown("referee_id", $match, $referees, $assignMode, $refereeSchedule_initial, $refereeAvailabilityCache_initial); ?>
+                                </td>
+                                <td class="<?= $assignMode ? 'referee-select-cell' : '' ?>">
+                                    <?php renderRefereeDropdown("ar1_id", $match, $referees, $assignMode, $refereeSchedule_initial, $refereeAvailabilityCache_initial); ?>
+                                </td>
+                                <td class="<?= $assignMode ? 'referee-select-cell' : '' ?>">
+                                    <?php renderRefereeDropdown("ar2_id", $match, $referees, $assignMode, $refereeSchedule_initial, $refereeAvailabilityCache_initial); ?>
+                                </td>
+                                <td class="<?= $assignMode ? 'referee-select-cell' : '' ?>">
+                                    <?php renderRefereeDropdown("commissioner_id", $match, $referees, $assignMode, $refereeSchedule_initial, $refereeAvailabilityCache_initial); ?>
+                                </td>
                             </tr>
                         <?php endforeach; ?>
                         </tbody>

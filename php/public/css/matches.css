@@ -163,3 +163,25 @@
     box-shadow: 0 2px 4px rgba(0,0,0,0.05);
     border-radius: 8px;
 }
+
+.conflict-red {
+    background-color: red;
+    color: white;
+    padding: 2px 5px;
+    border-radius: 3px;
+}
+.conflict-orange {
+    background-color: orange;
+    color: black;
+    padding: 2px 5px;
+    border-radius: 3px;
+}
+.conflict-yellow {
+    background-color: yellow;
+    color: black;
+    padding: 2px 5px;
+    border-radius: 3px;
+}
+.referee-display {
+    display: inline-block;
+}

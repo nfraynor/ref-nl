@@ -18,7 +18,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function getLiveAssignments() {
         const liveAssignments = [];
 
-        document.querySelectorAll('select').forEach(select => {
+        document.querySelectorAll('select.referee-select').forEach(select => {
             const matchId = select.name.match(/\[(.*?)\]/)[1];
             const role = select.name.match(/\[(.*?)\]\[(.*?)\]/)[2];
             const selectedRef = select.value;
@@ -60,14 +60,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     const otherEnd = new Date(otherStart.getTime() + 90 * 60000);
 
                     if (currentStart < otherEnd && otherStart < currentEnd) {
-                        conflict = 'red'; // Overlapping matches
-                    } else if (conflict !== 'red') {
-                        conflict = 'orange'; // Same day, non-overlapping
+                        conflict = { level: 'red', reason: `Overlapping match on ${assign.matchDate} at ${assign.kickoffTime}` };
+                    } else if (conflict?.level !== 'red') {
+                        conflict = { level: 'orange', reason: `Same-day match on ${assign.matchDate} at ${assign.kickoffTime}` };
                     }
-                } else if (Math.abs(dayDiff) <= 2) {
-                    if (conflict !== 'red' && conflict !== 'orange') {
-                        conflict = 'yellow';
-                    }
+                } else if (Math.abs(dayDiff) <= 2 && !conflict) {
+                    conflict = { level: 'yellow', reason: `Match within 2 days on ${assign.matchDate} at ${assign.kickoffTime}` };
                 }
             }
         });
@@ -89,12 +87,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Check total matches (hard limit of 3)
         if (weekendAssignments.length >= 3) {
-            return 'yellow';
+            return { level: 'yellow', reason: 'Exceeds 3 matches per weekend' };
         }
 
         // Check max matches per weekend
         if (maxMatches === 1 && weekendAssignments.length >= 1) {
-            return 'yellow';
+            return { level: 'yellow', reason: 'Exceeds max 1 match per weekend' };
         }
 
         // Check max days per weekend
@@ -102,7 +100,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const uniqueDays = new Set(weekendAssignments.map(a => a.matchDate));
             const isNewDay = !uniqueDays.has(matchDate);
             if (isNewDay && uniqueDays.size >= 1) {
-                return 'yellow';
+                return { level: 'yellow', reason: 'Exceeds max 1 day per weekend' };
             }
         }
 
@@ -110,104 +108,115 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function refreshConflicts(changedSelect, previousRefereeId) {
-        const currentRefereeId = changedSelect.value;
+        const currentRefereeId = changedSelect?.value;
         const liveAssignments = getLiveAssignments();
 
-        console.log(`--- Refresh Start --- Changed: ${changedSelect.name}, Prev Ref: ${previousRefereeId}, Curr Ref: ${currentRefereeId}`);
+        console.log(`--- Refresh Start --- Changed: ${changedSelect?.name || 'initial'}, Prev Ref: ${previousRefereeId || 'none'}, Curr Ref: ${currentRefereeId || 'none'}`);
 
-        const updateSpecificSelect = (selectToEvaluate) => {
-            const refereeIdForThisSelect = selectToEvaluate.value;
-            const matchIdMatch = selectToEvaluate.name.match(/\[(.*?)\]/);
-            if (!matchIdMatch || !matchIdMatch[1]) {
-                console.error("Could not extract matchId from select name:", selectToEvaluate.name);
-                return;
-            }
-            const matchId = matchIdMatch[1];
+        const updateSpecificElement = (element, isSelect = true) => {
+            const refereeIdForThisElement = isSelect ? element.value : element.dataset.refereeId;
+            if (!refereeIdForThisElement) return;
 
-            const matchRow = selectToEvaluate.closest('tr');
+            const matchRow = element.closest('tr');
             if (!matchRow) {
-                console.error("Could not find match row for select:", selectToEvaluate);
+                console.error("Could not find match row for element:", element);
                 return;
             }
-            const matchDateElem = matchRow.querySelector('td:nth-child(1)');
-            const kickoffTimeElem = matchRow.querySelector('td:nth-child(2)');
+            const matchId = isSelect ? element.name.match(/\[(.*?)\]/)[1] : element.dataset.matchId;
+            const matchDate = matchRow.querySelector('td:nth-child(1)')?.innerText;
+            const kickoffTime = matchRow.querySelector('td:nth-child(2)')?.innerText;
 
-            if (!matchDateElem || !kickoffTimeElem) {
-                console.error("Could not find date/time elements for select:", selectToEvaluate.name, "in row:", matchRow);
+            if (!matchId || !matchDate || !kickoffTime) {
+                console.error("Could not extract matchId/date/time for element:", element);
                 return;
             }
-            const matchDate = matchDateElem.innerText;
-            const kickoffTime = kickoffTimeElem.innerText;
 
             let conflict = null;
             const severity = { red: 3, orange: 2, yellow: 1, null: 0 };
 
-            const $select = $(selectToEvaluate);
-            const $container = $select.next('.select2-container').find('.select2-selection');
+            const $element = $(element);
+            const $container = isSelect ? $element.next('.select2-container').find('.select2-selection') : $element;
 
-            // Reset style first
+            // Reset style
             $container.css({ backgroundColor: '', color: '' });
+            if (!isSelect) {
+                $container.removeClass('conflict-red conflict-orange conflict-yellow');
+                $container.attr('title', 'No conflicts');
+            }
 
-            if (refereeIdForThisSelect) {
-                // Time-based conflicts
-                const initialConflict = checkConflict(matchId, matchDate, kickoffTime, refereeIdForThisSelect, existingAssignments);
-                const dynamicConflict = checkConflict(matchId, matchDate, kickoffTime, refereeIdForThisSelect, liveAssignments);
+            // Time-based conflicts
+            const initialConflict = checkConflict(matchId, matchDate, kickoffTime, refereeIdForThisElement, existingAssignments);
+            const dynamicConflict = checkConflict(matchId, matchDate, kickoffTime, refereeIdForThisElement, liveAssignments);
 
-                if (dynamicConflict === 'red' || initialConflict === 'red') {
-                    conflict = 'red';
-                } else if (dynamicConflict === 'orange' || initialConflict === 'orange') {
-                    if (severity[conflict] < severity['orange']) conflict = 'orange';
-                } else if (dynamicConflict === 'yellow' || initialConflict === 'yellow') {
-                    if (severity[conflict] < severity['yellow']) conflict = 'yellow';
+            if (dynamicConflict?.level === 'red' || initialConflict?.level === 'red') {
+                conflict = dynamicConflict || initialConflict;
+            } else if (dynamicConflict?.level === 'orange' || initialConflict?.level === 'orange') {
+                if (severity[conflict?.level || 'null'] < severity['orange']) conflict = dynamicConflict || initialConflict;
+            } else if (dynamicConflict?.level === 'yellow' || initialConflict?.level === 'yellow') {
+                if (severity[conflict?.level || 'null'] < severity['yellow']) conflict = dynamicConflict || initialConflict;
+            }
+
+            // Weekend limits check
+            if (window.refereePreferences && (window.refereePreferences[refereeIdForThisElement]?.max_matches_per_weekend !== undefined ||
+                window.refereePreferences[refereeIdForThisElement]?.max_days_per_weekend !== undefined)) {
+                const maxMatches = window.refereePreferences[refereeIdForThisElement].max_matches_per_weekend;
+                const maxDays = window.refereePreferences[refereeIdForThisElement].max_days_per_weekend;
+                const combinedAssignments = [...existingAssignments, ...liveAssignments];
+                const weekendConflict = checkWeekendLimits(matchId, matchDate, refereeIdForThisElement, combinedAssignments, maxMatches, maxDays);
+                if (weekendConflict && severity[weekendConflict.level] > severity[conflict?.level || 'null']) {
+                    conflict = weekendConflict;
                 }
+            }
 
-                // Weekend limits check
-                if (window.refereePreferences && (window.refereePreferences[refereeIdForThisSelect]?.max_matches_per_weekend !== undefined ||
-                    window.refereePreferences[refereeIdForThisSelect]?.max_days_per_weekend !== undefined)) {
-                    const maxMatches = window.refereePreferences[refereeIdForThisSelect].max_matches_per_weekend;
-                    const maxDays = window.refereePreferences[refereeIdForThisSelect].max_days_per_weekend;
-                    const combinedAssignments = [...existingAssignments, ...liveAssignments];
-                    const weekendConflict = checkWeekendLimits(matchId, matchDate, refereeIdForThisSelect, combinedAssignments, maxMatches, maxDays);
-                    if (weekendConflict && severity[weekendConflict] > severity[conflict]) {
-                        conflict = weekendConflict;
-                    }
-                }
-
-                // Duplicate roles check
-                const sameMatchLiveAssignments = liveAssignments.filter(a => a.matchId === matchId && a.refereeId === refereeIdForThisSelect);
+            // Duplicate roles check (only for select elements)
+            if (isSelect) {
+                const sameMatchLiveAssignments = liveAssignments.filter(a => a.matchId === matchId && a.refereeId === refereeIdForThisElement);
                 if (sameMatchLiveAssignments.length > 1) {
-                    conflict = 'red';
+                    conflict = { level: 'red', reason: 'Assigned multiple roles in the same match' };
                 }
+            }
 
-                // Apply styles
-                if (conflict === 'yellow') {
+            // Apply styles
+            if (conflict) {
+                if (conflict.level === 'yellow') {
                     $container.css({ backgroundColor: 'yellow', color: 'black' });
-                } else if (conflict === 'orange') {
+                    if (!isSelect) $container.addClass('conflict-yellow');
+                } else if (conflict.level === 'orange') {
                     $container.css({ backgroundColor: 'orange', color: 'black' });
-                } else if (conflict === 'red') {
+                    if (!isSelect) $container.addClass('conflict-orange');
+                } else if (conflict.level === 'red') {
                     $container.css({ backgroundColor: 'red', color: 'white' });
+                    if (!isSelect) $container.addClass('conflict-red');
+                }
+                if (!isSelect) {
+                    $container.attr('title', conflict.reason);
                 }
             }
         };
 
-        // Three-Stage Update
-        updateSpecificSelect(changedSelect);
-
-        if (previousRefereeId && previousRefereeId !== currentRefereeId) {
-            document.querySelectorAll('select.referee-select').forEach(s => {
-                if (s !== changedSelect && s.value === previousRefereeId) {
-                    updateSpecificSelect(s);
-                }
-            });
+        // Update select elements (assign mode)
+        if (changedSelect) {
+            updateSpecificElement(changedSelect, true);
+            if (previousRefereeId && previousRefereeId !== currentRefereeId) {
+                document.querySelectorAll('select.referee-select').forEach(s => {
+                    if (s !== changedSelect && s.value === previousRefereeId) {
+                        updateSpecificElement(s, true);
+                    }
+                });
+            }
+            if (currentRefereeId) {
+                document.querySelectorAll('select.referee-select').forEach(s => {
+                    if (s !== changedSelect && s.value === currentRefereeId) {
+                        updateSpecificElement(s, true);
+                    }
+                });
+            }
         }
 
-        if (currentRefereeId) {
-            document.querySelectorAll('select.referee-select').forEach(s => {
-                if (s !== changedSelect && s.value === currentRefereeId) {
-                    updateSpecificSelect(s);
-                }
-            });
-        }
+        // Update display elements (non-assign mode)
+        document.querySelectorAll('.referee-display[data-referee-id]').forEach(span => {
+            updateSpecificElement(span, false);
+        });
     }
 
     let selectPreviousValues = {};
@@ -240,13 +249,13 @@ document.addEventListener('DOMContentLoaded', () => {
     window.checkWeekendLimits = checkWeekendLimits;
 
     function safeRefreshConflicts(attempts = 10) {
-        if ($('.select2-container').length > 0 && $('select.referee-select').length > 0) {
+        if ($('.select2-container').length > 0 || $('.referee-display').length > 0) {
             console.log("Attempting initial safe refresh conflicts...");
             const allRefereeSelects = Array.from(document.querySelectorAll('select.referee-select'));
+            const allRefereeDisplays = Array.from(document.querySelectorAll('.referee-display[data-referee-id]'));
 
             allRefereeSelects.forEach(selectElement => {
                 selectPreviousValues[selectElement.name] = selectElement.value;
-
                 if (selectElement.value) {
                     refreshConflicts(selectElement, selectElement.value);
                 } else {
@@ -258,7 +267,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
 
-            console.log("Initial safe refresh complete for " + allRefereeSelects.length + " select elements. Previous values map:", selectPreviousValues);
+            allRefereeDisplays.forEach(displayElement => {
+                updateSpecificElement(displayElement, false);
+            });
+
+            console.log("Initial safe refresh complete for " + (allRefereeSelects.length + allRefereeDisplays.length) + " elements. Previous values map:", selectPreviousValues);
+
+            // Initialize Bootstrap tooltips
+            if (typeof bootstrap !== 'undefined' && bootstrap.Tooltip) {
+                document.querySelectorAll('[data-toggle="tooltip"]').forEach(element => {
+                    new bootstrap.Tooltip(element);
+                });
+            }
         } else if (attempts > 0) {
             setTimeout(() => safeRefreshConflicts(attempts - 1), 50);
         }
