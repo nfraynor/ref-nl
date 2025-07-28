@@ -190,8 +190,6 @@ if ($referee && isset($referee['uuid'])) { // Ensure $currentRefereeUuid is avai
                     <h1>Referee Details:
                         <span data-field="first_name" data-original-value="<?= htmlspecialchars($referee['first_name']) ?>"><?= htmlspecialchars($referee['first_name']) ?></span>
                         <span data-field="last_name" data-original-value="<?= htmlspecialchars($referee['last_name']) ?>"><?= htmlspecialchars($referee['last_name']) ?></span>
-                        <i class="bi bi-pencil-square edit-icon" data-field="first_name" style="cursor:pointer; font-size:0.8em; margin-left: 5px;"></i>
-                        <i class="bi bi-pencil-square edit-icon" data-field="last_name" style="cursor:pointer; font-size:0.8em; margin-left: 5px;"></i>
                     </h1>
                 </div>
                 <div class="card-body">
@@ -202,55 +200,55 @@ if ($referee && isset($referee['uuid'])) { // Ensure $currentRefereeUuid is avai
 
                         <dt class="col-sm-3">First Name</dt>
                         <dd class="col-sm-9 editable-field">
-                            <span class="display-value" data-field="first_name"><?= htmlspecialchars($referee['first_name']) ?></span>
+                            <span class="display-value" data-field="first_name"><?= htmlspecialchars($referee['first_name'] ?? '') ?></span>
                             <i class="bi bi-pencil-square edit-icon" data-field="first_name" style="cursor:pointer; margin-left: 5px;"></i>
                         </dd>
 
                         <dt class="col-sm-3">Last Name</dt>
                         <dd class="col-sm-9 editable-field">
-                            <span class="display-value" data-field="last_name"><?= htmlspecialchars($referee['last_name']) ?></span>
+                            <span class="display-value" data-field="last_name"><?= htmlspecialchars($referee['last_name'] ?? '') ?></span>
                             <i class="bi bi-pencil-square edit-icon" data-field="last_name" style="cursor:pointer; margin-left: 5px;"></i>
                         </dd>
 
                         <dt class="col-sm-3">Email</dt>
                         <dd class="col-sm-9 editable-field">
-                            <span class="display-value" data-field="email"><?= htmlspecialchars($referee['email']) ?></span>
+                            <span class="display-value" data-field="email"><?= htmlspecialchars($referee['email'] ?? '') ?></span>
                             <i class="bi bi-pencil-square edit-icon" data-field="email" style="cursor:pointer; margin-left: 5px;"></i>
                         </dd>
 
                         <dt class="col-sm-3">Phone</dt>
                         <dd class="col-sm-9 editable-field">
-                            <span class="display-value" data-field="phone"><?= htmlspecialchars($referee['phone']) ?></span>
+                            <span class="display-value" data-field="phone"><?= htmlspecialchars($referee['phone'] ?? '') ?></span>
                             <i class="bi bi-pencil-square edit-icon" data-field="phone" style="cursor:pointer; margin-left: 5px;"></i>
                         </dd>
 
                         <dt class="col-sm-3">Club</dt>
-                        <dd class="col-sm-9 editable-field" data-current-club-id="<?= htmlspecialchars($referee['home_club_id']) ?>">
-                            <span class="display-value" data-field="home_club_id"><?= htmlspecialchars($referee['club_name']) ?></span>
+                        <dd class="col-sm-9 editable-field" data-current-club-id="<?= htmlspecialchars($referee['home_club_id'] ?? '') ?>">
+                            <span class="display-value" data-field="home_club_id"><?= htmlspecialchars($referee['club_name'] ?? '') ?></span>
                             <i class="bi bi-pencil-square edit-icon" data-field="home_club_id" style="cursor:pointer; margin-left: 5px;"></i>
                         </dd>
 
                         <dt class="col-sm-3">City</dt>
                         <dd class="col-sm-9 editable-field">
-                            <span class="display-value" data-field="home_location_city"><?= htmlspecialchars($referee['home_location_city']) ?></span>
+                            <span class="display-value" data-field="home_location_city"><?= htmlspecialchars($referee['home_location_city'] ?? '') ?></span>
                             <i class="bi bi-pencil-square edit-icon" data-field="home_location_city" style="cursor:pointer; margin-left: 5px;"></i>
                         </dd>
 
                         <dt class="col-sm-3">District</dt>
-                        <dd class="col-sm-9 editable-field" data-current-district-id="<?= htmlspecialchars($referee['district_id']) ?>">
+                        <dd class="col-sm-9 editable-field" data-current-district-id="<?= htmlspecialchars($referee['district_id'] ?? '') ?>">
                             <span class="display-value" data-field="district_id"><?= htmlspecialchars($referee['district_name'] ?? 'N/A') ?></span>
                             <i class="bi bi-pencil-square edit-icon" data-field="district_id" style="cursor:pointer; margin-left: 5px;"></i>
                         </dd>
 
                         <dt class="col-sm-3">Grade</dt>
                         <dd class="col-sm-9 editable-field">
-                            <span class="display-value" data-field="grade"><?= htmlspecialchars($referee['grade']) ?></span>
+                            <span class="display-value" data-field="grade"><?= htmlspecialchars($referee['grade'] ?? '') ?></span>
                             <i class="bi bi-pencil-square edit-icon" data-field="grade" style="cursor:pointer; margin-left: 5px;"></i>
                         </dd>
 
                         <dt class="col-sm-3">AR Grade</dt>
                         <dd class="col-sm-9 editable-field">
-                            <span class="display-value" data-field="ar_grade"><?= htmlspecialchars($referee['ar_grade']) ?></span>
+                            <span class="display-value" data-field="ar_grade"><?= htmlspecialchars($referee['ar_grade'] ?? '') ?></span>
                             <i class="bi bi-pencil-square edit-icon" data-field="ar_grade" style="cursor:pointer; margin-left: 5px;"></i>
                         </dd>
 

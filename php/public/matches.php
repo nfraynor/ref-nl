@@ -232,23 +232,23 @@ if ($loadInitialMatches && !empty($referees)) { // Only compute if matches were 
             <a href="export_matches.php?<?= buildQueryString([]) ?>" class="btn btn-sm btn-info-action mb-3 ms-2">Export to Excel (CSV)</a>
             <a href="assign_assigner.php" class="btn btn-sm btn-primary-action mb-3 ms-2">Assign Assigner</a>
 
-            <?php if ($assignMode): ?>
-                <button type="submit" class="btn btn-main-action sticky-assign-button">Save Assignments</button>
-            <?php endif; ?>
-            <div class="table-responsive-custom">
-                <table class="table table-bordered">
-                    <thead>
-                    <tr>
-                        <th>
-                            Date
-                            <div class="d-flex flex-column mt-1">
-                                <div class="d-flex flex-column gap-1 mt-1">
-                                    <input type="date" class="form-control form-control-sm" id="ajaxStartDate" value="<?= htmlspecialchars($_GET['start_date'] ?? '') ?>">
-                                    <input type="date" class="form-control form-control-sm" id="ajaxEndDate" value="<?= htmlspecialchars($_GET['end_date'] ?? '') ?>">
+            <form method="POST" action="bulk_assign.php">
+                <?php if ($assignMode): ?>
+                    <button type="submit" class="btn btn-main-action sticky-assign-button">Save Assignments</button>
+                <?php endif; ?>
+                <div class="table-responsive-custom">
+                    <table class="table table-bordered">
+                        <thead>
+                        <tr>
+                            <th>
+                                Date
+                                <div class="d-flex flex-column mt-1">
+                                    <div class="d-flex flex-column gap-1 mt-1">
+                                        <input type="date" class="form-control form-control-sm" id="ajaxStartDate" value="<?= htmlspecialchars($_GET['start_date'] ?? '') ?>">
+                                        <input type="date" class="form-control form-control-sm" id="ajaxEndDate" value="<?= htmlspecialchars($_GET['end_date'] ?? '') ?>">
+                                    </div>
                                 </div>
-                            </div>
-                        </th>
-                        <form method="POST" action="bulk_assign.php">
+                            </th>
                             <th>Kickoff</th>
                             <th>Home Team</th>
                             <th>Away Team</th>
@@ -328,22 +328,22 @@ if ($loadInitialMatches && !empty($referees)) { // Only compute if matches were 
                             <th>AR1</th>
                             <th>AR2</th>
                             <th>Commissioner</th>
-                    </tr>
-                    </thead>
-                    <tbody id="matchesTableBody">
-                    <?php foreach ($matches as $match): ?>
-                        <tr>
-                            <td><a href="match_detail.php?uuid=<?= htmlspecialchars($match['uuid']) ?>"><?= htmlspecialchars($match['match_date']) ?></a></td>
-                            <td><?= htmlspecialchars(substr($match['kickoff_time'], 0, 5)) ?></td>
-                            <td><?= htmlspecialchars($match['home_team_name']) ?></td>
-                            <td><?= htmlspecialchars($match['away_team_name']) ?></td>
-                            <td><?= htmlspecialchars($match['division']) ?></td>
-                            <td><?= htmlspecialchars($match['district']) ?></td>
-                            <td><?= htmlspecialchars($match['poule']) ?></td>
-                            <td class="editable-cell location-cell"
-                                data-match-uuid="<?= htmlspecialchars($match['uuid']) ?>"
-                                data-field-type="location"
-                                data-current-value="<?= htmlspecialchars($match['location_uuid'] ?? '') ?>">
+                        </tr>
+                        </thead>
+                        <tbody id="matchesTableBody">
+                        <?php foreach ($matches as $match): ?>
+                            <tr>
+                                <td><a href="match_detail.php?uuid=<?= htmlspecialchars($match['uuid']) ?>"><?= htmlspecialchars($match['match_date']) ?></a></td>
+                                <td><?= htmlspecialchars(substr($match['kickoff_time'], 0, 5)) ?></td>
+                                <td><?= htmlspecialchars($match['home_team_name']) ?></td>
+                                <td><?= htmlspecialchars($match['away_team_name']) ?></td>
+                                <td><?= htmlspecialchars($match['division']) ?></td>
+                                <td><?= htmlspecialchars($match['district']) ?></td>
+                                <td><?= htmlspecialchars($match['poule']) ?></td>
+                                <td class="editable-cell location-cell"
+                                    data-match-uuid="<?= htmlspecialchars($match['uuid']) ?>"
+                                    data-field-type="location"
+                                    data-current-value="<?= htmlspecialchars($match['location_uuid'] ?? '') ?>">
                             <span class="cell-value">
                                 <?php
                                 $locationName = htmlspecialchars($match['location_name'] ?? 'N/A');
@@ -355,51 +355,48 @@ if ($loadInitialMatches && !empty($referees)) { // Only compute if matches were 
                                 echo '<span ' . $tooltip . '>' . $locationName . '</span>';
                                 ?>
                             </span>
-                                <i class="bi bi-pencil-square edit-icon"></i>
-                            </td>
-                            <td class="editable-cell"
-                                data-match-uuid="<?= htmlspecialchars($match['uuid']) ?>"
-                                data-field-type="referee_assigner"
-                                data-current-value="<?= htmlspecialchars($match['referee_assigner_uuid'] ?? '') ?>">
-                                <span class="cell-value"><?= htmlspecialchars($match['referee_assigner_username'] ?? 'N/A') ?></span>
-                                <i class="bi bi-pencil-square edit-icon"></i>
-                            </td>
-                            <td class="<?= $assignMode ? 'referee-select-cell' : '' ?>"><?php renderRefereeDropdown("referee_id", $match, $referees, $assignMode, $refereeSchedule_initial, $refereeAvailabilityCache_initial); ?></td>
-                            <td class="<?= $assignMode ? 'referee-select-cell' : '' ?>"><?php renderRefereeDropdown("ar1_id", $match, $referees, $assignMode, $refereeSchedule_initial, $refereeAvailabilityCache_initial); ?></td>
-                            <td class="<?= $assignMode ? 'referee-select-cell' : '' ?>"><?php renderRefereeDropdown("ar2_id", $match, $referees, $assignMode, $refereeSchedule_initial, $refereeAvailabilityCache_initial); ?></td>
-                            <td class="<?= $assignMode ? 'referee-select-cell' : '' ?>"><?php renderRefereeDropdown("commissioner_id", $match, $referees, $assignMode, $refereeSchedule_initial, $refereeAvailabilityCache_initial); ?></td>
-                        </tr>
-                    <?php endforeach; ?>
-                    </tbody>
-                </table>
-            </div>
+                                    <i class="bi bi-pencil-square edit-icon"></i>
+                                </td>
+                                <td class="editable-cell"
+                                    data-match-uuid="<?= htmlspecialchars($match['uuid']) ?>"
+                                    data-field-type="referee_assigner"
+                                    data-current-value="<?= htmlspecialchars($match['referee_assigner_uuid'] ?? '') ?>">
+                                    <span class="cell-value"><?= htmlspecialchars($match['referee_assigner_username'] ?? 'N/A') ?></span>
+                                    <i class="bi bi-pencil-square edit-icon"></i>
+                                </td>
+                                <td class="<?= $assignMode ? 'referee-select-cell' : '' ?>"><?php renderRefereeDropdown("referee_id", $match, $referees, $assignMode, $refereeSchedule_initial, $refereeAvailabilityCache_initial); ?></td>
+                                <td class="<?= $assignMode ? 'referee-select-cell' : '' ?>"><?php renderRefereeDropdown("ar1_id", $match, $referees, $assignMode, $refereeSchedule_initial, $refereeAvailabilityCache_initial); ?></td>
+                                <td class="<?= $assignMode ? 'referee-select-cell' : '' ?>"><?php renderRefereeDropdown("ar2_id", $match, $referees, $assignMode, $refereeSchedule_initial, $refereeAvailabilityCache_initial); ?></td>
+                                <td class="<?= $assignMode ? 'referee-select-cell' : '' ?>"><?php renderRefereeDropdown("commissioner_id", $match, $referees, $assignMode, $refereeSchedule_initial, $refereeAvailabilityCache_initial); ?></td>
+                            </tr>
+                        <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
 
-            <!-- Pagination Controls will be loaded here via AJAX -->
-            <nav aria-label="Page navigation" id="paginationControls">
-                <ul class="pagination justify-content-center">
-                    <?php if ($currentPage > 1): ?>
-                        <li class="page-item">
-                            <a class="page-link" href="#" data-page="<?= $currentPage - 1 ?>">Previous</a>
-                        </li>
-                    <?php endif; ?>
+                <!-- Pagination Controls will be loaded here via AJAX -->
+                <nav aria-label="Page navigation" id="paginationControls">
+                    <ul class="pagination justify-content-center">
+                        <?php if ($currentPage > 1): ?>
+                            <li class="page-item">
+                                <a class="page-link" href="#" data-page="<?= $currentPage - 1 ?>">Previous</a>
+                            </li>
+                        <?php endif; ?>
 
-                    <?php for ($i = 1; $i <= $totalPages; $i++): ?>
-                        <li class="page-item <?= ($i == $currentPage) ? 'active' : '' ?>">
-                            <a class="page-link" href="#" data-page="<?= $i ?>"><?= $i ?></a>
-                        </li>
-                    <?php endfor; ?>
+                        <?php for ($i = 1; $i <= $totalPages; $i++): ?>
+                            <li class="page-item <?= ($i == $currentPage) ? 'active' : '' ?>">
+                                <a class="page-link" href="#" data-page="<?= $i ?>"><?= $i ?></a>
+                            </li>
+                        <?php endfor; ?>
 
-                    <?php if ($currentPage < $totalPages): ?>
-                        <li class="page-item">
-                            <a class="page-link" href="#" data-page="<?= $currentPage + 1 ?>">Next</a>
-                        </li>
-                    <?php endif; ?>
-                </ul>
-            </nav>
+                        <?php if ($currentPage < $totalPages): ?>
+                            <li class="page-item">
+                                <a class="page-link" href="#" data-page="<?= $currentPage + 1 ?>">Next</a>
+                            </li>
+                        <?php endif; ?>
+                    </ul>
+                </nav>
 
-            <?php if ($assignMode): ?>
-                <button type="submit" class="btn btn-main-action" style="position: fixed; bottom: 20px; right: 20px; z-index: 999;">Save Assignments</button>
-            <?php endif; ?>
             </form>
 
             <script>
