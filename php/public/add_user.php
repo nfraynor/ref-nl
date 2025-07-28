@@ -17,7 +17,7 @@ $success_message = '';
 
 // Variables to hold form data on POST to repopulate the form
 $username_form = '';
-$global_role_form = 'none'; // Default to 'none'
+$global_role_form = 'none';
 $user_district_ids_form = [];
 
 try {
@@ -185,7 +185,7 @@ require_once 'includes/nav.php';
                         <label class="form-label">Select Districts (Access to associated divisions is implied)</label>
                         <?php if (!empty($districts)): ?>
                             <div class="table-responsive">
-                                <table class="table table-striped table-bordered table-hover">
+                                <table class="table table-striped table-bordered table-hover district-permissions-table">
                                     <thead>
                                     <tr>
                                         <th scope="col">Division</th>
@@ -211,8 +211,8 @@ require_once 'includes/nav.php';
                                     ksort($districts_by_division); // Sort by division ID
                                     ?>
                                     <?php foreach ($districts_by_division as $div_id => $div_data): ?>
-                                        <tr class="table-primary">
-                                            <td colspan="3" class="fw-bold"><?php echo htmlspecialchars($div_data['name']); ?></td>
+                                        <tr class="division-header">
+                                            <td colspan="3"><?php echo htmlspecialchars($div_data['name']); ?></td>
                                         </tr>
                                         <?php foreach ($div_data['districts'] as $district): ?>
                                             <tr>
