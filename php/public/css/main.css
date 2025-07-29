@@ -402,3 +402,35 @@ h1 .edit-icon:hover {
 .hide-this {
    /*display:none !important;*/
 }
+
+.pagination {
+    margin-top: 20px;
+}
+
+.pagination .page-item .page-link {
+    color: #333;
+    background-color: #fff;
+    border: 1px solid #ddd;
+}
+
+.pagination .page-item.active .page-link {
+    z-index: 1;
+    color: #fff;
+    background-color: #007bff;
+    border-color: #007bff;
+}
+
+.pagination .page-item.disabled .page-link {
+    color: #6c757d;
+    pointer-events: none;
+    cursor: auto;
+    background-color: #fff;
+    border-color: #ddd;
+}
+
+.pagination .page-item .page-link:hover {
+    color: #0056b3;
+    text-decoration: none;
+    background-color: #e9ecef;
+    border-color: #ddd;
+}
