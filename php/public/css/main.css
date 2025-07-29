@@ -434,3 +434,4 @@ h1 .edit-icon:hover {
     background-color: #e9ecef;
     border-color: #ddd;
 }
+.hide-this{ display:none!important; }
