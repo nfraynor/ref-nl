@@ -314,7 +314,7 @@ foreach ($matches as $match): ?>
         <td><?= htmlspecialchars($match['division']) ?></td>
         <td><?= htmlspecialchars($match['district']) ?></td>
         <td><?= htmlspecialchars($match['poule']) ?></td>
-        <td class="editable-cell"
+        <td class="editable-cell hide-this"
             data-match-uuid="<?= htmlspecialchars($match['uuid']) ?>"
             data-field-type="location"
             data-current-value="<?= htmlspecialchars($match['location_uuid'] ?? '') ?>">
@@ -331,6 +331,7 @@ foreach ($matches as $match): ?>
             </span>
             <i class="bi bi-pencil-square edit-icon" style="display: none;"></i>
         </td>
+
         <td class="editable-cell"
             data-match-uuid="<?= htmlspecialchars($match['uuid']) ?>"
             data-field-type="referee_assigner"

@@ -308,6 +308,9 @@ body {
     text-decoration: underline;
 }
 
+.content-card table a        { color: #0069d9; }
+.content-card table a:hover  { color: #0056b3; text-decoration: underline; }
+
 .false-a {
     color: white !important;
     font-weight: 500 !important;
@@ -394,4 +397,8 @@ h1 .edit-icon:hover {
 /* Checkbox alignment */
 .content-card .form-check-input {
     margin-top: 0.3rem;
+}
+
+.hide-this {
+   /*display:none !important;*/
 }

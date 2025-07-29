@@ -330,7 +330,7 @@ if ($loadInitialMatches && !empty($referees)) {
                             <th>
                                 Division
                                 <div class="dropdown d-inline-block">
-                                    <button type="button" class="btn-sm btn-outline-secondary dropdown-toggle" id="divisionFilterToggle" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+                                    <button type="button" class="btn-sm btn-outline-secondary dropdown-toggle" id="divisionFilterToggle" data-bs-container="body" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
                                         <i class="bi bi-filter"></i>
                                     </button>
                                     <ul id="divisionFilterBox" class="dropdown-menu scrollable shadow rounded" aria-labelledby="divisionFilterToggle">
@@ -346,7 +346,7 @@ if ($loadInitialMatches && !empty($referees)) {
                             <th>
                                 District
                                 <div class="dropdown d-inline-block">
-                                    <button type="button" class="btn-sm btn-outline-secondary dropdown-toggle" id="districtFilterToggle" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+                                    <button type="button" class="btn-sm btn-outline-secondary dropdown-toggle" id="districtFilterToggle" data-bs-container="body" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
                                         <i class="bi bi-filter"></i>
                                     </button>
                                     <ul id="districtFilterBox" class="dropdown-menu scrollable shadow rounded" aria-labelledby="districtFilterToggle">
@@ -360,7 +360,7 @@ if ($loadInitialMatches && !empty($referees)) {
                             <th>
                                 Poule
                                 <div class="dropdown d-inline-block">
-                                    <button type="button" class="btn-sm btn-outline-secondary dropdown-toggle" id="pouleFilterToggle" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+                                    <button type="button" class="btn-sm btn-outline-secondary dropdown-toggle" id="pouleFilterToggle" data-bs-container="body" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
                                         <i class="bi bi-filter"></i>
                                     </button>
                                     <ul id="pouleFilterBox" class="dropdown-menu scrollable shadow rounded" aria-labelledby="pouleFilterToggle">
@@ -371,10 +371,11 @@ if ($loadInitialMatches && !empty($referees)) {
                                     </ul>
                                 </div>
                             </th>
-                            <th>
+
+                            <th class="hide-this">
                                 Location
                                 <div class="dropdown d-inline-block">
-                                    <button type="button" class="btn-sm btn-outline-secondary dropdown-toggle" id="locationFilterToggle" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+                                    <button type="button" class="btn-sm btn-outline-secondary dropdown-toggle" id="locationFilterToggle" data-bs-container="body" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
                                         <i class="bi bi-filter"></i>
                                     </button>
                                     <ul id="locationFilterBox" class="dropdown-menu scrollable shadow rounded" aria-labelledby="locationFilterToggle">
@@ -388,7 +389,7 @@ if ($loadInitialMatches && !empty($referees)) {
                             <th>
                                 Referee Assigner
                                 <div class="dropdown d-inline-block">
-                                    <button type="button" class="btn-sm btn-outline-secondary dropdown-toggle" id="refereeAssignerFilterToggle" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+                                    <button type="button" class="btn-sm btn-outline-secondary dropdown-toggle" id="refereeAssignerFilterToggle" data-bs-container="body" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
                                         <i class="bi bi-filter"></i>
                                     </button>
                                     <ul id="refereeAssignerFilterBox" class="dropdown-menu scrollable shadow rounded" aria-labelledby="refereeAssignerFilterToggle">
@@ -415,11 +416,11 @@ if ($loadInitialMatches && !empty($referees)) {
                                 <td><?= htmlspecialchars($match['division']) ?></td>
                                 <td><?= htmlspecialchars($match['district']) ?></td>
                                 <td><?= htmlspecialchars($match['poule']) ?></td>
-                                <td class="editable-cell location-cell"
+                                <td class="editable-cell location-cell hide-this"
                                     data-match-uuid="<?= htmlspecialchars($match['uuid']) ?>"
                                     data-field-type="location"
                                     data-current-value="<?= htmlspecialchars($match['location_uuid'] ?? '') ?>">
-                                <span class="cell-value">
+                                <span class="cell-value hide-this">
                                     <?php
                                     $locationName = htmlspecialchars($match['location_name'] ?? 'N/A');
                                     $locationAddress = htmlspecialchars($match['location_address'] ?? '');
@@ -432,6 +433,7 @@ if ($loadInitialMatches && !empty($referees)) {
                                 </span>
                                     <i class="bi bi-pencil-square edit-icon"></i>
                                 </td>
+
                                 <td class="editable-cell"
                                     data-match-uuid="<?= htmlspecialchars($match['uuid']) ?>"
                                     data-field-type="referee_assigner"

@@ -476,4 +476,29 @@ document.addEventListener('DOMContentLoaded', () => {
         delete currentFilters.referee_assigner;
         fetchAndUpdateMatches();
     });
+
+    // ─── sticky-header dropdown hot-fix ───────────────────────────────
+    document.addEventListener('shown.bs.dropdown', e => {
+        const toggle = e.target;                                // the <button>
+        const menu   = toggle.parentElement.querySelector('.dropdown-menu');
+        if (!menu) return;
+
+        menu.dataset._origParent = toggle.parentElement;        // remember home
+        menu.classList.add('bs-table-dropdown');                // helper class
+        document.body.appendChild(menu);                        // escape table
+
+        const r = toggle.getBoundingClientRect();               // exact coords
+        menu.style.position = 'absolute';
+        menu.style.top  = `${r.bottom + window.scrollY}px`;
+        menu.style.left = `${r.left   + window.scrollX}px`;
+    });
+
+    document.addEventListener('hide.bs.dropdown', e => {
+        const menu = document.querySelector('.bs-table-dropdown');
+        if (!menu) return;
+        menu.dataset._origParent.appendChild(menu);             // go home
+        menu.removeAttribute('style');
+        menu.classList.remove('bs-table-dropdown');
+    });
+
 });
