@@ -28,6 +28,7 @@
    Table layout & cells
    ────────────────────────────────── */
 .table{
+    table-layout:fixed;
     border-spacing:0 10px;
     border-collapse:separate;
 }
@@ -36,6 +37,7 @@
 .table td{
     padding:15px;
     vertical-align:middle;
+    word-wrap:break-word;
 }
 
 /* sticky header row */
