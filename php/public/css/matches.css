@@ -159,6 +159,7 @@
 /* ──────────────────────────────────
    Misc utilities
    ────────────────────────────────── */
+.hide-this{ display:none!important; }
 .btn-yellow{ background:#e8af05!important; }
 
 /* card styling override (needed because main.css sets transparency on .content-card) */
