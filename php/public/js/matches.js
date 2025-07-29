@@ -308,11 +308,6 @@ document.addEventListener('DOMContentLoaded', () => {
             .then(html => {
                 document.getElementById('divisionFilterOptions').innerHTML = html;
 
-                document.querySelectorAll('.division-filter-checkbox').forEach(box => {
-                    box.addEventListener('change', () => {
-                        applyDivisionFilter();
-                    });
-                });
             });
     }
 
@@ -334,6 +329,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const box = document.getElementById('divisionFilterBox');
         box.style.display = (box.style.display === 'none' || box.style.display === '') ? 'block' : 'none';
         loadDivisionFilterOptions();
+    });
+
+    document.getElementById('applyDivisionFilter')?.addEventListener('click', () => {
+        applyDivisionFilter();
+        const box = document.getElementById('divisionFilterBox');
+        box.style.display = 'none';
     });
 
     document.getElementById('clearDivisionFilter')?.addEventListener('click', () => {
@@ -385,11 +386,6 @@ document.addEventListener('DOMContentLoaded', () => {
             .then(html => {
                 document.getElementById(targetHtmlId).innerHTML = html;
 
-                document.querySelectorAll('.' + checkboxClass).forEach(cb => {
-                    cb.addEventListener('change', () => {
-                        applyMultiFilter(paramName, checkboxClass);
-                    });
-                });
             });
     }
 
@@ -441,41 +437,28 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    document.getElementById('districtFilterToggle')?.addEventListener('click', () => {
-        loadFilterOptions('district', 'districtFilterBox', 'districtFilterOptions', 'district-filter-checkbox', 'district');
-    });
-    document.getElementById('clearDistrictFilter')?.addEventListener('click', () => {
-        document.querySelectorAll('.district-filter-checkbox').forEach(cb => cb.checked = false);
-        delete currentFilters.district;
-        fetchAndUpdateMatches();
-    });
+    function setupFilter(filterName, toggleId, boxId, optionsId, checkboxClass, clearId, applyId) {
+        document.getElementById(toggleId)?.addEventListener('click', () => {
+            loadFilterOptions(filterName, boxId, optionsId, checkboxClass, filterName);
+        });
 
-    document.getElementById('pouleFilterToggle')?.addEventListener('click', () => {
-        loadFilterOptions('poule', 'pouleFilterBox', 'pouleFilterOptions', 'poule-filter-checkbox', 'poule');
-    });
-    document.getElementById('clearPouleFilter')?.addEventListener('click', () => {
-        document.querySelectorAll('.poule-filter-checkbox').forEach(cb => cb.checked = false);
-        delete currentFilters.poule;
-        fetchAndUpdateMatches();
-    });
+        document.getElementById(clearId)?.addEventListener('click', () => {
+            document.querySelectorAll(`.${checkboxClass}`).forEach(cb => cb.checked = false);
+            delete currentFilters[filterName];
+            fetchAndUpdateMatches();
+        });
 
-    document.getElementById('locationFilterToggle')?.addEventListener('click', () => {
-        loadFilterOptions('location_filter', 'locationFilterBox', 'locationFilterOptions', 'location-filter-checkbox', 'location');
-    });
-    document.getElementById('clearLocationFilter')?.addEventListener('click', () => {
-        document.querySelectorAll('.location-filter-checkbox').forEach(cb => cb.checked = false);
-        delete currentFilters.location;
-        fetchAndUpdateMatches();
-    });
+        document.getElementById(applyId)?.addEventListener('click', () => {
+            applyMultiFilter(filterName, checkboxClass);
+            const box = document.getElementById(boxId);
+            box.style.display = 'none';
+        });
+    }
 
-    document.getElementById('refereeAssignerFilterToggle')?.addEventListener('click', () => {
-        loadFilterOptions('referee_assigner', 'refereeAssignerFilterBox', 'refereeAssignerFilterOptions', 'referee-assigner-filter-checkbox', 'referee_assigner');
-    });
-    document.getElementById('clearRefereeAssignerFilter')?.addEventListener('click', () => {
-        document.querySelectorAll('.referee-assigner-filter-checkbox').forEach(cb => cb.checked = false);
-        delete currentFilters.referee_assigner;
-        fetchAndUpdateMatches();
-    });
+    setupFilter('district', 'districtFilterToggle', 'districtFilterBox', 'districtFilterOptions', 'district-filter-checkbox', 'clearDistrictFilter', 'applyDistrictFilter');
+    setupFilter('poule', 'pouleFilterToggle', 'pouleFilterBox', 'pouleFilterOptions', 'poule-filter-checkbox', 'clearPouleFilter', 'applyPouleFilter');
+    setupFilter('location', 'locationFilterToggle', 'locationFilterBox', 'locationFilterOptions', 'location-filter-checkbox', 'clearLocationFilter', 'applyLocationFilter');
+    setupFilter('referee_assigner', 'refereeAssignerFilterToggle', 'refereeAssignerFilterBox', 'refereeAssignerFilterOptions', 'referee-assigner-filter-checkbox', 'clearRefereeAssignerFilter', 'applyRefereeAssignerFilter');
 
     // ─── sticky-header dropdown hot-fix ───────────────────────────────
     document.addEventListener('shown.bs.dropdown', e => {
