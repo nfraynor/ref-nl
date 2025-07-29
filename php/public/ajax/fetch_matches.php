@@ -164,7 +164,7 @@ foreach ($matches as $match_item) {
             }
             $refereeSchedule[$ref_id_for_schedule][] = [
                 'match_id' => $match_uuid,
-                'match_date_str' => $date_for_schedule, // Store date string
+                'match_date_str' => $match_date_for_schedule, // Store date string
                 'kickoff_time_str' => $kickoff_time_for_schedule, // Store time string
                 'role' => $role_key,
                 'location_uuid' => $match_item['location_uuid']
