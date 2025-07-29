@@ -44,24 +44,51 @@ function fetchAndUpdateMatches() {
             if (!res.ok) {
                 throw new Error(`HTTP error! status: ${res.status}`);
             }
-            return res.text();
+            return res.json(); // Expect a JSON response
         })
-        .then(html => {
+        .then(data => {
             const tableBody = document.getElementById('matchesTableBody');
-            if (tableBody) {
-                tableBody.innerHTML = html;
+            const paginationControls = document.getElementById('paginationControls');
+
+            if (tableBody && paginationControls) {
+                tableBody.innerHTML = data.matchesHtml;
+                paginationControls.innerHTML = data.paginationHtml;
+                // Any other UI updates based on `data` can go here
                 initializeSelect2AndEvents();
             } else {
-                console.error('Error: matchesTableBody element not found.');
+                console.error('Error: matchesTableBody or paginationControls element not found.');
             }
         })
         .catch(error => {
             console.error('Error fetching or updating matches:', error);
+            // Optionally, display a user-friendly error message
+            const tableBody = document.getElementById('matchesTableBody');
+            if (tableBody) {
+                tableBody.innerHTML = '<tr><td colspan="13" class="text-center text-danger">Failed to load matches. Please try again.</td></tr>';
+            }
         });
+}
+
+function setupPaginationHandler() {
+    const paginationControls = document.getElementById('paginationControls');
+    if (paginationControls) {
+        paginationControls.addEventListener('click', function(event) {
+            const target = event.target.closest('a.page-link');
+            if (target && target.dataset.page) {
+                event.preventDefault(); // Prevent default anchor behavior
+                const page = parseInt(target.dataset.page, 10);
+                if (!isNaN(page)) {
+                    currentFilters.page = page;
+                    fetchAndUpdateMatches();
+                }
+            }
+        });
+    }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
     initializeCurrentFiltersFromURL();
+    setupPaginationHandler();
 
     let allLocations = [];
     let allUsers = [];

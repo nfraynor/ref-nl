@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="/css/main.css"> <!-- Global styles -->
     <link rel="stylesheet" href="/css/matches.css"> <!-- Corrected path -->
     <link rel="stylesheet" href="/css/referee_modal.css"> <!-- Corrected path -->
+    <link rel="stylesheet" href="/css/pagination.css"> <!-- Corrected path -->
     <!-- Flatpickr CSS -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
 
