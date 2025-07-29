@@ -84,89 +84,99 @@ body {
 }
 
 /* General button styling */
-.btn-main-action {
-    background-color: #007bff;
-    border-color: #007bff;
+.btn-main-action, .btn-primary-action {
+    background-color: #0069d9;
+    border-color: #0062cc;
     color: #fff;
     padding: 10px 15px;
     font-weight: 500;
-    transition: background-color 0.15s ease-in-out, border-color 0.15s ease-in-out, transform 0.15s ease-in-out;
+    transition: background-color 0.15s ease-in-out, border-color 0.15s ease-in-out, transform 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
     border-radius: 0.3rem;
+    box-shadow: 0 2px 4px rgba(0, 105, 217, 0.2);
 }
 
-.btn-main-action:hover {
-    background-color: #0056b3;
-    border-color: #0050a0;
+.btn-main-action:hover, .btn-primary-action:hover {
+    background-color: #005cb2;
+    border-color: #0056a8;
     color: #fff;
     transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 105, 217, 0.3);
 }
 
 .btn-secondary-action {
-    background-color: #6c757d;
-    border-color: #6c757d;
+    background-color: #5a6268;
+    border-color: #545b62;
     color: #fff;
     padding: 10px 15px;
     font-weight: 500;
-    transition: background-color 0.15s ease-in-out, border-color 0.15s ease-in-out, transform 0.15s ease-in-out;
+    transition: background-color 0.15s ease-in-out, border-color 0.15s ease-in-out, transform 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
     border-radius: 0.3rem;
+    box-shadow: 0 2px 4px rgba(90, 98, 104, 0.2);
 }
 
 .btn-secondary-action:hover {
-    background-color: #545b62;
-    border-color: #4e555b;
+    background-color: #4e555b;
+    border-color: #484f55;
     color: #fff;
     transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(90, 98, 104, 0.3);
 }
 
 .btn-destructive-action {
-    background-color: #dc3545;
-    border-color: #dc3545;
+    background-color: #c82333;
+    border-color: #bd2130;
     color: #fff;
     padding: 10px 15px;
     font-weight: 500;
-    transition: background-color 0.15s ease-in-out, border-color 0.15s ease-in-out, transform 0.15s ease-in-out;
+    transition: background-color 0.15s ease-in-out, border-color 0.15s ease-in-out, transform 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
     border-radius: 0.3rem;
+    box-shadow: 0 2px 4px rgba(200, 35, 51, 0.2);
 }
 
 .btn-destructive-action:hover {
-    background-color: #bb2d3b;
-    border-color: #b02a37;
+    background-color: #b21f2d;
+    border-color: #a71c2a;
     color: #fff;
     transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(200, 35, 51, 0.3);
 }
 
 .btn-warning-action {
-    background-color: #ffc107;
-    border-color: #ffc107;
-    color: #000;
+    background-color: #d39e00;
+    border-color: #c69500;
+    color: #212529;
     padding: 10px 15px;
     font-weight: 500;
-    transition: background-color 0.15s ease-in-out, border-color 0.15s ease-in-out, transform 0.15s ease-in-out;
+    transition: background-color 0.15s ease-in-out, border-color 0.15s ease-in-out, transform 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
     border-radius: 0.3rem;
+    box-shadow: 0 2px 4px rgba(211, 158, 0, 0.2);
 }
 
 .btn-warning-action:hover {
-    background-color: #ffca2c;
-    border-color: #ffc720;
-    color: #000;
+    background-color: #c69500;
+    border-color: #b98c00;
+    color: #212529;
     transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(211, 158, 0, 0.3);
 }
 
 .btn-info-action {
-    background-color: #17a2b8;
-    border-color: #17a2b8;
+    background-color: #117a8b;
+    border-color: #10707f;
     color: #fff;
     padding: 10px 15px;
     font-weight: 500;
-    transition: background-color 0.15s ease-in-out, border-color 0.15s ease-in-out, transform 0.15s ease-in-out;
+    transition: background-color 0.15s ease-in-out, border-color 0.15s ease-in-out, transform 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
     border-radius: 0.3rem;
+    box-shadow: 0 2px 4px rgba(17, 122, 139, 0.2);
 }
 
 .btn-info-action:hover {
-    background-color: #138496;
-    border-color: #117a8b;
+    background-color: #0f6674;
+    border-color: #0e5d6b;
     color: #fff;
     transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(17, 122, 139, 0.3);
 }
 
 /* Filter buttons */
@@ -289,11 +299,12 @@ body {
 
 /* Links within content cards */
 .content-card a {
-    color: #007bff;
+    color: white;
+    text-decoration: none;
 }
 
 .content-card a:hover {
-    color: #0056b3;
+    color: white;
     text-decoration: underline;
 }
 

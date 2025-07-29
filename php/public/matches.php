@@ -303,16 +303,15 @@ if ($loadInitialMatches && !empty($referees)) {
                 <p id="suggestionProgressText" class="mt-2" style="display: none;"></p>
                 <button type="button" id="clearAssignments" class="btn-sm btn-destructive-action mb-3">Clear Assignments</button>
             <?php else: ?>
-                <a href="matches.php?<?= buildQueryString(['assign_mode' => 1]) ?>" class="btn-sm btn-warning-action mb-3">Enable Assign Mode</a>
+                <a href="matches.php?<?= buildQueryString(['assign_mode' => 1]) ?>" class="btn-yellow btn-sm btn-main-action mb-4">Enable Assign Mode</a>
+                <a href="export_matches.php?<?= buildQueryString([]) ?>" class="btn-sm btn-main-action mb-4 ms-2">Export to Excel (CSV)</a>
+                <a href="assign_assigner.php" class="btn-sm btn-main-action mb-4 ms-2">Assign Assigner</a>
             <?php endif; ?>
-            <a href="export_matches.php?<?= buildQueryString([]) ?>" class="btn-sm btn-info-action mb-3 ms-2">Export to Excel (CSV)</a>
-            <a href="assign_assigner.php" class="btn-sm btn-primary-action mb-3 ms-2">Assign Assigner</a>
-
             <form method="POST" action="bulk_assign.php">
                 <?php if ($assignMode): ?>
                     <button type="submit" class="btn-main-action sticky-assign-button">Save Assignments</button>
                 <?php endif; ?>
-                <div class="table-responsive-custom">
+                <div class="table-responsive-custom mt-4">
                     <table class="table table-bordered">
                         <thead>
                         <tr>

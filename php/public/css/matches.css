@@ -109,6 +109,9 @@
     border-radius: 8px;
     padding: 1rem;
 }
+.btn-yellow {
+    background: #e8af05 !important;
+}
 
 /* Editable cell styles */
 .edit-icon {
@@ -153,7 +156,7 @@
 
 .table thead th {
     border-bottom: 2px solid #dee2e6;
-   /* position: sticky;*/
+    position: sticky;
     top: 0;
     background-color: #fff;
     z-index: 1020;
