@@ -1,4 +1,6 @@
 /* Referee-App /matches.js – updated 2025-07-31
+ * - Added client-side setting of checked state for filter checkboxes to ensure persistence
+ * - Kept multiple query parameters for selected values
  * - Streamlined filter handling with search functionality
  * - Maintains all original functionality
  * - Improved visual consistency with Tailwind CSS
@@ -75,13 +77,22 @@ function setupFilterSearch(filterId, optionsId) {
 
 /* ---- Filter Dropdown Helpers ---- */
 function loadFilterOptions(type, optionsId, paramName) {
-    const selected = new URLSearchParams(location.search).getAll(paramName + '[]');
-    fetch(`/ajax/${type}_options.php?` + new URLSearchParams({ [paramName + '[]']: selected }))
+    const selected = currentFilters[paramName] || [];
+    const params = new URLSearchParams();
+    selected.forEach(val => params.append(`${paramName}[]`, val));
+    fetch(`/ajax/${type}_options.php?${params.toString()}`)
         .then(r => r.text())
         .then(html => {
-            document.getElementById(optionsId).innerHTML = html;
+            const optionsContainer = document.getElementById(optionsId);
+            optionsContainer.innerHTML = html;
+            // Set checked state client-side to ensure persistence
+            const checkboxes = optionsContainer.querySelectorAll(`.${type}-filter-checkbox`);
+            checkboxes.forEach(cb => {
+                cb.checked = selected.includes(cb.value);
+            });
             setupFilterSearch(`${type}Filter`, optionsId);
-        });
+        })
+        .catch(err => console.error(`Failed to load ${type} options:`, err));
 }
 
 function applyMultiFilter(paramName, checkboxClass) {
@@ -148,7 +159,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 matchUuid,
                 fieldType,
                 cellValueSelector: `#matchesTableBody td[data-match-uuid='${matchUuid}'][data-field-type='${fieldType}'] span.cell-value`,
-                cellSelector: `#matchesTableBody td[data-match-uuid='${matchUuid}][data-field-type='${fieldType}']`
+                cellSelector: `#matchesTableBody td[data-match-uuid='${matchUuid}'][data-field-type='${fieldType}']`
             });
             editModal.show();
         }
