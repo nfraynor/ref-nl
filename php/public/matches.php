@@ -317,11 +317,10 @@ if ($loadInitialMatches && !empty($referees)) {
                         <tr>
                             <th>
                                 Date
-                                <div class="d-flex flex-column mt-1">
-                                    <div class="d-flex flex-column gap-1 mt-1">
-                                        <input type="date" class="form-control form-control-sm" id="ajaxStartDate" value="<?= htmlspecialchars($_GET['start_date'] ?? '') ?>">
-                                        <input type="date" class="form-control form-control-sm" id="ajaxEndDate" value="<?= htmlspecialchars($_GET['end_date'] ?? '') ?>">
-                                    </div>
+                                <div class="flex flex-col gap-2 mt-2">
+                                    <input type="date" class="form-control form-control-sm" id="ajaxStartDate" value="<?= htmlspecialchars($_GET['start_date'] ?? '') ?>">
+                                    <input type="date" class="form-control form-control-sm" id="ajaxEndDate" value="<?= htmlspecialchars($_GET['end_date'] ?? '') ?>">
+                                    <button type="button" id="clearDateFilter" class="btn btn-sm btn-outline-secondary">Clear Dates</button>
                                 </div>
                             </th>
                             <th>Kickoff</th>
@@ -329,75 +328,87 @@ if ($loadInitialMatches && !empty($referees)) {
                             <th>Away Team</th>
                             <th>
                                 Division
-                                <div class="dropdown d-inline-block">
-                                    <button type="button" class="btn-sm btn-outline-secondary dropdown-toggle" id="divisionFilterToggle" data-bs-container="body" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
-                                        <i class="bi bi-filter"></i>
+                                <div class="relative inline-block">
+                                    <button type="button" class="btn-sm btn-outline-secondary flex items-center gap-1" id="divisionFilterToggle" data-bs-toggle="dropdown" data-bs-auto-close="outside">
+                                        <i class="bi bi-filter"></i> Filter
                                     </button>
-                                    <ul id="divisionFilterBox" class="dropdown-menu scrollable shadow rounded" aria-labelledby="divisionFilterToggle">
-                                        <li id="divisionFilterOptions" class="px-3 py-2 d-flex flex-column gap-1">
-                                            <!-- checkboxes will load here via AJAX -->
-                                        </li>
-                                        <li class="dropdown-divider"></li>
-                                        <li class="px-3"><button type="button" id="clearDivisionFilter" class="btn-sm btn-light w-100">Clear</button></li>
-                                        <li class="px-3"><button type="button" id="applyDivisionFilter" class="btn-sm btn-primary w-100">Apply</button></li>
-                                    </ul>
+                                    <div class="dropdown-menu w-64 max-h-96 overflow-y-auto shadow-lg rounded-lg p-4" aria-labelledby="divisionFilterToggle">
+                                        <input type="text" class="form-control form-control-sm mb-2" id="divisionFilterSearch" placeholder="Search...">
+                                        <div id="divisionFilterOptions" class="flex flex-col gap-2"></div>
+                                        <hr class="my-2">
+                                        <div class="flex gap-2">
+                                            <button type="button" id="clearDivisionFilter" class="btn btn-sm btn-outline-secondary flex-1">Clear</button>
+                                            <button type="button" id="applyDivisionFilter" class="btn btn-sm btn-primary flex-1">Apply</button>
+                                        </div>
+                                    </div>
                                 </div>
                             </th>
                             <th>
                                 District
-                                <div class="dropdown d-inline-block">
-                                    <button type="button" class="btn-sm btn-outline-secondary dropdown-toggle" id="districtFilterToggle" data-bs-container="body" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
-                                        <i class="bi bi-filter"></i>
+                                <div class="relative inline-block">
+                                    <button type="button" class="btn-sm btn-outline-secondary flex items-center gap-1" id="districtFilterToggle" data-bs-toggle="dropdown" data-bs-auto-close="outside">
+                                        <i class="bi bi-filter"></i> Filter
                                     </button>
-                                    <ul id="districtFilterBox" class="dropdown-menu scrollable shadow rounded" aria-labelledby="districtFilterToggle">
-                                        <li id="districtFilterOptions" class="px-3 py-2 d-flex flex-column gap-1"></li>
-                                        <li class="dropdown-divider"></li>
-                                        <li class="px-3"><button type="button" id="clearDistrictFilter" class="btn-sm btn-light w-100">Clear</button></li>
-                                        <li class="px-3"><button type="button" id="applyDistrictFilter" class="btn-sm btn-primary w-100">Apply</button></li>
-                                    </ul>
+                                    <div class="dropdown-menu w-64 max-h-96 overflow-y-auto shadow-lg rounded-lg p-4" aria-labelledby="districtFilterToggle">
+                                        <input type="text" class="form-control form-control-sm mb-2" id="districtFilterSearch" placeholder="Search...">
+                                        <div id="districtFilterOptions" class="flex flex-col gap-2"></div>
+                                        <hr class="my-2">
+                                        <div class="flex gap-2">
+                                            <button type="button" id="clearDistrictFilter" class="btn btn-sm btn-outline-secondary flex-1">Clear</button>
+                                            <button type="button" id="applyDistrictFilter" class="btn btn-sm btn-primary flex-1">Apply</button>
+                                        </div>
+                                    </div>
                                 </div>
                             </th>
                             <th>
                                 Poule
-                                <div class="dropdown d-inline-block">
-                                    <button type="button" class="btn-sm btn-outline-secondary dropdown-toggle" id="pouleFilterToggle" data-bs-container="body" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
-                                        <i class="bi bi-filter"></i>
+                                <div class="relative inline-block">
+                                    <button type="button" class="btn-sm btn-outline-secondary flex items-center gap-1" id="pouleFilterToggle" data-bs-toggle="dropdown" data-bs-auto-close="outside">
+                                        <i class="bi bi-filter"></i> Filter
                                     </button>
-                                    <ul id="pouleFilterBox" class="dropdown-menu scrollable shadow rounded" aria-labelledby="pouleFilterToggle">
-                                        <li id="pouleFilterOptions" class="px-3 py-2 d-flex flex-column gap-1"></li>
-                                        <li class="dropdown-divider"></li>
-                                        <li class="px-3"><button type="button" id="clearPouleFilter" class="btn-sm btn-light w-100">Clear</button></li>
-                                        <li class="px-3"><button type="button" id="applyPouleFilter" class="btn-sm btn-primary w-100">Apply</button></li>
-                                    </ul>
+                                    <div class="dropdown-menu w-64 max-h-96 overflow-y-auto shadow-lg rounded-lg p-4" aria-labelledby="pouleFilterToggle">
+                                        <input type="text" class="form-control form-control-sm mb-2" id="pouleFilterSearch" placeholder="Search...">
+                                        <div id="pouleFilterOptions" class="flex flex-col gap-2"></div>
+                                        <hr class="my-2">
+                                        <div class="flex gap-2">
+                                            <button type="button" id="clearPouleFilter" class="btn btn-sm btn-outline-secondary flex-1">Clear</button>
+                                            <button type="button" id="applyPouleFilter" class="btn btn-sm btn-primary flex-1">Apply</button>
+                                        </div>
+                                    </div>
                                 </div>
                             </th>
-
                             <th class="hide-this">
                                 Location
-                                <div class="dropdown d-inline-block">
-                                    <button type="button" class="btn-sm btn-outline-secondary dropdown-toggle" id="locationFilterToggle" data-bs-container="body" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
-                                        <i class="bi bi-filter"></i>
+                                <div class="relative inline-block">
+                                    <button type="button" class="btn-sm btn-outline-secondary flex items-center gap-1" id="locationFilterToggle" data-bs-toggle="dropdown" data-bs-auto-close="outside">
+                                        <i class="bi bi-filter"></i> Filter
                                     </button>
-                                    <ul id="locationFilterBox" class="dropdown-menu scrollable shadow rounded" aria-labelledby="locationFilterToggle">
-                                        <li id="locationFilterOptions" class="px-3 py-2 d-flex flex-column gap-1"></li>
-                                        <li class="dropdown-divider"></li>
-                                        <li class="px-3"><button type="button" id="clearLocationFilter" class="btn-sm btn-light w-100">Clear</button></li>
-                                        <li class="px-3"><button type="button" id="applyLocationFilter" class="btn-sm btn-primary w-100">Apply</button></li>
-                                    </ul>
+                                    <div class="dropdown-menu w-64 max-h-96 overflow-y-auto shadow-lg rounded-lg p-4" aria-labelledby="locationFilterToggle">
+                                        <input type="text" class="form-control form-control-sm mb-2" id="locationFilterSearch" placeholder="Search...">
+                                        <div id="locationFilterOptions" class="flex flex-col gap-2"></div>
+                                        <hr class="my-2">
+                                        <div class="flex gap-2">
+                                            <button type="button" id="clearLocationFilter" class="btn btn-sm btn-outline-secondary flex-1">Clear</button>
+                                            <button type="button" id="applyLocationFilter" class="btn btn-sm btn-primary flex-1">Apply</button>
+                                        </div>
+                                    </div>
                                 </div>
                             </th>
                             <th>
                                 Referee Assigner
-                                <div class="dropdown d-inline-block">
-                                    <button type="button" class="btn-sm btn-outline-secondary dropdown-toggle" id="refereeAssignerFilterToggle" data-bs-container="body" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
-                                        <i class="bi bi-filter"></i>
+                                <div class="relative inline-block">
+                                    <button type="button" class="btn-sm btn-outline-secondary flex items-center gap-1" id="refereeAssignerFilterToggle" data-bs-toggle="dropdown" data-bs-auto-close="outside">
+                                        <i class="bi bi-filter"></i> Filter
                                     </button>
-                                    <ul id="refereeAssignerFilterBox" class="dropdown-menu scrollable shadow rounded" aria-labelledby="refereeAssignerFilterToggle">
-                                        <li id="refereeAssignerFilterOptions" class="px-3 py-2 d-flex flex-column gap-1"></li>
-                                        <li class="dropdown-divider"></li>
-                                        <li class="px-3"><button type="button" id="clearRefereeAssignerFilter" class="btn-sm btn-light w-100">Clear</button></li>
-                                        <li class="px-3"><button type="button" id="applyRefereeAssignerFilter" class="btn-sm btn-primary w-100">Apply</button></li>
-                                    </ul>
+                                    <div class="dropdown-menu w-64 max-h-96 overflow-y-auto shadow-lg rounded-lg p-4" aria-labelledby="refereeAssignerFilterToggle">
+                                        <input type="text" class="form-control form-control-sm mb-2" id="refereeAssignerFilterSearch" placeholder="Search...">
+                                        <div id="refereeAssignerFilterOptions" class="flex flex-col gap-2"></div>
+                                        <hr class="my-2">
+                                        <div class="flex gap-2">
+                                            <button type="button" id="clearRefereeAssignerFilter" class="btn btn-sm btn-outline-secondary flex-1">Clear</button>
+                                            <button type="button" id="applyRefereeAssignerFilter" class="btn btn-sm btn-primary flex-1">Apply</button>
+                                        </div>
+                                    </div>
                                 </div>
                             </th>
                             <th>Referee</th>
@@ -420,20 +431,19 @@ if ($loadInitialMatches && !empty($referees)) {
                                     data-match-uuid="<?= htmlspecialchars($match['uuid']) ?>"
                                     data-field-type="location"
                                     data-current-value="<?= htmlspecialchars($match['location_uuid'] ?? '') ?>">
-                                <span class="cell-value hide-this">
-                                    <?php
-                                    $locationName = htmlspecialchars($match['location_name'] ?? 'N/A');
-                                    $locationAddress = htmlspecialchars($match['location_address'] ?? '');
-                                    $tooltip = '';
-                                    if (!empty($locationAddress) && $locationName !== $locationAddress) {
-                                        $tooltip = 'title="' . $locationAddress . '"';
-                                    }
-                                    echo '<span ' . $tooltip . '>' . $locationName . '</span>';
-                                    ?>
-                                </span>
+                                    <span class="cell-value hide-this">
+                                        <?php
+                                        $locationName = htmlspecialchars($match['location_name'] ?? 'N/A');
+                                        $locationAddress = htmlspecialchars($match['location_address'] ?? '');
+                                        $tooltip = '';
+                                        if (!empty($locationAddress) && $locationName !== $locationAddress) {
+                                            $tooltip = 'title="' . $locationAddress . '"';
+                                        }
+                                        echo '<span ' . $tooltip . '>' . $locationName . '</span>';
+                                        ?>
+                                    </span>
                                     <i class="bi bi-pencil-square edit-icon"></i>
                                 </td>
-
                                 <td class="editable-cell"
                                     data-match-uuid="<?= htmlspecialchars($match['uuid']) ?>"
                                     data-field-type="referee_assigner"
