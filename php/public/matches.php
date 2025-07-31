@@ -330,7 +330,7 @@ if ($loadInitialMatches && !empty($referees)) {
                                 Division
                                 <div class="relative inline-block">
                                     <button type="button" class="btn-sm btn-outline-secondary flex items-center gap-1" id="divisionFilterToggle" data-bs-toggle="dropdown" data-bs-auto-close="outside">
-                                        <i class="bi bi-filter"></i> Filter
+                                        <i class="bi bi-filter"></i>
                                     </button>
                                     <div class="dropdown-menu w-64 max-h-96 overflow-y-auto shadow-lg rounded-lg p-4" aria-labelledby="divisionFilterToggle">
                                         <input type="text" class="form-control form-control-sm mb-2" id="divisionFilterSearch" placeholder="Search...">
@@ -347,7 +347,7 @@ if ($loadInitialMatches && !empty($referees)) {
                                 District
                                 <div class="relative inline-block">
                                     <button type="button" class="btn-sm btn-outline-secondary flex items-center gap-1" id="districtFilterToggle" data-bs-toggle="dropdown" data-bs-auto-close="outside">
-                                        <i class="bi bi-filter"></i> Filter
+                                        <i class="bi bi-filter"></i>
                                     </button>
                                     <div class="dropdown-menu w-64 max-h-96 overflow-y-auto shadow-lg rounded-lg p-4" aria-labelledby="districtFilterToggle">
                                         <input type="text" class="form-control form-control-sm mb-2" id="districtFilterSearch" placeholder="Search...">
@@ -364,7 +364,7 @@ if ($loadInitialMatches && !empty($referees)) {
                                 Poule
                                 <div class="relative inline-block">
                                     <button type="button" class="btn-sm btn-outline-secondary flex items-center gap-1" id="pouleFilterToggle" data-bs-toggle="dropdown" data-bs-auto-close="outside">
-                                        <i class="bi bi-filter"></i> Filter
+                                        <i class="bi bi-filter"></i>
                                     </button>
                                     <div class="dropdown-menu w-64 max-h-96 overflow-y-auto shadow-lg rounded-lg p-4" aria-labelledby="pouleFilterToggle">
                                         <input type="text" class="form-control form-control-sm mb-2" id="pouleFilterSearch" placeholder="Search...">
@@ -381,7 +381,7 @@ if ($loadInitialMatches && !empty($referees)) {
                                 Location
                                 <div class="relative inline-block">
                                     <button type="button" class="btn-sm btn-outline-secondary flex items-center gap-1" id="locationFilterToggle" data-bs-toggle="dropdown" data-bs-auto-close="outside">
-                                        <i class="bi bi-filter"></i> Filter
+                                        <i class="bi bi-filter"></i>
                                     </button>
                                     <div class="dropdown-menu w-64 max-h-96 overflow-y-auto shadow-lg rounded-lg p-4" aria-labelledby="locationFilterToggle">
                                         <input type="text" class="form-control form-control-sm mb-2" id="locationFilterSearch" placeholder="Search...">
@@ -398,7 +398,7 @@ if ($loadInitialMatches && !empty($referees)) {
                                 Referee Assigner
                                 <div class="relative inline-block">
                                     <button type="button" class="btn-sm btn-outline-secondary flex items-center gap-1" id="refereeAssignerFilterToggle" data-bs-toggle="dropdown" data-bs-auto-close="outside">
-                                        <i class="bi bi-filter"></i> Filter
+                                        <i class="bi bi-filter"></i>
                                     </button>
                                     <div class="dropdown-menu w-64 max-h-96 overflow-y-auto shadow-lg rounded-lg p-4" aria-labelledby="refereeAssignerFilterToggle">
                                         <input type="text" class="form-control form-control-sm mb-2" id="refereeAssignerFilterSearch" placeholder="Search...">

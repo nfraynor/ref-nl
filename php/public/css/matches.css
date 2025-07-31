@@ -28,7 +28,6 @@
    Table layout & cells
    ────────────────────────────────── */
 .table{
-    table-layout:fixed;
     border-spacing:0 10px;
     border-collapse:separate;
 }
@@ -87,8 +86,8 @@
    ────────────────────────────────── */
 .referee-select-cell .select2-container,
 .referee-select-cell .form-control[disabled]{
-    min-width:250px;
     width:100%!important;
+    max-width: 250px !important;
     -webkit-appearance:none;
     -moz-appearance:none;
     appearance:none;
