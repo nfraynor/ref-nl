@@ -251,6 +251,29 @@ if ($referee && isset($referee['uuid'])) { // Ensure $currentRefereeUuid is avai
                             <span class="display-value" data-field="ar_grade"><?= htmlspecialchars($referee['ar_grade'] ?? '') ?></span>
                             <i class="bi bi-pencil-square edit-icon" data-field="ar_grade" style="cursor:pointer; margin-left: 5px;"></i>
                         </dd>
+                        <!-- Max Matches Per Weekend -->
+                        <dt class="col-sm-3">Max Matches Per Weekend</dt>
+                        <dd class="col-sm-9">
+                            <select id="max_matches_per_weekend" class="form-select form-select-sm">
+                                <?php
+                                $currentMaxMatches = (int)($referee['max_matches_per_weekend'] ?? 1);
+                                ?>
+                                <option value="1" <?= $currentMaxMatches === 1 ? 'selected' : '' ?>>1</option>
+                                <option value="3" <?= $currentMaxMatches === 3 ? 'selected' : '' ?>>Multiple (Max 3)</option>
+                            </select>
+                        </dd>
+
+                        <!-- Max Days Per Weekend -->
+                        <dt class="col-sm-3">Max Days Per Weekend</dt>
+                        <dd class="col-sm-9">
+                            <select id="max_days_per_weekend" class="form-select form-select-sm">
+                                <?php
+                                $currentMaxDays = (int)($referee['max_days_per_weekend'] ?? 1); // 1=one day, 2=both
+                                ?>
+                                <option value="1" <?= $currentMaxDays === 1 ? 'selected' : '' ?>>1</option>
+                                <option value="2" <?= $currentMaxDays === 2 ? 'selected' : '' ?>>Both</option>
+                            </select>
+                        </dd>
 
                         <dt class="col-sm-3">Max Travel Distance (km)</dt>
                         <dd class="col-sm-9 editable-field">
@@ -290,7 +313,50 @@ if ($referee && isset($referee['uuid'])) { // Ensure $currentRefereeUuid is avai
             // Store referee UUID for JS
             const refereeUUID = "<?= htmlspecialchars($referee['uuid']) ?>";
             const allClubsForJS = <?= json_encode($allClubs) ?>;
-            let exemptedClubUuidsForJS = <?= json_encode($exemptedClubUuids) ?>; // Changed const to let
+            let exemptedClubUuidsForJS = <?= json_encode($exemptedClubUuids) ?>;
+            (function () {
+                const postField = (fieldName, value) => {
+                    return fetch('update_referee_field.php', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                        body: `referee_uuid=${encodeURIComponent(refereeUUID)}&field_name=${encodeURIComponent(fieldName)}&field_value=${encodeURIComponent(value)}`
+                    }).then(res => res.json());
+                };
+
+                const hookSelect = (id, fieldName) => {
+                    const el = document.getElementById(id);
+                    if (!el) return;
+                    el.addEventListener('change', () => {
+                        const val = el.value;
+                        postField(fieldName, val)
+                            .then(data => {
+                                const messagesDiv = document.getElementById('referee-details-messages');
+                                if (data.status === 'success') {
+                                    if (messagesDiv) {
+                                        messagesDiv.innerHTML = '<div class="alert alert-success">Saved.</div>';
+                                        setTimeout(() => { if (messagesDiv.querySelector('.alert')) messagesDiv.querySelector('.alert').remove(); }, 3000);
+                                    }
+                                } else {
+                                    if (messagesDiv) {
+                                        messagesDiv.innerHTML = `<div class="alert alert-danger">${data.message || 'Update failed.'}</div>`;
+                                        setTimeout(() => { if (messagesDiv.querySelector('.alert')) messagesDiv.querySelector('.alert').remove(); }, 5000);
+                                    }
+                                }
+                            })
+                            .catch(err => {
+                                console.error(err);
+                                const messagesDiv = document.getElementById('referee-details-messages');
+                                if (messagesDiv) {
+                                    messagesDiv.innerHTML = '<div class="alert alert-danger">An unexpected error occurred.</div>';
+                                    setTimeout(() => { if (messagesDiv.querySelector('.alert')) messagesDiv.querySelector('.alert').remove(); }, 5000);
+                                }
+                            });
+                    });
+                };
+
+                hookSelect('max_matches_per_weekend', 'max_matches_per_weekend');
+                hookSelect('max_days_per_weekend', 'max_days_per_weekend');
+            })();
         </script>
         <section class="mb-4">
             <div class="card">

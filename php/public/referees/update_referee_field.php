@@ -35,12 +35,14 @@ $allowedFields = [
     'home_location_city',
     'grade',
     'ar_grade',
-    'max_travel_distance', // Added new field
-    'district_id'
+    'max_travel_distance',
+    'district_id',
+    'max_matches_per_weekend',
+    'max_days_per_weekend'
 ];
 
 if (!in_array($fieldName, $allowedFields)) {
-    http_response_code(400); // Bad Request
+    http_response_code(400);
     echo json_encode(['status' => 'error', 'message' => 'Invalid field specified for update.']);
     exit;
 }
@@ -65,8 +67,23 @@ if ($fieldName === 'email') {
     }
     // Convert to integer or null if empty
     $fieldValue = ($fieldValue === '') ? null : (int)$fieldValue;
+} elseif ($fieldName === 'max_matches_per_weekend') {
+    $val = (int)$fieldValue;
+    if (!in_array($val, [1, 3], true)) {
+        http_response_code(400);
+        echo json_encode(['status' => 'error', 'message' => 'Invalid value for Max Matches Per Weekend.']);
+        exit;
+    }
+    $fieldValue = $val; // cast to int for storage
+} elseif ($fieldName === 'max_days_per_weekend') {
+    $val = (int)$fieldValue; // 1 = one day; 2 = both days
+    if (!in_array($val, [1, 2], true)) {
+        http_response_code(400);
+        echo json_encode(['status' => 'error', 'message' => 'Invalid value for Max Days Per Weekend.']);
+        exit;
+    }
+    $fieldValue = $val;
 }
-
 // Specific validation for grade fields
 if (($fieldName === 'grade' || $fieldName === 'ar_grade')) {
     $allowedGrades = ["A", "B", "C", "D", "E"];
@@ -123,7 +140,6 @@ if ($fieldName === 'district_id') {
         exit;
     }
 }
-
 
 // --- Database Update ---
 try {

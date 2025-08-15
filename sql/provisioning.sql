@@ -52,6 +52,8 @@ CREATE TABLE IF NOT EXISTS referees (
     home_lon DECIMAL(11, 8) DEFAULT NULL,
     max_travel_distance INT,
     district_id INT,
+    max_matches_per_weekend INT NOT NULL DEFAULT 1,
+    max_days_per_weekend INT NOT NULL DEFAULT 1,
     FOREIGN KEY (home_club_id) REFERENCES clubs(uuid),
     FOREIGN KEY (district_id) REFERENCES districts(id)
     );
@@ -178,5 +180,9 @@ CREATE TABLE IF NOT EXISTS locations (
     );
 
 -- Modify matches table to include location_uuid foreign key
-ALTER TABLE matches ADD COLUMN location_uuid CHAR(36) NULL;
+ALTER TABLE matches ADD COLUMN IF NOT EXISTS location_uuid CHAR(36) NULL;
 ALTER TABLE matches ADD CONSTRAINT fk_match_location FOREIGN KEY (location_uuid) REFERENCES locations(uuid);
+ALTER TABLE referees
+    ADD COLUMN IF NOT EXISTS max_matches_per_weekend INT NOT NULL DEFAULT 1,
+    ADD COLUMN IF NOT EXISTS max_days_per_weekend INT NOT NULL DEFAULT 1;
+
