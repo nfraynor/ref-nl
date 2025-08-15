@@ -1,16 +1,30 @@
 <?php
 
-// It's better to move these helper functions to a shared utility file (e.g., php/utils/referee_helpers.php)
-// and include them in both fetch_matches.php and here. For now, duplicating for simplicity.
+// Helper: safe venue comparison using address strings
+if (!function_exists('normalizeVenue')) {
+    function normalizeVenue(?string $address): string {
+        $address = (string)$address;
+        $address = preg_replace('/\s+/', ' ', trim($address));
+        return mb_strtolower($address);
+    }
+}
+if (!function_exists('sameVenue')) {
+    function sameVenue(?string $a, ?string $b): bool {
+        if ($a === null || $a === '' || $b === null || $b === '') return false;
+        return normalizeVenue($a) === normalizeVenue($b);
+    }
+}
 
 if (!function_exists('isRefereeAvailable_Cached')) {
     function isRefereeAvailable_Cached($refId, $matchDateStr, $kickoffTimeStr, $cache) {
         if (!isset($cache[$refId])) return true; // Default to available if no data for this ref
 
-        // Check hard-blocked dates
-        foreach ($cache[$refId]['unavailability'] as $block) {
-            if ($matchDateStr >= $block['start_date'] && $matchDateStr <= $block['end_date']) {
-                return false;
+        // Check hard-blocked dates (guard if key missing)
+        if (!empty($cache[$refId]['unavailability'])) {
+            foreach ($cache[$refId]['unavailability'] as $block) {
+                if ($matchDateStr >= $block['start_date'] && $matchDateStr <= $block['end_date']) {
+                    return false;
+                }
             }
         }
 
@@ -31,11 +45,27 @@ if (!function_exists('isRefereeAvailable_Cached')) {
 }
 
 if (!function_exists('get_assignment_details_for_referee')) {
+    /**
+     * $currentMatchContext expects:
+     *  - uuid
+     *  - match_date
+     *  - kickoff_time
+     *  - location_address    <-- replaced location_uuid
+     *  - assigned_roles      (array of role => referee_uuid)
+     *  - current_role_being_rendered
+     *
+     * $refereeSchedule items (precomputed) may include:
+     *  - match_id
+     *  - match_date_str
+     *  - kickoff_time_str
+     *  - role
+     *  - location_address    <-- replaced location_uuid
+     */
     function get_assignment_details_for_referee(
         $refereeIdToCheck,
-        $currentMatchContext, // ['uuid', 'match_date', 'kickoff_time', 'location_uuid', 'assigned_roles' => [...], 'current_role_being_rendered' => 'role_name']
-        $refereeSchedule,     // Precomputed schedule of other matches from DB
-        $refereeAvailabilityCache // Precomputed availability from DB
+        $currentMatchContext,
+        $refereeSchedule,
+        $refereeAvailabilityCache
     ) {
         $availability = isRefereeAvailable_Cached(
             $refereeIdToCheck,
@@ -54,34 +84,30 @@ if (!function_exists('get_assignment_details_for_referee')) {
         $currentMatchStartTimestamp = strtotime("1970-01-01T" . $currentMatchContext['kickoff_time']);
         $currentMatchEndTimestamp = $currentMatchStartTimestamp + (90 * 60); // Assuming 90 min match duration
 
-        // Check for conflicts with other roles for $refereeIdToCheck in the *same* current match
-        // $currentMatchContext['assigned_roles'] contains the state of the match *before* this specific dropdown's potential selection.
+        // Red conflict if already assigned to another role in the same match (live row state)
         foreach ($currentMatchContext['assigned_roles'] as $roleInSameMatch => $assignedRefIdInSameMatch) {
-            if ($roleInSameMatch !== $currentMatchContext['current_role_being_rendered'] && // Must be a *different* role than the one we're rendering for
-                $assignedRefIdInSameMatch === $refereeIdToCheck) { // And the referee is the one we're checking
-                return ['conflict_type' => 'red', 'is_available' => true]; // Red conflict: already assigned to another role in this match
+            if ($roleInSameMatch !== $currentMatchContext['current_role_being_rendered'] &&
+                $assignedRefIdInSameMatch === $refereeIdToCheck) {
+                return ['conflict_type' => 'red', 'is_available' => true];
             }
         }
 
         // Check against other scheduled matches for this referee
         if (isset($refereeSchedule[$refereeIdToCheck])) {
             foreach ($refereeSchedule[$refereeIdToCheck] as $scheduledMatch) {
-                // Skip if this scheduled item is for the exact same role in the exact same match
-                // (This is relevant if $refereeIdToCheck is already assigned to $currentMatchContext['current_role_being_rendered'])
+                // Skip if the exact same role in the exact same match
                 if ($scheduledMatch['match_id'] === $currentMatchContext['uuid'] &&
                     $scheduledMatch['role'] === $currentMatchContext['current_role_being_rendered']) {
                     continue;
                 }
 
-                // If the scheduled item is for the *same match* but a *different role*
-                // This indicates the referee is already assigned to another role in this match in the DB.
+                // Same match, different role in DB -> red
                 if ($scheduledMatch['match_id'] === $currentMatchContext['uuid']) {
-                    // (and $scheduledMatch['role'] !== $currentMatchContext['current_role_being_rendered'] is implied by above continue)
-                    $conflictLevel = 'red'; // Already in another role in this same match (from DB schedule)
-                    break; // Max conflict for this ref
+                    $conflictLevel = 'red';
+                    break;
                 }
 
-                // Different match, same referee
+                // Different match
                 $scheduledMatchDateObj = new DateTime($scheduledMatch['match_date_str']);
                 $daysBetween = (int)$currentMatchDateObj->diff($scheduledMatchDateObj)->format('%r%a');
 
@@ -89,17 +115,22 @@ if (!function_exists('get_assignment_details_for_referee')) {
                     $scheduledMatchStartTimestamp = strtotime("1970-01-01T" . $scheduledMatch['kickoff_time_str']);
                     $scheduledMatchEndTimestamp = $scheduledMatchStartTimestamp + (90 * 60);
                     if ($currentMatchStartTimestamp < $scheduledMatchEndTimestamp && $scheduledMatchStartTimestamp < $currentMatchEndTimestamp) {
-                        $conflictLevel = 'red'; // Time overlap is always red
+                        $conflictLevel = 'red'; // Time overlap
                         break;
-                    } else { // Same day, no time overlap
-                        if ($scheduledMatch['location_uuid'] !== $currentMatchContext['location_uuid']) {
+                    } else {
+                        // No overlap: if different venues -> red; same venue -> orange
+                        $same = sameVenue(
+                            $scheduledMatch['location_address'] ?? null,
+                            $currentMatchContext['location_address'] ?? null
+                        );
+                        if (!$same) {
                             $conflictLevel = 'red';
                             break;
                         } else {
                             if ($conflictLevel !== 'red') $conflictLevel = 'orange';
                         }
                     }
-                } elseif (abs($daysBetween) <= 2) { // Within +/- 2 days (but not same day)
+                } elseif (abs($daysBetween) <= 2) { // Within +/- 2 days (fatigue/yellow)
                     if ($conflictLevel !== 'red' && $conflictLevel !== 'orange') $conflictLevel = 'yellow';
                 }
             }
@@ -118,19 +149,17 @@ if (!function_exists('get_ref_name_from_list')) {
     }
 }
 
-
 function renderRefereeDropdown(
-    $role_being_rendered,         // e.g., "referee_id"
-    $match_details_for_dropdown,  // The full $match array for the current row
-    $all_referees_list,           // The full list of referee objects/arrays for options
-    $assignMode,                  // Boolean
-    $refereeSchedule_precomputed, // Precomputed schedule from fetch_matches.php
-    $refereeAvailabilityCache_precomputed // Precomputed availability from fetch_matches.php
+    $role_being_rendered,
+    $match_details_for_dropdown,
+    $all_referees_list,
+    $assignMode,
+    $refereeSchedule_precomputed,
+    $refereeAvailabilityCache_precomputed
 ) {
     $currently_assigned_ref_id_for_this_role = $match_details_for_dropdown[$role_being_rendered] ?? null;
 
-    // Prepare context for the conflict/availability checker
-    // These are the roles already assigned in THIS match row from the DB ($match_details_for_dropdown)
+    // Current match DB state (before this selection)
     $current_match_existing_assignments = [
         'referee_id'      => $match_details_for_dropdown['referee_id'] ?? null,
         'ar1_id'          => $match_details_for_dropdown['ar1_id'] ?? null,
@@ -138,16 +167,17 @@ function renderRefereeDropdown(
         'commissioner_id' => $match_details_for_dropdown['commissioner_id'] ?? null
     ];
 
+    // NOTE: use location_address now (no more location_uuid)
     $details_for_conflict_check = [
-        'uuid'           => $match_details_for_dropdown['uuid'],
-        'match_date'     => $match_details_for_dropdown['match_date'],
-        'kickoff_time'   => $match_details_for_dropdown['kickoff_time'],
-        'location_uuid'  => $match_details_for_dropdown['location_uuid'],
-        'assigned_roles' => $current_match_existing_assignments,
+        'uuid'                        => $match_details_for_dropdown['uuid'],
+        'match_date'                  => $match_details_for_dropdown['match_date'],
+        'kickoff_time'                => $match_details_for_dropdown['kickoff_time'],
+        'location_address'            => $match_details_for_dropdown['location_address'] ?? null,
+        'assigned_roles'              => $current_match_existing_assignments,
         'current_role_being_rendered' => $role_being_rendered
     ];
 
-    $overall_style = ''; // For the select element (if assigned) or span (display mode)
+    $overall_style = '';
 
     if ($currently_assigned_ref_id_for_this_role) {
         $assignmentInfo = get_assignment_details_for_referee(
@@ -158,15 +188,12 @@ function renderRefereeDropdown(
         );
 
         if (!$assignmentInfo['is_available']) {
-            // This styling is for the select box itself or the span in display mode
             $overall_style = 'background-color: lightgrey; color: #333; text-decoration: line-through;';
         } elseif ($assignmentInfo['conflict_type'] === 'red') {
             $overall_style = 'background-color: red; color: white;';
         } elseif ($assignmentInfo['conflict_type'] === 'orange') {
             $overall_style = 'background-color: orange; color: black;';
         } elseif ($assignmentInfo['conflict_type'] === 'yellow') {
-            // Yellow is often not applied to the main select/span, but to options.
-            // However, if displaying an existing yellow, we might show it.
             $overall_style = 'background-color: yellow; color: black;';
         }
     }
@@ -176,14 +203,12 @@ function renderRefereeDropdown(
         echo '<select id="' . $selectId . '" 
                     class="referee-select form-control" 
                     name="assignments[' . $match_details_for_dropdown['uuid'] . '][' . $role_being_rendered . ']" 
-                    style="' . $overall_style . '">'; // Overall style for the select box
+                    style="' . $overall_style . '">';
         echo '<option value="">-- Select Referee --</option>';
 
         foreach ($all_referees_list as $ref_option) {
             $selected_attr = ($ref_option['uuid'] === $currently_assigned_ref_id_for_this_role) ? 'selected' : '';
 
-            // Get details for this specific referee option
-            // The context's assigned_roles should be the DB state of the match for checking this option.
             $optionInfo = get_assignment_details_for_referee(
                 $ref_option['uuid'],
                 $details_for_conflict_check,
@@ -196,8 +221,7 @@ function renderRefereeDropdown(
 
             if (!$optionInfo['is_available']) {
                 $option_style_parts[] = 'background-color: lightgrey';
-                $option_style_parts[] = 'color: #6c757d'; // Bootstrap's muted text color
-                // $option_style_parts[] = 'text-decoration: line-through'; // Optional for options
+                $option_style_parts[] = 'color: #6c757d';
                 $availability_data_attr = 'unavailable';
             } else {
                 if ($optionInfo['conflict_type'] === 'red') {
@@ -214,7 +238,6 @@ function renderRefereeDropdown(
             $option_style_str = implode('; ', $option_style_parts);
             if ($option_style_str) $option_style_str .= ';';
 
-
             echo '<option value="' . htmlspecialchars($ref_option['uuid']) . '" ' . $selected_attr . ' 
                   style="' . $option_style_str . '"
                   data-grade="' . htmlspecialchars($ref_option['grade']) . '" 
@@ -223,7 +246,7 @@ function renderRefereeDropdown(
                 '</option>';
         }
         echo '</select>';
-    } else { // Display mode
+    } else {
         $displayText = '-- Not Assigned --';
         $grade = '';
 
@@ -231,11 +254,9 @@ function renderRefereeDropdown(
             $assigned_ref = null;
             foreach ($all_referees_list as $ref) {
                 if ($ref['uuid'] === $currently_assigned_ref_id_for_this_role) {
-                    $assigned_ref = $ref;
-                    break;
+                    $assigned_ref = $ref; break;
                 }
             }
-
             if ($assigned_ref) {
                 $displayText = $assigned_ref['first_name'] . ' ' . $assigned_ref['last_name'];
                 $grade = $assigned_ref['grade'];
@@ -244,11 +265,8 @@ function renderRefereeDropdown(
             }
         }
 
-        // The 'form-control' class gives it the same height and basic styling as the select inputs.
-        // The 'disabled' attribute styling is mimicked by 'background-color: #e9ecef' (Bootstrap's default).
-        // The 'overall_style' is for conflict colors. If it exists, it overrides the default background.
         $final_style = 'padding: .375rem .75rem; border: 1px solid #ced4da; border-radius: .25rem;';
-        $final_style .= 'background-color: #e9ecef;'; // Mimic disabled input
+        $final_style .= 'background-color: #e9ecef;';
         if (!empty($overall_style)) {
             $final_style = $overall_style . ' ' . $final_style;
         }

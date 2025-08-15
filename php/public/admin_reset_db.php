@@ -112,7 +112,7 @@
 
                 // Stage 3: Seed Database
                 if (!$error_occured) {
-                    $output_log .= "--- Stage 3: Seeding Database ---\n";
+                    $output_log .= "--- Stage 3: Seeding Districts ---\n";
                     $output_log .= "Executing: php " . basename($seed_district) . "\n";
                     $current_output = shell_exec("php " . escapeshellarg($seed_district) . " 2>&1");
                     if ($current_output === null) {

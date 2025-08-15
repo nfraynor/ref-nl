@@ -4,3 +4,7 @@ ALTER TABLE teams
 
 CREATE INDEX IF NOT EXISTS idx_teams_club ON teams (club_id);
 CREATE INDEX IF NOT EXISTS idx_teams_district ON teams (district_id);
+
+ALTER TABLE teams
+    ADD COLUMN IF NOT EXISTS active BOOLEAN NOT NULL DEFAULT TRUE;
+    CREATE INDEX IF NOT EXISTS idx_teams_active ON teams (active);

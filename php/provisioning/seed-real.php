@@ -24,6 +24,23 @@ $divisions_districts_data = [
     '3e Klasse' => ['Noord West', 'Zuid West']
 ];
 
+
+// Build a name => id map for districts
+function getDistrictIdMap(PDO $pdo): array {
+    $rows = $pdo->query("SELECT id, name FROM districts")->fetchAll(PDO::FETCH_ASSOC);
+    $map = [];
+    foreach ($rows as $r) { $map[mb_strtolower(trim($r['name']))] = (int)$r['id']; }
+    return $map;
+}
+
+// Round-robin iterator (deterministic fallback)
+function roundRobinPicker(array $ids): callable {
+    $i = 0; $n = count($ids);
+    return function() use (&$i, $n, $ids) { $v = $ids[$i % $n]; $i++; return $v; };
+}
+
+
+
 $division_ids = [];
 $district_ids = [];
 
@@ -155,21 +172,23 @@ foreach ($sheets as $sheet_key => $sheet_matches) {
             }
         }
 
-        // Add teams to team_map if not already present
         foreach ([$home_team => $home_club, $away_team => $away_club] as $team_name => $club_name) {
             if (!isset($team_map[$team_name]) && $team_name !== '') {
                 if (isset($club_map[$club_name])) {
                     $team_map[$team_name] = [
-                        'uuid' => generate_uuid_v4(),
-                        'team_name' => $team_name,
-                        'club_id' => $club_map[$club_name]['uuid'],
-                        'division' => $division
+                        'uuid'       => generate_uuid_v4(),
+                        'team_name'  => $team_name,
+                        'club_name'  => $club_name,                // keep name for later resolution
+                        'club_id'    => $club_map[$club_name]['uuid'], // provisional (may be wrong if club existed)
+                        'division'   => $division,
+                        'district'   => $district,                 // for district_id insert later
                     ];
                 } else {
                     echo "Warning: Skipping team {$team_name} in {$sheet_key} because club {$club_name} could not be inferred.\n";
                 }
             }
         }
+
 
         // Add location to location_map if not already present
         if (!isset($location_map[$location]) && $location !== '') {
@@ -225,49 +244,6 @@ foreach ($sheets as $sheet_key => $sheet_matches) {
     }
 }
 
-// ----- Seed Clubs -----
-echo "Seeding Clubs...\n";
-$seeded_clubs_count = 0;
-$existing_clubs_count = 0;
-$stmt_insert_club = $pdo->prepare("
-    INSERT IGNORE INTO clubs (
-        uuid, club_name, location_uuid,
-        primary_contact_name, primary_contact_email, primary_contact_phone,
-        website_url, notes, active
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-");
-
-foreach ($club_map as $club) {
-    $stmt_check_club = $pdo->prepare("SELECT uuid FROM clubs WHERE club_name = ?");
-    $stmt_check_club->execute([$club['club_name']]);
-    if ($stmt_check_club->fetch()) {
-        $existing_clubs_count++;
-    } else {
-        // Resolve location_uuid from location_map we just inserted/ensured
-        $locName = $club['location_candidate_name'];
-        $locUuid = $location_map[$locName]['uuid'] ?? null;
-
-        $stmt_insert_club->execute([
-            $club['uuid'],
-            $club['club_name'],
-            $locUuid,
-            null,
-            null,
-            null,
-            null,
-            null,
-            1
-        ]);
-
-        // Assign CB-### code (uses AUTO_INCREMENT club_number)
-        $pdo->prepare("UPDATE clubs SET club_id = CONCAT('CB-', LPAD(club_number, 3, '0')) WHERE uuid = ?")
-            ->execute([$club['uuid']]);
-
-        $seeded_clubs_count++;
-    }
-}
-echo "Clubs: {$seeded_clubs_count} seeded, {$existing_clubs_count} already existed.\n";
-
 // ----- Seed Locations -----
 echo "Seeding Locations...\n";
 $seeded_locations_count = 0;
@@ -292,60 +268,194 @@ foreach ($location_map as $location) {
 }
 echo "Locations: {$seeded_locations_count} seeded, {$existing_locations_count} already existed.\n";
 
+
+// ----- Seed Clubs -----
+echo "Seeding Clubs...\n";
+$seeded_clubs_count = 0;
+$existing_clubs_count = 0;
+$stmt_insert_club = $pdo->prepare("
+    INSERT IGNORE INTO clubs (
+        uuid, club_name, location_uuid,
+        primary_contact_name, primary_contact_email, primary_contact_phone,
+        website_url, notes, active
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+");
+
+foreach ($club_map as $club) {
+    $stmt_check_club = $pdo->prepare("SELECT uuid FROM clubs WHERE club_name = ?");
+    $stmt_check_club->execute([$club['club_name']]);
+    $row = $stmt_check_club->fetch(PDO::FETCH_ASSOC);
+
+    if ($row) {
+        // Club already exists — IMPORTANT: keep the real UUID so teams point to it
+        $existing_clubs_count++;
+        $club_map[$club['club_name']]['uuid'] = $row['uuid'];
+    } else {
+        // Resolve location_uuid from location_map we just prepared
+        $locName = $club['location_candidate_name'];
+        $locUuid = $location_map[$locName]['uuid'] ?? null;
+
+        $stmt_insert_club->execute([
+            $club['uuid'],
+            $club['club_name'],
+            $locUuid,
+            null,
+            null,
+            null,
+            null,
+            null,
+            1
+        ]);
+
+        // Assign CB-### code (uses AUTO_INCREMENT club_number)
+        $pdo->prepare("UPDATE clubs SET club_id = CONCAT('CB-', LPAD(club_number, 3, '0')) WHERE uuid = ?")
+            ->execute([$club['uuid']]);
+
+        $seeded_clubs_count++;
+    }
+}
+
+echo "Clubs: {$seeded_clubs_count} seeded, {$existing_clubs_count} already existed.\n";
+
+$districtIdMap = getDistrictIdMap($pdo);           // ['national' => 1, 'noord west' => 2, ...]
+$districtIds    = array_values($districtIdMap);
+if (empty($districtIds)) {
+    echo "Error: No districts found. Run seed_districts.php first.\n";
+    exit(1);
+}
+$pickNextDistrict = roundRobinPicker($districtIds); // fallback if name lookup fails
+// ---- Resolve real club UUIDs for teams (avoid FK errors) ----
+echo "Resolving club UUIDs for teams...\n";
+$clubUuidByName = [];
+$stmt = $pdo->query("SELECT club_name, uuid FROM clubs");
+while ($r = $stmt->fetch(PDO::FETCH_ASSOC)) {
+    $clubUuidByName[$r['club_name']] = $r['uuid'];
+}
+
+// Patch team_map club_id to the actual DB UUID (by club_name)
+foreach ($team_map as &$t) {
+    if (!empty($t['club_name']) && isset($clubUuidByName[$t['club_name']])) {
+        $t['club_id'] = $clubUuidByName[$t['club_name']];
+    } else {
+        // If we can't resolve, force null so we can skip later
+        $t['club_id'] = null;
+        echo "Warning: Unable to resolve club UUID for team {$t['team_name']} (club: " . ($t['club_name'] ?? '?') . "). Skipping.\n";
+    }
+}
+unset($t);
+
 // ----- Seed Teams -----
 echo "Seeding Teams...\n";
 $seeded_teams_count = 0;
 $existing_teams_count = 0;
-$stmt_insert_team = $pdo->prepare("INSERT IGNORE INTO teams (uuid, team_name, club_id, division) VALUES (?, ?, ?, ?)");
+$stmt_insert_team = $pdo->prepare("
+    INSERT INTO teams (uuid, team_name, club_id, division, district_id)
+    VALUES (?, ?, ?, ?, ?)
+");
+
 foreach ($team_map as $team) {
     $stmt_check_team = $pdo->prepare("SELECT uuid FROM teams WHERE team_name = ? AND club_id = ?");
     $stmt_check_team->execute([$team['team_name'], $team['club_id']]);
+
     if ($stmt_check_team->fetch()) {
         $existing_teams_count++;
-    } else {
-        $stmt_insert_team->execute([
-            $team['uuid'],
-            $team['team_name'],
-            $team['club_id'],
-            $team['division']
-        ]);
-        $seeded_teams_count++;
+        continue;
     }
+
+    // Resolve district_id from district name (case-insensitive), fallback to round-robin
+    $districtName = $team['district'] ?? null;
+    $districtId   = null;
+    if ($districtName) {
+        $key = mb_strtolower(trim($districtName));
+        $districtId = $districtIdMap[$key] ?? null;
+    }
+    if ($districtId === null) {
+        $districtId = $pickNextDistrict(); // deterministic fallback
+        echo "Info: Falling back district for team {$team['team_name']} -> ID {$districtId}\n";
+    }
+
+    $stmt_insert_team->execute([
+        $team['uuid'],
+        $team['team_name'],
+        $team['club_id'],
+        $team['division'],
+        $districtId
+    ]);
+    $seeded_teams_count++;
 }
+
 echo "Teams: {$seeded_teams_count} seeded, {$existing_teams_count} already existed.\n";
 
 // ----- Seed Matches -----
 echo "Seeding Matches...\n";
+// Build a quick lookup by location UUID (from $location_map)
+$locationByUuid = [];
+foreach ($location_map as $loc) {
+    $locationByUuid[$loc['uuid']] = $loc;
+}
+
+echo "Seeding Matches...\n";
 $seeded_matches_count = 0;
 $existing_matches_count = 0;
-$stmt_insert_match = $pdo->prepare("INSERT IGNORE INTO matches (uuid, home_team_id, away_team_id, location_uuid, division, expected_grade, match_date, kickoff_time, district, poule) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+
+$stmt_insert_match = $pdo->prepare("
+    INSERT IGNORE INTO matches
+      (uuid, home_team_id, away_team_id,
+       location_address, location_lat, location_lon,
+       division, expected_grade, match_date, kickoff_time, district, poule)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+");
+
+/* Uniqueness check: date+time+teams+address (NULL-safe) */
+$stmt_check_match = $pdo->prepare("
+    SELECT uuid
+    FROM matches
+    WHERE match_date = ?
+      AND kickoff_time = ?
+      AND home_team_id = ?
+      AND away_team_id = ?
+      AND (location_address <=> ?)
+");
+
 foreach ($matches_data as $match) {
-    $stmt_check_match = $pdo->prepare("SELECT uuid FROM matches WHERE match_date = ? AND kickoff_time = ? AND home_team_id = ? AND away_team_id = ? AND location_uuid = ?");
+    // Resolve address/coords from the prepared location_map via UUID
+    $loc = $locationByUuid[$match['location_uuid']] ?? null;
+    $addr = $loc['address_text'] ?? null;
+    $lat  = $loc['latitude']     ?? null;
+    $lon  = $loc['longitude']    ?? null;
+
     $stmt_check_match->execute([
         $match['match_date'],
         $match['kickoff_time'],
         $match['home_team_id'],
         $match['away_team_id'],
-        $match['location_uuid']
+        $addr
     ]);
+
     if ($stmt_check_match->fetch()) {
         $existing_matches_count++;
-    } else {
-        $stmt_insert_match->execute([
-            $match['uuid'],
-            $match['home_team_id'],
-            $match['away_team_id'],
-            $match['location_uuid'],
-            $match['division'],
-            $match['expected_grade'],
-            $match['match_date'],
-            $match['kickoff_time'],
-            $match['district'],
-            $match['poule']
-        ]);
-        $seeded_matches_count++;
+        continue;
     }
+
+    $stmt_insert_match->execute([
+        $match['uuid'],
+        $match['home_team_id'],
+        $match['away_team_id'],
+        $addr,
+        $lat,
+        $lon,
+        $match['division'],
+        $match['expected_grade'],
+        $match['match_date'],
+        $match['kickoff_time'],
+        $match['district'],
+        $match['poule']
+    ]);
+    $seeded_matches_count++;
 }
+
+echo "Matches: {$seeded_matches_count} seeded, {$existing_matches_count} already existed.\n";
+
 // ----- Additional Users -----
 $newUsers = [
     ['username' => 'Antoine', 'password' => 'password', 'role' => 'super_admin'],

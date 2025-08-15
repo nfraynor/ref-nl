@@ -60,25 +60,18 @@ if ($userRole !== 'super_admin') {
         // Add permission-based WHERE clauses
         $divisionPlaceholders = implode(',', array_fill(0, count($allowedDivisionNames), '?'));
         $whereClauses[] = "m.division IN ($divisionPlaceholders)";
-        foreach ($allowedDivisionNames as $name) {
-            $params[] = $name;
-        }
+        foreach ($allowedDivisionNames as $name) $params[] = $name;
 
         $districtPlaceholders = implode(',', array_fill(0, count($allowedDistrictNames), '?'));
         $whereClauses[] = "m.district IN ($districtPlaceholders)";
-        foreach ($allowedDistrictNames as $name) {
-            $params[] = $name;
-        }
+        foreach ($allowedDistrictNames as $name) $params[] = $name;
     }
 }
 // --- END: Role-based permission logic ---
 
 // Pagination settings
 $matchesPerPage = 50;
-$currentPage = isset($_GET['page']) ? (int)$_GET['page'] : 1;
-if ($currentPage < 1) {
-    $currentPage = 1;
-}
+$currentPage = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
 $offset = ($currentPage - 1) * $matchesPerPage;
 
 // Existing filters from _GET parameters
@@ -86,64 +79,90 @@ if (!empty($_GET['start_date'])) {
     $whereClauses[] = "m.match_date >= ?";
     $params[] = $_GET['start_date'];
 }
-
 if (!empty($_GET['end_date'])) {
     $whereClauses[] = "m.match_date <= ?";
     $params[] = $_GET['end_date'];
 }
-foreach (['division', 'district', 'poule', 'location', 'referee_assigner'] as $filter) {
-    if (!empty($_GET[$filter]) && is_array($_GET[$filter])) {
-        $placeholders = implode(',', array_fill(0, count($_GET[$filter]), '?'));
-        $whereClauses[] = "m.$filter IN ($placeholders)";
-        foreach ($_GET[$filter] as $value) {
-            $params[] = $value;
+
+// Map multi-select filters to real columns
+$multiFilters = [
+    'division'          => 'm.division',
+    'district'          => 'm.district',
+    'poule'             => 'm.poule',
+    'location'          => 'm.location_address',     // <-- was 'm.location'
+    'referee_assigner'  => 'm.referee_assigner_uuid' // <-- match real column
+];
+
+foreach ($multiFilters as $key => $col) {
+    if (!empty($_GET[$key]) && is_array($_GET[$key])) {
+        $vals = array_values(array_filter($_GET[$key], fn($v) => $v !== ''));
+        if ($vals) {
+            $ph = implode(',', array_fill(0, count($vals), '?'));
+            $whereClauses[] = "$col IN ($ph)";
+            foreach ($vals as $v) $params[] = $v;
         }
     }
 }
 
-$whereSQL = count($whereClauses) ? 'WHERE ' . implode(' AND ', $whereClauses) : '';
+$whereSQL = $whereClauses ? ('WHERE ' . implode(' AND ', $whereClauses)) : '';
 
+// MAIN QUERY (uses positional placeholders only; LIMIT/OFFSET are also '?')
 $sql = "
-    SELECT 
-        m.*,
-        hc.club_name AS home_club_name,
-        ht.team_name AS home_team_name,
-        ac.club_name AS away_club_name,
-        at.team_name AS away_team_name,
-        l.name AS location_name,
-        l.address_text AS location_address,
-        assigner_user.username AS referee_assigner_username
-    FROM matches m
-    JOIN teams ht ON m.home_team_id = ht.uuid
-    JOIN clubs hc ON ht.club_id = hc.uuid
-    JOIN teams at ON m.away_team_id = at.uuid
-    JOIN clubs ac ON at.club_id = ac.uuid
-    LEFT JOIN locations l ON m.location_uuid = l.uuid
-    LEFT JOIN users assigner_user ON m.referee_assigner_uuid = assigner_user.uuid
-    $whereSQL
-    ORDER BY m.match_date ASC, m.kickoff_time ASC
-    LIMIT :limit OFFSET :offset
+SELECT
+  m.uuid,
+  m.match_date,
+  m.kickoff_time,
+  m.division,
+  m.district,
+  m.poule,
+  m.expected_grade,
+
+  -- assignments for precompute
+  m.referee_id,
+  m.ar1_id,
+  m.ar2_id,
+  m.commissioner_id,
+
+  th.team_name AS home_team,
+  ta.team_name AS away_team,
+
+  ch.club_name AS home_club,
+  ca.club_name AS away_club,
+
+  -- match-level venue fields
+  m.location_address,
+  m.location_lat,
+  m.location_lon,
+
+  -- assigner username (optional)
+  u.username AS referee_assigner_username,
+  m.referee_assigner_uuid
+FROM matches m
+LEFT JOIN teams th ON m.home_team_id = th.uuid
+LEFT JOIN clubs ch ON th.club_id     = ch.uuid
+LEFT JOIN teams ta ON m.away_team_id = ta.uuid
+LEFT JOIN clubs ca ON ta.club_id     = ca.uuid
+LEFT JOIN users u  ON m.referee_assigner_uuid = u.uuid
+{$whereSQL}
+ORDER BY m.match_date ASC, m.kickoff_time ASC
+LIMIT ? OFFSET ?
 ";
 
-$countSql = "SELECT COUNT(*) FROM matches m $whereSQL";
+// COUNT for pagination (no need for joins)
+$countSql = "SELECT COUNT(*) FROM matches m {$whereSQL}";
 
 if ($loadInitialMatches) {
-    // Fetch total matches for pagination
+    // total count
     $countStmt = $pdo->prepare($countSql);
     $countStmt->execute($params);
     $totalMatches = (int)$countStmt->fetchColumn();
-    $totalPages = ceil($totalMatches / $matchesPerPage);
+    $totalPages = (int)ceil($totalMatches / $matchesPerPage);
 
-    // Fetch matches for the current page
+    // fetch page
     $stmt = $pdo->prepare($sql);
-    $stmt->bindValue(':limit', $matchesPerPage, PDO::PARAM_INT);
-    $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
-    foreach ($params as $key => $value) {
-        // PDOStatement::bindValue uses 1-based indexing for placeholders
-        $stmt->bindValue($key + 1, $value);
-    }
-    $stmt->execute();
-    $matches = $stmt->fetchAll();
+    $pageParams = array_merge($params, [$matchesPerPage, $offset]); // positional for LIMIT/OFFSET
+    $stmt->execute($pageParams);
+    $matches = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } else {
     $matches = [];
     $totalMatches = 0;
@@ -152,24 +171,25 @@ if ($loadInitialMatches) {
 
 // --- START: Pre-computation for Conflict & Availability for initial load ---
 $refereeSchedule_initial = [];
-if ($loadInitialMatches) { // Only compute if matches were loaded
-    foreach ($matches as $match_item_initial) { // Use unique var name
-        $match_uuid_initial = $match_item_initial['uuid'];
-        $match_date_for_schedule_initial = $match_item_initial['match_date'];
-        $kickoff_time_for_schedule_initial = $match_item_initial['kickoff_time'];
+if ($loadInitialMatches) {
+    foreach ($matches as $mrow) {
+        $match_uuid = $mrow['uuid'];
+        $match_date_str = $mrow['match_date'];
+        $kickoff_time_str = $mrow['kickoff_time'];
 
-        foreach (['referee_id', 'ar1_id', 'ar2_id', 'commissioner_id'] as $role_key_initial) {
-            if (!empty($match_item_initial[$role_key_initial])) {
-                $ref_id_for_schedule_initial = $match_item_initial[$role_key_initial];
-                if (!isset($refereeSchedule_initial[$ref_id_for_schedule_initial])) {
-                    $refereeSchedule_initial[$ref_id_for_schedule_initial] = [];
+        foreach (['referee_id', 'ar1_id', 'ar2_id', 'commissioner_id'] as $role_key) {
+            if (!empty($mrow[$role_key])) {
+                $ref_id = $mrow[$role_key];
+                if (!isset($refereeSchedule_initial[$ref_id])) {
+                    $refereeSchedule_initial[$ref_id] = [];
                 }
-                $refereeSchedule_initial[$ref_id_for_schedule_initial][] = [
-                    'match_id' => $match_uuid_initial,
-                    'match_date_str' => $match_date_for_schedule_initial,
-                    'kickoff_time_str' => $kickoff_time_for_schedule_initial,
-                    'role' => $role_key_initial,
-                    'location_uuid' => $match_item_initial['location_uuid']
+                $refereeSchedule_initial[$ref_id][] = [
+                    'match_id'        => $match_uuid,
+                    'match_date_str'  => $match_date_str,
+                    'kickoff_time_str'=> $kickoff_time_str,
+                    'role'            => $role_key,
+                    // no more location_uuid; use address if you need it:
+                    'location_address'=> $mrow['location_address'] ?? null
                 ];
             }
         }
@@ -177,31 +197,35 @@ if ($loadInitialMatches) { // Only compute if matches were loaded
 }
 
 $refereeAvailabilityCache_initial = [];
-if ($loadInitialMatches && !empty($referees)) { // Only compute if matches were loaded and referees exist
-    $allRefereeIds_initial = array_map(function($ref) { return $ref['uuid']; }, $referees);
-
+if ($loadInitialMatches && !empty($referees)) {
+    $allRefereeIds_initial = array_map(fn($ref) => $ref['uuid'], $referees);
     if (!empty($allRefereeIds_initial)) {
-        $placeholders_initial = implode(',', array_fill(0, count($allRefereeIds_initial), '?'));
-        $unavailabilityStmt_initial = $pdo->prepare("SELECT referee_id, start_date, end_date FROM referee_unavailability WHERE referee_id IN ($placeholders_initial)");
-        $unavailabilityStmt_initial->execute($allRefereeIds_initial);
-        while ($row_initial = $unavailabilityStmt_initial->fetch(PDO::FETCH_ASSOC)) {
-            if (!isset($refereeAvailabilityCache_initial[$row_initial['referee_id']])) {
-                $refereeAvailabilityCache_initial[$row_initial['referee_id']] = ['unavailability' => [], 'weekly' => []];
-            }
-            $refereeAvailabilityCache_initial[$row_initial['referee_id']]['unavailability'][] = $row_initial;
+        $ph = implode(',', array_fill(0, count($allRefereeIds_initial), '?'));
+        $unavailabilityStmt = $pdo->prepare("
+            SELECT referee_id, start_date, end_date
+            FROM referee_unavailability
+            WHERE referee_id IN ($ph)
+        ");
+        $unavailabilityStmt->execute($allRefereeIds_initial);
+        while ($row = $unavailabilityStmt->fetch(PDO::FETCH_ASSOC)) {
+            $rid = $row['referee_id'];
+            $refereeAvailabilityCache_initial[$rid]['unavailability'][] = $row;
         }
 
-        $weeklyStmt_initial = $pdo->prepare("SELECT referee_id, weekday, morning_available, afternoon_available, evening_available FROM referee_weekly_availability WHERE referee_id IN ($placeholders_initial)");
-        $weeklyStmt_initial->execute($allRefereeIds_initial);
-        while ($row_initial = $weeklyStmt_initial->fetch(PDO::FETCH_ASSOC)) {
-            if (!isset($refereeAvailabilityCache_initial[$row_initial['referee_id']])) {
-                $refereeAvailabilityCache_initial[$row_initial['referee_id']] = ['unavailability' => [], 'weekly' => []];
-            }
-            $refereeAvailabilityCache_initial[$row_initial['referee_id']]['weekly'][$row_initial['weekday']] = $row_initial;
+        $weeklyStmt = $pdo->prepare("
+            SELECT referee_id, weekday, morning_available, afternoon_available, evening_available
+            FROM referee_weekly_availability
+            WHERE referee_id IN ($ph)
+        ");
+        $weeklyStmt->execute($allRefereeIds_initial);
+        while ($row = $weeklyStmt->fetch(PDO::FETCH_ASSOC)) {
+            $rid = $row['referee_id'];
+            $refereeAvailabilityCache_initial[$rid]['weekly'][$row['weekday']] = $row;
         }
     }
 }
 // --- END: Pre-computation ---
+
 ?>
     <div class="container-fluid">
         <div class="content-card">
@@ -321,8 +345,8 @@ if ($loadInitialMatches && !empty($referees)) { // Only compute if matches were 
                             <tr>
                                 <td><a href="match_detail.php?uuid=<?= htmlspecialchars($match['uuid']) ?>"><?= htmlspecialchars($match['match_date']) ?></a></td>
                                 <td><?= htmlspecialchars(substr($match['kickoff_time'], 0, 5)) ?></td>
-                                <td><?= htmlspecialchars($match['home_team_name']) ?></td>
-                                <td><?= htmlspecialchars($match['away_team_name']) ?></td>
+                                <td><?= htmlspecialchars($match['home_team']) ?></td>
+                                <td><?= htmlspecialchars($match['away_team']) ?></td>
                                 <td><?= htmlspecialchars($match['division']) ?></td>
                                 <td><?= htmlspecialchars($match['district']) ?></td>
                                 <td><?= htmlspecialchars($match['poule']) ?></td>
