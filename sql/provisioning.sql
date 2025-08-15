@@ -21,10 +21,15 @@ CREATE TABLE IF NOT EXISTS division_districts (
 CREATE TABLE IF NOT EXISTS clubs (
     uuid CHAR(36) PRIMARY KEY,
     club_id VARCHAR(50) UNIQUE,
+    club_number INT NOT NULL AUTO_INCREMENT UNIQUE,
     club_name VARCHAR(255) NOT NULL,
-    precise_location_lat DECIMAL(10, 7),
-    precise_location_lon DECIMAL(10, 7),
-    address_text VARCHAR(255)
+    location_uuid CHAR(36) NULL,
+    primary_contact_name  VARCHAR(255),
+    primary_contact_email VARCHAR(255),
+    primary_contact_phone VARCHAR(50),
+    website_url VARCHAR(255),
+    notes TEXT,
+    active BOOLEAN NOT NULL DEFAULT 1
     );
 
 -- Teams
@@ -35,6 +40,18 @@ CREATE TABLE IF NOT EXISTS teams (
     division VARCHAR(100),
     FOREIGN KEY (club_id) REFERENCES clubs(uuid)
     );
+
+-- Locations Table
+CREATE TABLE IF NOT EXISTS locations (
+    uuid CHAR(36) PRIMARY KEY,
+    name VARCHAR(255),
+    address_text VARCHAR(255) NOT NULL,
+    latitude DECIMAL(10, 8) NOT NULL,
+    longitude DECIMAL(11, 8) NOT NULL,
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
 
 -- Referees
 CREATE TABLE IF NOT EXISTS referees (
@@ -165,18 +182,6 @@ CREATE TABLE IF NOT EXISTS referee_team_count (
     FOREIGN KEY (referee_id) REFERENCES referees(uuid),
     FOREIGN KEY (team_id) REFERENCES teams(uuid),
     FOREIGN KEY (club_id) REFERENCES clubs(uuid)
-    );
-
--- Locations Table
-CREATE TABLE IF NOT EXISTS locations (
-    uuid CHAR(36) PRIMARY KEY,
-    name VARCHAR(255),
-    address_text VARCHAR(255) NOT NULL,
-    latitude DECIMAL(10, 8) NOT NULL,
-    longitude DECIMAL(11, 8) NOT NULL,
-    notes TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     );
 
 -- Modify matches table to include location_uuid foreign key

@@ -9,14 +9,23 @@ $pdo = Database::getConnection();
 // Fetch clubs
 $clubs = $pdo->query("
     SELECT 
-        club_id,
-        club_name,
-        precise_location_lat,
-        precise_location_lon,
-        address_text
-    FROM clubs
-    ORDER BY club_name
-")->fetchAll();
+        c.uuid,
+        c.club_id,
+        c.club_name,
+        l.name       AS field_name,
+        l.address_text,
+        l.latitude   AS lat,
+        l.longitude  AS lon,
+        c.primary_contact_name,
+        c.primary_contact_email,
+        c.primary_contact_phone,
+        c.website_url,
+        c.active
+    FROM clubs c
+    LEFT JOIN locations l ON c.location_uuid = l.uuid
+    ORDER BY c.club_name ASC
+")->fetchAll(PDO::FETCH_ASSOC);
+
 ?>
 <div class="container">
     <div class="content-card">
@@ -27,18 +36,24 @@ $clubs = $pdo->query("
     <tr>
         <th>Club ID</th>
         <th>Club Name</th>
-        <th>Latitude</th>
-        <th>Longitude</th>
+        <th>Field</th>
         <th>Address</th>
     </tr>
     </thead>
     <tbody>
     <?php foreach ($clubs as $club): ?>
         <tr>
-            <td><?= htmlspecialchars($club['club_id']) ?></td>
-            <td><?= htmlspecialchars($club['club_name']) ?></td>
-            <td><?= htmlspecialchars($club['precise_location_lat']) ?></td>
-            <td><?= htmlspecialchars($club['precise_location_lon']) ?></td>
+            <td>
+                <a href="clubs/club-details.php?id=<?= urlencode($club['uuid']) ?>">
+                    <?= htmlspecialchars($club['club_id']) ?>
+                </a>
+            </td>
+            <td>
+                <a href="clubs/club-details.php?id=<?= urlencode($club['uuid']) ?>">
+                    <?= htmlspecialchars($club['club_name']) ?>
+                </a>
+            </td>
+            <td><?= htmlspecialchars($club['field_name'] ?? '—') ?></td>
             <td><?= htmlspecialchars($club['address_text']) ?></td>
         </tr>
     <?php endforeach; ?>

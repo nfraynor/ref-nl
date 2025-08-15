@@ -149,11 +149,8 @@ foreach ($sheets as $sheet_key => $sheet_matches) {
             if (!isset($club_map[$club_name]) && $club_name !== '') {
                 $club_map[$club_name] = [
                     'uuid' => generate_uuid_v4(),
-                    'club_id' => strtoupper(str_replace(' ', '', $club_name)),
                     'club_name' => $club_name,
-                    'precise_location_lat' => $base_lat + (mt_rand(-100, 100) / 10000),
-                    'precise_location_lon' => $base_lon + (mt_rand(-100, 100) / 10000),
-                    'address_text' => "$club_name Ground"
+                    'location_candidate_name' => $club_name . ' Ground' // we'll create/link a location with this name
                 ];
             }
         }
@@ -189,6 +186,20 @@ foreach ($sheets as $sheet_key => $sheet_matches) {
             continue;
         }
 
+        foreach ($club_map as $club) {
+            $locName = $club['location_candidate_name'];
+            if (!isset($location_map[$locName])) {
+                $location_map[$locName] = [
+                    'uuid' => generate_uuid_v4(),
+                    'name' => $locName,
+                    'address_text' => $locName . ", Netherlands",
+                    'latitude' => $base_lat + (mt_rand(-100, 100) / 10000),
+                    'longitude' => $base_lon + (mt_rand(-100, 100) / 10000),
+                    'notes' => "Home ground for {$club['club_name']}"
+                ];
+            }
+        }
+
         // Convert time (decimal day) to HH:MM:SS
         $hours = floor($decimal_time * 24);
         $minutes = floor(($decimal_time * 24 - $hours) * 60);
@@ -218,21 +229,40 @@ foreach ($sheets as $sheet_key => $sheet_matches) {
 echo "Seeding Clubs...\n";
 $seeded_clubs_count = 0;
 $existing_clubs_count = 0;
-$stmt_insert_club = $pdo->prepare("INSERT IGNORE INTO clubs (uuid, club_id, club_name, precise_location_lat, precise_location_lon, address_text) VALUES (?, ?, ?, ?, ?, ?)");
+$stmt_insert_club = $pdo->prepare("
+    INSERT IGNORE INTO clubs (
+        uuid, club_name, location_uuid,
+        primary_contact_name, primary_contact_email, primary_contact_phone,
+        website_url, notes, active
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+");
+
 foreach ($club_map as $club) {
     $stmt_check_club = $pdo->prepare("SELECT uuid FROM clubs WHERE club_name = ?");
     $stmt_check_club->execute([$club['club_name']]);
     if ($stmt_check_club->fetch()) {
         $existing_clubs_count++;
     } else {
+        // Resolve location_uuid from location_map we just inserted/ensured
+        $locName = $club['location_candidate_name'];
+        $locUuid = $location_map[$locName]['uuid'] ?? null;
+
         $stmt_insert_club->execute([
             $club['uuid'],
-            $club['club_id'],
             $club['club_name'],
-            $club['precise_location_lat'],
-            $club['precise_location_lon'],
-            $club['address_text']
+            $locUuid,
+            null,
+            null,
+            null,
+            null,
+            null,
+            1
         ]);
+
+        // Assign CB-### code (uses AUTO_INCREMENT club_number)
+        $pdo->prepare("UPDATE clubs SET club_id = CONCAT('CB-', LPAD(club_number, 3, '0')) WHERE uuid = ?")
+            ->execute([$club['uuid']]);
+
         $seeded_clubs_count++;
     }
 }
