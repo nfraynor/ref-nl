@@ -185,9 +185,17 @@ CREATE TABLE IF NOT EXISTS referee_team_count (
     );
 
 -- Modify matches table to include location_uuid foreign key
-ALTER TABLE matches ADD COLUMN IF NOT EXISTS location_uuid CHAR(36) NULL;
-ALTER TABLE matches ADD CONSTRAINT fk_match_location FOREIGN KEY (location_uuid) REFERENCES locations(uuid);
-ALTER TABLE referees
-    ADD COLUMN IF NOT EXISTS max_matches_per_weekend INT NOT NULL DEFAULT 1,
-    ADD COLUMN IF NOT EXISTS max_days_per_weekend INT NOT NULL DEFAULT 1;
+-- Run once on your DB
+ALTER TABLE teams
+    ADD COLUMN IF NOT EXISTS district_id INT NULL,
+    ADD CONSTRAINT fk_teams_district FOREIGN KEY (district_id) REFERENCES districts(id);
+
+-- Optional but helpful
+CREATE INDEX IF NOT EXISTS idx_teams_club ON teams (club_id);
+CREATE INDEX IF NOT EXISTS idx_teams_district ON teams (district_id);
+
+ALTER TABLE teams
+    ADD COLUMN IF NOT EXISTS active BOOLEAN NOT NULL DEFAULT TRUE;
+
+CREATE INDEX IF NOT EXISTS idx_teams_active ON teams (active);
 
