@@ -297,20 +297,6 @@ if ($loadInitialMatches && !empty($referees)) { // Only compute if matches were 
                                 </div>
                             </th>
                             <th>
-                                Location
-                                <div class="dropdown d-inline-block">
-                                    <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" id="locationFilterToggle" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
-                                        <i class="bi bi-filter"></i>
-                                    </button>
-                                    <ul id="locationFilterBox" class="dropdown-menu scrollable shadow rounded" aria-labelledby="locationFilterToggle">
-                                        <li id="locationFilterOptions" class="px-3 py-2 d-flex flex-column gap-1"></li>
-                                        <li class="dropdown-divider"></li>
-                                        <li class="px-3"><button type="button" id="clearLocationFilter" class="btn btn-sm btn-light w-100">Clear</button></li>
-                                        <li class="px-3"><button type="button" id="applyLocationFilter" class="btn btn-sm btn-primary w-100">Apply</button></li>
-                                    </ul>
-                                </div>
-                            </th>
-                            <th>
                                 Referee Assigner
                                 <div class="dropdown d-inline-block">
                                     <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" id="refereeAssignerFilterToggle" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
