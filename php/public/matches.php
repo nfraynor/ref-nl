@@ -3,434 +3,398 @@ require_once __DIR__ . '/../utils/session_auth.php';
 require_once __DIR__ . '/../utils/db.php';
 include 'includes/header.php';
 include 'includes/nav.php';
-include 'components/referee_dropdown.php';
 
-$assignMode = isset($_GET['assign_mode']);
 $pdo = Database::getConnection();
+$assignMode = isset($_GET['assign_mode']) && $_GET['assign_mode'] == '1';
 
-function buildQueryString(array $overrides = []): string {
-    return http_build_query(array_merge($_GET, $overrides));
-}
-
+// Preload referees for the select editors (value = uuid)
 $referees = $pdo->query("
-    SELECT 
-        uuid, 
-        first_name, 
-        last_name, 
-        grade
-    FROM referees 
-    ORDER BY first_name
-")->fetchAll();
+    SELECT r.uuid, r.first_name, r.last_name, r.grade
+    FROM referees r
+    ORDER BY r.first_name, r.last_name
+")->fetchAll(PDO::FETCH_ASSOC);
 
-// Fetch matches
-// Build dynamic SQL with optional date filters
-$whereClauses = [];
-$params = [];
+// Preload assigners (users) for the assigner editor (value = uuid)
+$assigners = $pdo->query("
+    SELECT u.uuid, u.username
+    FROM users u
+    ORDER BY u.username
+")->fetchAll(PDO::FETCH_ASSOC);
 
-// --- START: Role-based permission logic for initial query ---
-$userRole = $_SESSION['user_role'] ?? null;
-$userDivisionIds = $_SESSION['division_ids'] ?? [];
-$userDistrictIds = $_SESSION['district_ids'] ?? [];
-
-$allowedDivisionNames = [];
-$allowedDistrictNames = [];
-$loadInitialMatches = true; // Flag to control if the initial query runs
-
-if ($userRole !== 'super_admin') {
-    // Fetch allowed division names
-    if (!empty($userDivisionIds) && !(count($userDivisionIds) === 1 && $userDivisionIds[0] === '')) {
-        $placeholders = implode(',', array_fill(0, count($userDivisionIds), '?'));
-        $stmtDiv = $pdo->prepare("SELECT name FROM divisions WHERE id IN ($placeholders)");
-        $stmtDiv->execute($userDivisionIds);
-        $allowedDivisionNames = $stmtDiv->fetchAll(PDO::FETCH_COLUMN);
-    }
-
-    // Fetch allowed district names
-    if (!empty($userDistrictIds) && !(count($userDistrictIds) === 1 && $userDistrictIds[0] === '')) {
-        $placeholders = implode(',', array_fill(0, count($userDistrictIds), '?'));
-        $stmtDist = $pdo->prepare("SELECT name FROM districts WHERE id IN ($placeholders)");
-        $stmtDist->execute($userDistrictIds);
-        $allowedDistrictNames = $stmtDist->fetchAll(PDO::FETCH_COLUMN);
-    }
-
-    if (empty($allowedDivisionNames) || empty($allowedDistrictNames)) {
-        $loadInitialMatches = false;
-        $matches = []; // Ensure matches is empty if not loading
-    } else {
-        // Add permission-based WHERE clauses
-        $divisionPlaceholders = implode(',', array_fill(0, count($allowedDivisionNames), '?'));
-        $whereClauses[] = "m.division IN ($divisionPlaceholders)";
-        foreach ($allowedDivisionNames as $name) $params[] = $name;
-
-        $districtPlaceholders = implode(',', array_fill(0, count($allowedDistrictNames), '?'));
-        $whereClauses[] = "m.district IN ($districtPlaceholders)";
-        foreach ($allowedDistrictNames as $name) $params[] = $name;
-    }
-}
-// --- END: Role-based permission logic ---
-
-// Pagination settings
-$matchesPerPage = 50;
-$currentPage = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
-$offset = ($currentPage - 1) * $matchesPerPage;
-
-// Existing filters from _GET parameters
-if (!empty($_GET['start_date'])) {
-    $whereClauses[] = "m.match_date >= ?";
-    $params[] = $_GET['start_date'];
-}
-if (!empty($_GET['end_date'])) {
-    $whereClauses[] = "m.match_date <= ?";
-    $params[] = $_GET['end_date'];
-}
-
-// Map multi-select filters to real columns
-$multiFilters = [
-    'division'          => 'm.division',
-    'district'          => 'm.district',
-    'poule'             => 'm.poule',
-    'location'          => 'm.location_address',     // <-- using address for conflicts
-    'referee_assigner'  => 'm.referee_assigner_uuid'
-];
-
-foreach ($multiFilters as $key => $col) {
-    if (!empty($_GET[$key]) && is_array($_GET[$key])) {
-        $vals = array_values(array_filter($_GET[$key], fn($v) => $v !== ''));
-        if ($vals) {
-            $ph = implode(',', array_fill(0, count($vals), '?'));
-            $whereClauses[] = "$col IN ($ph)";
-            foreach ($vals as $v) $params[] = $v;
-        }
-    }
-}
-
-$whereSQL = $whereClauses ? ('WHERE ' . implode(' AND ', $whereClauses)) : '';
-
-// MAIN QUERY (uses positional placeholders only; LIMIT/OFFSET are also '?')
-$sql = "
-SELECT
-  m.uuid,
-  m.match_date,
-  m.kickoff_time,
-  m.division,
-  m.district,
-  m.poule,
-  m.expected_grade,
-
-  -- assignments for precompute
-  m.referee_id,
-  m.ar1_id,
-  m.ar2_id,
-  m.commissioner_id,
-
-  th.team_name AS home_team,
-  ta.team_name AS away_team,
-
-  ch.club_name AS home_club,
-  ca.club_name AS away_club,
-
-  -- match-level venue fields
-  m.location_address,
-  m.location_lat,
-  m.location_lon,
-
-  -- assigner username (optional)
-  u.username AS referee_assigner_username,
-  m.referee_assigner_uuid
-FROM matches m
-LEFT JOIN teams th ON m.home_team_id = th.uuid
-LEFT JOIN clubs ch ON th.club_id     = ch.uuid
-LEFT JOIN teams ta ON m.away_team_id = ta.uuid
-LEFT JOIN clubs ca ON ta.club_id     = ca.uuid
-LEFT JOIN users u  ON m.referee_assigner_uuid = u.uuid
-{$whereSQL}
-ORDER BY m.match_date ASC, m.kickoff_time ASC
-LIMIT ? OFFSET ?
-";
-
-// COUNT for pagination (no need for joins)
-$countSql = "SELECT COUNT(*) FROM matches m {$whereSQL}";
-
-if ($loadInitialMatches) {
-    // total count
-    $countStmt = $pdo->prepare($countSql);
-    $countStmt->execute($params);
-    $totalMatches = (int)$countStmt->fetchColumn();
-    $totalPages = (int)ceil($totalMatches / $matchesPerPage);
-
-    // fetch page
-    $stmt = $pdo->prepare($sql);
-    $pageParams = array_merge($params, [$matchesPerPage, $offset]); // positional for LIMIT/OFFSET
-    $stmt->execute($pageParams);
-    $matches = $stmt->fetchAll(PDO::FETCH_ASSOC);
-} else {
-    $matches = [];
-    $totalMatches = 0;
-    $totalPages = 0;
-}
-
-// --- START: Pre-computation for Conflict & Availability for initial load ---
-$refereeSchedule_initial = [];
-if ($loadInitialMatches) {
-    foreach ($matches as $mrow) {
-        $match_uuid = $mrow['uuid'];
-        $match_date_str = $mrow['match_date'];
-        $kickoff_time_str = $mrow['kickoff_time'];
-
-        foreach (['referee_id', 'ar1_id', 'ar2_id', 'commissioner_id'] as $role_key) {
-            if (!empty($mrow[$role_key])) {
-                $ref_id = $mrow[$role_key];
-                if (!isset($refereeSchedule_initial[$ref_id])) {
-                    $refereeSchedule_initial[$ref_id] = [];
-                }
-                $refereeSchedule_initial[$ref_id][] = [
-                    'match_id'         => $match_uuid,
-                    'match_date_str'   => $match_date_str,
-                    'kickoff_time_str' => $kickoff_time_str,
-                    'role'             => $role_key,
-                    'location_address' => $mrow['location_address'] ?? null, // use address only
-                ];
-            }
-        }
-    }
-}
-
-$refereeAvailabilityCache_initial = [];
-if ($loadInitialMatches && !empty($referees)) {
-    $allRefereeIds_initial = array_map(fn($ref) => $ref['uuid'], $referees);
-    if (!empty($allRefereeIds_initial)) {
-        $ph = implode(',', array_fill(0, count($allRefereeIds_initial), '?'));
-        $unavailabilityStmt = $pdo->prepare("
-            SELECT referee_id, start_date, end_date
-            FROM referee_unavailability
-            WHERE referee_id IN ($ph)
-        ");
-        $unavailabilityStmt->execute($allRefereeIds_initial);
-        while ($row = $unavailabilityStmt->fetch(PDO::FETCH_ASSOC)) {
-            $rid = $row['referee_id'];
-            $refereeAvailabilityCache_initial[$rid]['unavailability'][] = $row;
-        }
-
-        $weeklyStmt = $pdo->prepare("
-            SELECT referee_id, weekday, morning_available, afternoon_available, evening_available
-            FROM referee_weekly_availability
-            WHERE referee_id IN ($ph)
-        ");
-        $weeklyStmt->execute($allRefereeIds_initial);
-        while ($row = $weeklyStmt->fetch(PDO::FETCH_ASSOC)) {
-            $rid = $row['referee_id'];
-            $refereeAvailabilityCache_initial[$rid]['weekly'][$row['weekday']] = $row;
-        }
-    }
-}
-// --- END: Pre-computation ---
+function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
 ?>
-<!-- Tom Select (lightweight alternative to Select2) -->
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tom-select/dist/css/tom-select.css">
-<script src="https://cdn.jsdelivr.net/npm/tom-select/dist/js/tom-select.complete.min.js"></script>
+<link href="https://unpkg.com/tabulator-tables@6.2.5/dist/css/tabulator.min.css" rel="stylesheet">
+<script src="https://unpkg.com/tabulator-tables@6.2.5/dist/js/tabulator.min.js"></script>
 
 <style>
-    /* Conflict pills on Tom Select controls */
-    .ts-control.unavailable { border-color:#6c757d; background: repeating-linear-gradient(45deg, rgba(108,117,125,.15), rgba(108,117,125,.15) 10px, rgba(108,117,125,.25) 10px, rgba(108,117,125,.25) 20px); }
-    .ts-control.conflict-red { border-color:#dc3545 !important; box-shadow: 0 0 0 .15rem rgba(220,53,69,.25); }
-    .ts-control.conflict-orange { border-color:#fd7e14 !important; box-shadow: 0 0 0 .15rem rgba(253,126,20,.25); }
-    .ts-control.conflict-yellow { border-color:#ffc107 !important; box-shadow: 0 0 0 .15rem rgba(255,193,7,.25); }
-    /* Keep input compact */
-    .ts-control { min-height: 2.2rem; }
-    .ts-wrapper.multi.has-items .ts-control > div { margin-right:.25rem; }
+    /* Reuse your theme vibe; keep width stable */
+    .table-viewport { margin:0 auto; width:100%; max-width:1200px; }
+    #matches-table { width:100%; min-width:1024px; }
+    #matches-table .tabulator-header { position: sticky; top: 0; z-index: 2; }
+
+    /* Pretty chips */
+    .fw-700{ font-weight:700; }
+    .badge{ display:inline-block; padding:.25rem .5rem; border-radius:999px; border:1px solid rgba(0,0,0,.06); font-size:12.5px; line-height:1; }
+
+    .bg-success-subtle{ background: rgba(22,163,74,.10); color:#15803d; border-color: rgba(22,163,74,.25); }
+    .bg-secondary-subtle{ background: rgba(100,116,139,.12); color:#475569; border-color: rgba(100,116,139,.28); }
+
+    /* Expected grade colors */
+    .chip-A{ background: rgba(37,99,235,.10); color:#1d4ed8; border-color: rgba(37,99,235,.25); }
+    .chip-B{ background: rgba(22,163,74,.10); color:#15803d; border-color: rgba(22,163,74,.25); }
+    .chip-C{ background: rgba(202,138,4,.12); color:#a16207; border-color: rgba(202,138,4,.30); }
+    .chip-D{ background: rgba(220,38,38,.12); color:#b91c1c; border-color: rgba(220,38,38,.30); }
+    .chip-E{ background: rgba(100,116,139,.12); color:#475569; border-color: rgba(100,116,139,.28); }
+
+    /* Match the hero from Referees/Clubs (classes already exist in your CSS file) */
+    .actions .btn{ border-radius: 12px; height: 44px; }
 </style>
 
-<div class="container-fluid">
+<div class="container">
     <div class="content-card">
-        <h1>Matches</h1>
-        <script src="/js/referee_dropdown.js"></script>
-        <?php if (isset($_GET['saved'])): ?>
-            <div class="alert alert-success">Assignments saved successfully.</div>
-        <?php endif; ?>
+        <!-- Glassy hero (same as Referees/Clubs) -->
+        <div class="referees-hero">
+            <div class="referees-hero__bg"></div>
+            <div class="referees-hero__content">
+                <div class="referees-title-div">
+                    <h1 class="referees-title">Matches</h1>
+                    <p class="referees-subtitle">Search, filter, sort & assign — fast.</p>
+                </div>
 
-        <?php if ($assignMode): ?>
-            <a href="matches.php?<?= buildQueryString(['assign_mode' => null]) ?>" class="false-a btn btn-sm btn-secondary-action mb-3">Disable Assign Mode</a>
-            <button type="button" id="suggestAssignments" class="btn btn-sm btn-main-action mb-3">Suggest Assignments</button>
-            <style>
-                #suggestionProgressBar {
-                    width: var(--progress-width, 0%);
-                    transition: width 0.2s ease-in-out;
-                    height: 16px;
-                }
-            </style>
-            <div id="suggestionProgressBarContainer" class="progress mt-2 mb-3" style="display: none;">
-                <div id="suggestionProgressBar" class="progress-bar" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
-            </div>
-            <p id="suggestionProgressText" class="mt-2" style="display: none;"></p>
-            <button type="button" id="clearAssignments" class="btn btn-sm btn-destructive-action mb-3">Clear Assignments</button>
-        <?php else: ?>
-            <a href="matches.php?<?= buildQueryString(['assign_mode' => 1]) ?>" class="btn btn-sm btn-warning-action mb-3">Enable Assign Mode</a>
-        <?php endif; ?>
-        <a href="export_matches.php?<?= buildQueryString([]) ?>" class="btn btn-sm btn-info-action mb-3 ms-2">Export to Excel (CSV)</a>
-        <a href="assign_assigner.php" class="btn btn-sm btn-primary-action mb-3 ms-2">Assign Assigner</a>
-
-        <form method="POST" action="bulk_assign.php">
-            <?php if ($assignMode): ?>
-                <button type="submit" class="btn btn-main-action sticky-assign-button">Save Assignments</button>
-            <?php endif; ?>
-            <div class="table-responsive-custom">
-                <table class="table table-bordered">
-                    <thead>
-                    <tr>
-                        <th>
-                            Date
-                            <div class="d-flex flex-column mt-1">
-                                <div class="d-flex flex-column gap-1 mt-1">
-                                    <input type="date" class="form-control form-control-sm" id="ajaxStartDate" value="<?= htmlspecialchars($_GET['start_date'] ?? '') ?>">
-                                    <input type="date" class="form-control form-control-sm" id="ajaxEndDate" value="<?= htmlspecialchars($_GET['end_date'] ?? '') ?>">
-                                </div>
-                            </div>
-                        </th>
-                        <th>Kickoff</th>
-                        <th>Home Team</th>
-                        <th>Away Team</th>
-                        <th>
-                            Division
-                            <div class="dropdown d-inline-block">
-                                <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" id="divisionFilterToggle" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
-                                    <i class="bi bi-filter"></i>
-                                </button>
-                                <ul id="divisionFilterBox" class="dropdown-menu scrollable shadow rounded" aria-labelledby="divisionFilterToggle">
-                                    <li id="divisionFilterOptions" class="px-3 py-2 d-flex flex-column gap-1">
-                                        <!-- checkboxes will load here via AJAX -->
-                                    </li>
-                                    <li class="dropdown-divider"></li>
-                                    <li class="px-3"><button type="button" id="clearDivisionFilter" class="btn btn-sm btn-light w-100">Clear</button></li>
-                                    <li class="px-3"><button type="button" id="applyDivisionFilter" class="btn btn-sm btn-primary w-100">Apply</button></li>
-                                </ul>
-                            </div>
-                        </th>
-                        <th>
-                            District
-                            <div class="dropdown d-inline-block">
-                                <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" id="districtFilterToggle" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
-                                    <i class="bi bi-filter"></i>
-                                </button>
-                                <ul id="districtFilterBox" class="dropdown-menu scrollable shadow rounded" aria-labelledby="districtFilterToggle">
-                                    <li id="districtFilterOptions" class="px-3 py-2 d-flex flex-column gap-1"></li>
-                                    <li class="dropdown-divider"></li>
-                                    <li class="px-3"><button type="button" id="clearDistrictFilter" class="btn btn-sm btn-light w-100">Clear</button></li>
-                                    <li class="px-3"><button type="button" id="applyDistrictFilter" class="btn btn-sm btn-primary w-100">Apply</button></li>
-                                </ul>
-                            </div>
-                        </th>
-                        <th>
-                            Poule
-                            <div class="dropdown d-inline-block">
-                                <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" id="pouleFilterToggle" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
-                                    <i class="bi bi-filter"></i>
-                                </button>
-                                <ul id="pouleFilterBox" class="dropdown-menu scrollable shadow rounded" aria-labelledby="pouleFilterToggle">
-                                    <li id="pouleFilterOptions" class="px-3 py-2 d-flex flex-column gap-1"></li>
-                                    <li class="dropdown-divider"></li>
-                                    <li class="px-3"><button type="button" id="clearPouleFilter" class="btn btn-sm btn-light w-100">Clear</button></li>
-                                    <li class="px-3"><button type="button" id="applyPouleFilter" class="btn btn-sm btn-primary w-100">Apply</button></li>
-                                </ul>
-                            </div>
-                        </th>
-                        <th>
-                            Referee Assigner
-                            <div class="dropdown d-inline-block">
-                                <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" id="refereeAssignerFilterToggle" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
-                                    <i class="bi bi-filter"></i>
-                                </button>
-                                <ul id="refereeAssignerFilterBox" class="dropdown-menu scrollable shadow rounded" aria-labelledby="refereeAssignerFilterToggle">
-                                    <li id="refereeAssignerFilterOptions" class="px-3 py-2 d-flex flex-column gap-1"></li>
-                                    <li class="dropdown-divider"></li>
-                                    <li class="px-3"><button type="button" id="clearRefereeAssignerFilter" class="btn btn-sm btn-light w-100">Clear</button></li>
-                                    <li class="px-3"><button type="button" id="applyRefereeAssignerFilter" class="btn btn-sm btn-primary w-100">Apply</button></li>
-                                </ul>
-                            </div>
-                        </th>
-                        <th>Referee</th>
-                        <th>AR1</th>
-                        <th>AR2</th>
-                        <th>Commissioner</th>
-                    </tr>
-                    </thead>
-                    <tbody id="matchesTableBody">
-                    <?php foreach ($matches as $match): ?>
-                        <tr>
-                            <td><a href="match_detail.php?uuid=<?= htmlspecialchars($match['uuid']) ?>"><?= htmlspecialchars($match['match_date']) ?></a></td>
-                            <td><?= htmlspecialchars(substr($match['kickoff_time'], 0, 5)) ?></td>
-                            <td><?= htmlspecialchars($match['home_team']) ?></td>
-                            <td><?= htmlspecialchars($match['away_team']) ?></td>
-                            <td><?= htmlspecialchars($match['division']) ?></td>
-                            <td><?= htmlspecialchars($match['district']) ?></td>
-                            <td><?= htmlspecialchars($match['poule']) ?></td>
-                            <td class="editable-cell"
-                                data-match-uuid="<?= htmlspecialchars($match['uuid']) ?>"
-                                data-field-type="referee_assigner"
-                                data-current-value="<?= htmlspecialchars($match['referee_assigner_uuid'] ?? '') ?>">
-                                <span class="cell-value"><?= htmlspecialchars($match['referee_assigner_username'] ?? 'N/A') ?></span>
-                                <i class="bi bi-pencil-square edit-icon"></i>
-                            </td>
-                            <td class="<?= $assignMode ? 'referee-select-cell' : '' ?>"><?php renderRefereeDropdown("referee_id", $match, $referees, $assignMode, $refereeSchedule_initial, $refereeAvailabilityCache_initial); ?></td>
-                            <td class="<?= $assignMode ? 'referee-select-cell' : '' ?>"><?php renderRefereeDropdown("ar1_id", $match, $referees, $assignMode, $refereeSchedule_initial, $refereeAvailabilityCache_initial); ?></td>
-                            <td class="<?= $assignMode ? 'referee-select-cell' : '' ?>"><?php renderRefereeDropdown("ar2_id", $match, $referees, $assignMode, $refereeSchedule_initial, $refereeAvailabilityCache_initial); ?></td>
-                            <td class="<?= $assignMode ? 'referee-select-cell' : '' ?>"><?php renderRefereeDropdown("commissioner_id", $match, $referees, $assignMode, $refereeSchedule_initial, $refereeAvailabilityCache_initial); ?></td>
-                        </tr>
-                    <?php endforeach; ?>
-                    </tbody>
-                </table>
-            </div>
-
-            <!-- Pagination Controls will be loaded here via AJAX -->
-            <nav aria-label="Page navigation" id="paginationControls">
-                <ul class="pagination justify-content-center">
-                    <?php if ($currentPage > 1): ?>
-                        <li class="page-item">
-                            <a class="page-link" href="#" data-page="<?= $currentPage - 1 ?>">Previous</a>
-                        </li>
-                    <?php endif; ?>
-
-                    <?php for ($i = 1; $i <= $totalPages; $i++): ?>
-                        <li class="page-item <?= ($i == $currentPage) ? 'active' : '' ?>">
-                            <a class="page-link" href="#" data-page="<?= $i ?>"><?= $i ?></a>
-                        </li>
-                    <?php endfor; ?>
-
-                    <?php if ($currentPage < $totalPages): ?>
-                        <li class="page-item">
-                            <a class="page-link" href="#" data-page="<?= $currentPage + 1 ?>">Next</a>
-                        </li>
-                    <?php endif; ?>
-                </ul>
-            </nav>
-
-        </form>
-
-        <script>
-            const existingAssignments = <?= json_encode($matches); ?>;
-        </script>
-
-        <script src="/js/matches.js"></script>
-        <script src="/js/match_conflicts.js"></script>
-
-        <!-- Generic Edit Modal -->
-        <div class="modal fade" id="editMatchFieldModal" tabindex="-1" aria-labelledby="editMatchFieldModalLabel" aria-hidden="true">
-            <div class="modal-dialog">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title" id="editMatchFieldModalLabel">Edit Field</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <div class="referees-quick">
+                    <div class="input-with-icon" style="min-width:min(380px,100%);">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                            <path d="M21 21l-4.3-4.3M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15Z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                        </svg>
+                        <input id="globalFilter" class="form-control" placeholder="Search matches…">
                     </div>
-                    <div class="modal-body" id="editMatchFieldModalBody">
-                        <!-- Input field will be injected here by JavaScript -->
+
+                    <div class="d-flex align-items-center gap-2">
+                        <div>
+                            <small class="text-muted d-block">From</small>
+                            <input type="date" id="startDate" class="form-control" style="width: 175px;">
+                        </div>
+                        <div>
+                            <small class="text-muted d-block">To</small>
+                            <input type="date" id="endDate" class="form-control" style="width: 175px;">
+                        </div>
                     </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary-action" data-bs-dismiss="modal">Close</button>
-                        <button type="button" class="btn btn-main-action" id="saveMatchFieldChange">Save changes</button>
+
+                    <div class="actions">
+                        <?php if ($assignMode): ?>
+                            <a href="matches.php" class="btn btn-sm btn-outline-secondary">Disable Assign Mode</a>
+                        <?php else: ?>
+                            <a href="matches.php?assign_mode=1" class="btn btn-sm btn-warning">Enable Assign Mode</a>
+                        <?php endif; ?>
+                        <a href="export_matches.php" class="btn btn-sm btn-info">Export CSV</a>
+                        <a href="assign_assigner.php" class="btn btn-sm btn-primary">Assign Assigner</a>
+                        <?php if ($assignMode): ?>
+                            <button type="button" id="suggestAssignments" class="btn btn-sm btn-main-action">Suggest Assignments</button>
+                        <?php endif; ?>
                     </div>
                 </div>
             </div>
         </div>
+
+        <div id="table-stats" class="table-stats"></div>
+        <div class="table-viewport">
+            <div id="matches-table" data-density="cozy"></div>
+        </div>
     </div>
 </div>
+
+<script>
+    /* ==== Preloaded option maps for editors ==== */
+    const refereeOptions = (() => {
+        const map = {};
+        <?php foreach ($referees as $r):
+        $label = trim(($r['first_name'] ?? '') . ' ' . ($r['last_name'] ?? ''));
+        $label .= $r['grade'] ? ' (' . $r['grade'] . ')' : '';
+        ?>
+        map["<?= h($r['uuid']) ?>"] = "<?= h($label) ?>";
+        <?php endforeach; ?>
+        return map;
+    })();
+
+    const assignerOptions = (() => {
+        const map = {};
+        <?php foreach ($assigners as $u): ?>
+        map["<?= h($u['uuid']) ?>"] = "<?= h($u['username']) ?>";
+        <?php endforeach; ?>
+        return map;
+    })();
+
+    const ASSIGN_MODE = <?= $assignMode ? 'true' : 'false' ?>;
+
+    /* ==== Helpers ==== */
+    const fmtTime = (t) => (t ? t.slice(0,5) : "");
+    const chipAssigned = (ok, textIfKnown) =>
+        ok
+            ? `<span class="badge bg-success-subtle fw-700">${textIfKnown || 'Assigned'}</span>`
+            : `<span class="badge bg-secondary-subtle fw-700">—</span>`;
+
+    function gradeBadge(g) {
+        if (!g) return '<span class="badge chip-E fw-700">—</span>';
+        const G = String(g).toUpperCase();
+        const cls = ['A','B','C','D','E'].includes(G) ? `chip-${G}` : 'chip-E';
+        return `<span class="badge ${cls} fw-700">${G}</span>`;
+    }
+
+    /* ==== Networking helpers for saves ==== */
+    function saveAssignment(matchUuid, field, value) {
+        // field in: referee_id | ar1_id | ar2_id | commissioner_id
+        return fetch('/ajax/update_match_assignment.php', {
+            method: 'POST',
+            headers: {'Content-Type':'application/x-www-form-urlencoded'},
+            body: `match_uuid=${encodeURIComponent(matchUuid)}&field=${encodeURIComponent(field)}&value=${encodeURIComponent(value || '')}`
+        }).then(r => r.json()).catch(() => ({success:false}));
+    }
+
+    function saveAssigner(matchUuid, assignerUuid) {
+        // delegates to your generic endpoint
+        return fetch('/ajax/update_match_field.php', {
+            method: 'POST',
+            headers: {'Content-Type':'application/x-www-form-urlencoded'},
+            body: `match_uuid=${encodeURIComponent(matchUuid)}&field_type=referee_assigner&new_value=${encodeURIComponent(assignerUuid || '')}`
+        }).then(r => r.json()).catch(() => ({success:false}));
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const statsEl = document.getElementById('table-stats');
+        const startEl = document.getElementById('startDate');
+        const endEl   = document.getElementById('endDate');
+        const searchEl= document.getElementById('globalFilter');
+
+        const table = new Tabulator("#matches-table", {
+            index: "uuid",
+            height: "70vh",
+            layout: "fitColumns",
+            columnMinWidth: 120,
+            placeholder: "No matches found",
+
+            ajaxURL: "/ajax/matches_list.php",               // ✅ absolute to avoid /admin/ path issues
+            ajaxConfig: "GET",
+            pagination: true,
+            paginationMode: "remote",
+            paginationSize: 50,
+            paginationSizeSelector: [50, 100, 200],
+            paginationDataReceived: {
+                last_page: "last_page",
+                data: "data",
+            },
+
+            ajaxURLGenerator: (url, _cfg, params) => {
+                const q = new URLSearchParams();
+                q.set("page", params.page || 1);
+                q.set("size", params.size || 50);
+                if (params.sort?.length) {
+                    q.set("sort_col", params.sort[0].field);
+                    q.set("sort_dir", params.sort[0].dir);
+                }
+                const s = document.getElementById("startDate")?.value;
+                const e = document.getElementById("endDate")?.value;
+                const gl = document.getElementById("globalFilter")?.value?.trim();
+                if (s) q.set("start_date", s);
+                if (e) q.set("end_date", e);
+                if (gl) q.set("search", gl);
+                const finalURL = `${url}?${q.toString()}`;
+                console.log("[Matches] ajaxURLGenerator ->", finalURL);
+                return finalURL;
+            },
+
+            /* Force Tabulator to use *our* fetch so we can log raw text */
+            ajaxRequestFunc: (url, config, params) => {
+                dlog("ajaxRequestFunc GET", url);
+                return fetch(url, { method: "GET" })
+                    .then(async res => {
+                        const txt = await res.text();
+                        dlog("RAW response", res.status, txt.slice(0, 2000));
+                        // Return parsed JSON (Tabulator will pass this to ajaxResponse)
+                        try { return JSON.parse(txt); }
+                        catch (e) {
+                            derr("JSON parse failed:", e, "Body sample:", txt.slice(0, 400));
+                            // Re-throw so Tabulator triggers dataLoadError
+                            throw e;
+                        }
+                    })
+                    .catch(err => {
+                        derr("ajaxRequestFunc error:", err);
+                        throw err;
+                    });
+            },
+            /* Unwrap + validate + log shape before handing rows to Tabulator */
+            ajaxResponse: (url, params, resp) => {
+                try {
+                    const { rows, total, last_page } = unwrapServerPayload(resp); // from the debug harness
+                    const statsEl = document.getElementById("table-stats");
+                    if (statsEl) statsEl.textContent = `Showing ${rows.length} of ${total} matches`;
+
+                    console.log("[Matches] ajaxResponse OK -> rows:", rows.length, "total:", total, "last_page:", last_page);
+
+                    // Hand Tabulator the full object for remote pager
+                    return {
+                        data: rows,
+                        last_page: last_page || 1,
+                        total: total || rows.length,
+                    };
+                } catch (e) {
+                    console.error("[Matches] ajaxResponse BAD:", e.message);
+                    const statsEl = document.getElementById("table-stats");
+                    if (statsEl) statsEl.textContent = "⚠ Data shape error: " + e.message;
+                    // Still return an object so pager doesn’t explode
+                    return { data: [], last_page: 1, total: 0 };
+                }
+            },
+
+            ajaxError: (xhr, textStatus, errorThrown) => {
+                derr("ajaxError:", textStatus, errorThrown, xhr?.status, xhr?.responseText?.slice?.(0,400));
+            },
+
+            columns: [
+                { title: "Date", field: "match_date", width: 120, sorter: "string", headerFilter: "input",
+                    formatter: (cell) => {
+                        const d = cell.getValue();
+                        const id = cell.getRow().getData().uuid;
+                        return `<a href="match_detail.php?uuid=${encodeURIComponent(id)}">${d || ""}</a>`;
+                    },
+                },
+                { title: "KO", field: "kickoff_time", width: 80, hozAlign: "center",
+                    formatter: (cell) => (cell.getValue() ? cell.getValue().slice(0,5) : "")
+                },
+                { title: "Home", field: "home_team", headerFilter: "input", minWidth: 160 },
+                { title: "Away", field: "away_team", headerFilter: "input", minWidth: 160 },
+                { title: "Division", field: "division", headerFilter: "input", width: 140 },
+                { title: "District", field: "district", headerFilter: "input", width: 130 },
+                { title: "Poule", field: "poule", headerFilter: "input", width: 110 },
+                { title: "Assigner", field: "referee_assigner_username", headerFilter: "input", minWidth: 130,
+                    formatter: (cell) => cell.getValue() || "—"
+                },
+                // chips for assignment presence
+                { title: "Referee", field: "referee_id", width: 110, hozAlign: "center",
+                    formatter: (c)=> c.getValue() ? "<span class='badge bg-success-subtle text-success fw-700'>Assigned</span>"
+                        : "<span class='badge bg-secondary-subtle text-secondary fw-700'>—</span>"
+                },
+                { title: "AR1", field: "ar1_id", width: 100, hozAlign: "center",
+                    formatter: (c)=> c.getValue() ? "<span class='badge bg-success-subtle text-success fw-700'>Assigned</span>"
+                        : "<span class='badge bg-secondary-subtle text-secondary fw-700'>—</span>"
+                },
+                { title: "AR2", field: "ar2_id", width: 100, hozAlign: "center",
+                    formatter: (c)=> c.getValue() ? "<span class='badge bg-success-subtle text-success fw-700'>Assigned</span>"
+                        : "<span class='badge bg-secondary-subtle text-secondary fw-700'>—</span>"
+                },
+                { title: "Commissioner", field: "commissioner_id", width: 130, hozAlign: "center",
+                    formatter: (c)=> c.getValue() ? "<span class='badge bg-success-subtle text-success fw-700'>Assigned</span>"
+                        : "<span class='badge bg-secondary-subtle text-secondary fw-700'>—</span>"
+                },
+            ],
+        });
+
+        table.on("dataLoaded", data => console.log("[Matches] Loaded rows:", Array.isArray(data)?data.length:data));
+        table.on("dataLoadError", err => console.error("[Matches] dataLoadError:", err));
+
+        // Filters -> refresh remote
+        const triggerRefresh = () => table.setData(); // re-hits ajaxURLGenerator
+        searchEl.addEventListener('input', triggerRefresh);
+        startEl.addEventListener('change', triggerRefresh);
+        endEl.addEventListener('change', triggerRefresh);
+
+        // Optional: Suggest Assignments (streaming). Applies updates live to table.
+        const suggestBtn = document.getElementById('suggestAssignments');
+        suggestBtn?.addEventListener('click', async () => {
+            suggestBtn.disabled = true; const orig = suggestBtn.textContent; suggestBtn.textContent = 'Suggesting…';
+            try {
+                const q = new URLSearchParams();
+                if (startEl.value) q.set('start_date', startEl.value);
+                if (endEl.value)   q.set('end_date', endEl.value);
+                const resp = await fetch(`suggest_assignments.php${q.toString()?`?${q}`:''}`);
+                if (!resp.ok) throw new Error('Suggest failed');
+                const reader = resp.body.getReader(); const decoder=new TextDecoder(); let buf='';
+                const applyBatch = (suggestions) => {
+                    const updates = [];
+                    Object.keys(suggestions||{}).forEach(matchId=>{
+                        const roles = suggestions[matchId]||{};
+                        ['referee_id','ar1_id','ar2_id','commissioner_id'].forEach(role=>{
+                            if (roles[role]) updates.push({ uuid: matchId, [role]: roles[role] });
+                        });
+                    });
+                    if (updates.length) table.updateData(updates);
+                };
+                while(true){
+                    const {value, done} = await reader.read(); if (done) break;
+                    buf += decoder.decode(value,{stream:true});
+                    const lines = buf.split('\n'); buf = lines.pop();
+                    lines.forEach(line=>{
+                        if (!line.trim()) return;
+                        try{ const j=JSON.parse(line); if (j.suggestions) applyBatch(j.suggestions); }catch(e){}
+                    });
+                }
+            } catch (e) {
+                console.error(e);
+                alert('Suggestion error. Check console.');
+            } finally {
+                suggestBtn.disabled=false; suggestBtn.textContent=orig;
+            }
+        });
+    });
+
+
+    /* ===== DEBUG HARNESS (paste above Tabulator init) ===== */
+    const DEBUG_MATCHES = true;
+    const dlog = (...a)=>{ if(DEBUG_MATCHES) console.log("[Matches]", ...a); };
+    const derr = (...a)=>console.error("[Matches]", ...a);
+
+    // Global error hooks
+    window.addEventListener("error", (e)=> derr("GlobalError:", e.message, e.error || "" ));
+    window.addEventListener("unhandledrejection", (e)=> derr("UnhandledRejection:", e.reason));
+
+    // (Optional) instrument fetch to see *all* requests
+    (function(){
+        const _fetch = window.fetch;
+        window.fetch = async (...args)=>{
+            try{
+                const [req, init] = args;
+                const url = typeof req === "string" ? req : req?.url;
+                dlog("fetch >", url, init || {});
+                const res = await _fetch(...args);
+                const clone = res.clone();
+                let text = "";
+                try { text = await clone.text(); } catch(_) {}
+                dlog("fetch <", res.status, url, text?.slice(0, 1200));
+                return res;
+            }catch(e){
+                derr("fetch FAILED", e);
+                throw e;
+            }
+        };
+    })();
+
+    /* Convenience: validate and unwrap your envelope */
+    function unwrapServerPayload(resp){
+        // If server already parsed to JSON, fine. If it's a string, try to parse.
+        if (typeof resp === "string") {
+            try { resp = JSON.parse(resp); }
+            catch(e){ throw new Error("JSON parse failed: " + (resp?.slice?.(0,200) || "")); }
+        }
+
+        // Accept either raw array or {data:[...], ...}
+        if (Array.isArray(resp)) return { rows: resp, total: resp.length, last_page: 1 };
+
+        const data = resp?.data;
+        if (Array.isArray(data)) {
+            return {
+                rows: data,
+                total: Number(resp?.total ?? data.length) || data.length,
+                last_page: Number(resp?.last_page ?? 1) || 1,
+            };
+        }
+
+        // Nothing matched: throw detailed error
+        const shape = resp && typeof resp === "object" ? Object.keys(resp) : typeof resp;
+        const hint = "Expected an array or an object with a `data` array.\n"
+            + "Got: " + (shape || "undefined");
+        const sample = typeof resp === "object" ? JSON.stringify(resp).slice(0,800) : String(resp).slice(0,800);
+        throw new Error("Bad payload shape. " + hint + "\nSample: " + sample);
+    }
+</script>
 
 <?php include 'includes/footer.php'; ?>
