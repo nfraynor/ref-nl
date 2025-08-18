@@ -164,6 +164,85 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
         return label ? label : "—";
     }
 
+    function makeRefereeCol(title, field, minWidth = 180){
+        const base = {
+            title, field, minWidth,
+            formatter: (cell) => formatRefName(cell.getValue()),
+        };
+        if (!ASSIGN_MODE) return base;
+
+        return {
+            ...base,
+            editor: "list",
+            editorParams: {
+                // Tabulator accepts an object map {value: label}
+                values: refereeOptions,
+                clearable: true,          // allow clearing assignment
+                autocomplete: true,       // quick type-to-search
+                listOnEmpty: true,
+                freetext: false,
+            },
+            cellEdited: async (cell) => {
+                const row = cell.getRow().getData();
+                const newVal = cell.getValue() || "";
+                try {
+                    const res = await saveAssignment(row.uuid, field, newVal);
+                    if (!res?.success) throw new Error(res?.message || "Save failed");
+                } catch (err) {
+                    console.error("[Matches] saveAssignment failed:", err);
+                    // revert if server save fails
+                    cell.setValue(cell.getOldValue(), true);
+                    alert("Saving assignment failed.");
+                }
+            },
+        };
+    }
+
+    // Assigner column editable only in ASSIGN_MODE
+    function makeAssignerCol(){
+        const base = {
+            title: "Assigner",
+            field: "referee_assigner_username",
+            headerFilter: "input",
+            minWidth: 130,
+            formatter: (cell) => cell.getValue() || "—",
+        };
+        if (!ASSIGN_MODE) return base;
+
+        return {
+            ...base,
+            editor: "list",
+            editorParams: {
+                values: assignerOptions,  // {uuid: username}
+                clearable: true,
+                autocomplete: true,
+                listOnEmpty: true,
+                freetext: false,
+            },
+            // store uuid in DB, but we show username in the cell
+            mutatorEdit: (value, data, type, params, component) => {
+                // mutatorEdit runs before cellEdited; translate username->uuid here if needed
+                // We actually want the selected *uuid*. Tabulator list editor returns the key (uuid)
+                // because `values` is a map. So just pass through.
+                return value;
+            },
+            cellEdited: async (cell) => {
+                const row = cell.getRow().getData();
+                const uuid = cell.getValue() || "";
+                try {
+                    const res = await saveAssigner(row.uuid, uuid);
+                    if (!res?.success) throw new Error(res?.message || "Save failed");
+                    // Optional: if your server responds with the username string, you could refresh the row here.
+                } catch (err) {
+                    console.error("[Matches] saveAssigner failed:", err);
+                    cell.setValue(cell.getOldValue(), true);
+                    alert("Saving assigner failed.");
+                }
+            },
+        };
+    }
+
+
     document.addEventListener('DOMContentLoaded', () => {
         const statsEl = document.getElementById('table-stats');
         const startEl = document.getElementById('startDate');
@@ -275,7 +354,8 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
             },
 
             columns: [
-                { title: "Date", field: "match_date", width: 120, sorter: "string", headerFilter: "input",
+                {
+                    title: "Date", field: "match_date", width: 120, sorter: "string", headerFilter: "input",
                     formatter: (cell) => {
                         const d = cell.getValue();
                         const id = cell.getRow().getData().uuid;
@@ -290,35 +370,17 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
                 { title: "Division", field: "division", headerFilter: "input", width: 140 },
                 { title: "District", field: "district", headerFilter: "input", width: 130 },
                 { title: "Poule", field: "poule", headerFilter: "input", width: 110 },
-                { title: "Assigner", field: "referee_assigner_username", headerFilter: "input", minWidth: 130,
-                    formatter: (cell) => cell.getValue() || "—"
-                },
-                // chips for assignment presence
-                {
-                    title: "Referee",
-                    field: "referee_id",
-                    minWidth: 180,
-                    formatter: (cell) => formatRefName(cell.getValue()),
-                },
-                {
-                    title: "AR1",
-                    field: "ar1_id",
-                    minWidth: 180,
-                    formatter: (cell) => formatRefName(cell.getValue()),
-                },
-                {
-                    title: "AR2",
-                    field: "ar2_id",
-                    minWidth: 180,
-                    formatter: (cell) => formatRefName(cell.getValue()),
-                },
-                {
-                    title: "Commissioner",
-                    field: "commissioner_id",
-                    minWidth: 190,
-                    formatter: (cell) => formatRefName(cell.getValue()),
-                },
 
+                // ⬇️ Assigner becomes editable in assign mode
+                makeAssignerCol(),
+
+                // ⬇️ These three become dropdowns in assign mode, otherwise show names
+                makeRefereeCol("Referee", "referee_id", 180),
+                makeRefereeCol("AR1",     "ar1_id",      180),
+                makeRefereeCol("AR2",     "ar2_id",      180),
+
+                // Optional: Commissioner same behavior — include if you want this editable too
+                makeRefereeCol("Commissioner", "commissioner_id", 190),
             ],
         });
 
