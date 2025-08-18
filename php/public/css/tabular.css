@@ -123,7 +123,10 @@ html { color-scheme: light; }
     display:grid; grid-template-columns: 1fr; gap:12px;
 }
 @media (min-width: 860px){
-    .referees-hero__content{ grid-template-columns: 1fr auto; align-items: end; }
+    .referees-hero__content{ grid-template-columns: 1fr auto; align-items: top; }
+}
+.referees-title-div{
+
 }
 
 .referees-title{
@@ -191,7 +194,6 @@ html { color-scheme: light; }
     background: radial-gradient(120% 120% at 20% 0%, color-mix(in oklab, var(--grad-1) 70%, transparent), color-mix(in oklab, var(--grad-2) 65%, transparent));
     color:#fff; text-transform: uppercase; letter-spacing: .2px; flex:0 0 34px;
 }
-.cell-title{ font-weight: 800; letter-spacing:.1px; }
 .cell-sub{ font-size: 12.5px; color: var(--muted); margin-top: 2px; }
 
 /* Grade chips */
@@ -212,3 +214,96 @@ html { color-scheme: light; }
 .tabulator-header-filter input, .tabulator-header-filter select{
     border-radius: 10px; border:1px solid var(--border); padding: 6px 8px; font-size: 13px; background: var(--card); color: var(--text);
 }
+
+/* Apply density + transitions to both tables */
+#referees-table,
+#clubs-table {
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    box-shadow: var(--shadow);
+    overflow: clip;
+    background: var(--card);
+    transition: font-size .12s ease, padding .12s ease;
+}
+
+/* Sticky header on both */
+#referees-table .tabulator-header,
+#clubs-table .tabulator-header {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+}
+
+/* Density presets for both */
+#referees-table[data-density="compact"],
+#clubs-table[data-density="compact"] {
+    --fs: 14px; --lh: 1.35; --cell-py: 8px; --cell-px: 10px; --row-min: 36px;
+    --header-fs: 12.5px; --chip-fs: 12px; --chip-py: 2px; --chip-px: 8px;
+}
+
+#referees-table[data-density="roomy"],
+#clubs-table[data-density="roomy"] {
+    --fs: 16px; --lh: 1.55; --cell-py: 14px; --cell-px: 16px; --row-min: 50px;
+    --header-fs: 14px; --chip-fs: 13.5px; --chip-py: 5px; --chip-px: 12px;
+}
+/* Make status badges look like the chips used elsewhere */
+.badge.bg-success,
+.badge.bg-secondary {
+    border-radius: 999px;
+    font-weight: 700;
+    border: 1px solid rgba(0,0,0,.06);
+    padding: 4px 10px;
+    line-height: 1;
+    font-size: var(--chip-fs, 13px);
+}
+/* Prevent page width from shifting when the vertical scrollbar appears/disappears */
+html { scrollbar-gutter: stable both-edges; }
+
+/* Keep the table area consistent on large screens, fluid on small */
+.table-viewport {
+    margin: 0 auto;
+    width: 100%;
+    max-width: 1200px;   /* <— adjust to taste */
+}
+
+/* Ensure Tabulator fills the viewport and doesn’t collapse narrower */
+#referees-table, #clubs-table {
+    width: 100%;
+    min-width: 1000px;   /* <— adjust to your column set */
+}
+
+/* If you want the hero/toolbar to match the same width */
+.referees-hero,
+.tab-toolbar,
+.table-stats {
+    max-width: 1200px;   /* same as .table-viewport */
+    margin-left: auto;
+    margin-right: auto;
+}
+/* Keep Tabulator inside its viewport; scroll horizontally if needed */
+#clubs-table .tabulator-tableholder,
+#referees-table .tabulator-tableholder {
+    overflow-x: auto !important;
+    overflow-y: auto;
+}
+
+/* Do NOT let Tabulator expand beyond the viewport width */
+#clubs-table .tabulator,
+#referees-table .tabulator {
+    max-width: 100%;
+}
+
+/* Wrap potentially long content so it doesn't force width growth */
+#clubs-table .tabulator-cell[tabulator-field="address_text"],
+#clubs-table .tabulator-cell[tabulator-field="field_name"] {
+    white-space: normal;          /* allow wrapping */
+    word-break: break-word;       /* break long tokens */
+}
+
+/* (optional) give the viewport a steady max width */
+.table-viewport {
+    margin: 0 auto;
+    width: 100%;
+    max-width: 1200px;            /* adjust to taste */
+}
+#clubs-table, #referees-table { width: 100%; }

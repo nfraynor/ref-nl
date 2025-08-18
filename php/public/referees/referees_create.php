@@ -20,18 +20,27 @@ try {
     $last  = trim($input['last_name'] ?? '');
     $email = trim($input['email'] ?? '');
     $grade = strtoupper(trim($input['grade'] ?? ''));
-    $home_club_id = trim($input['home_club_id'] ?? '');
 
-    if ($first === '' || $last === '' || $email === '' || $grade === '' || $home_club_id === '') {
+    // Home club optional: accept null/empty
+    $home_club_id_raw = $input['home_club_id'] ?? null;
+    $home_club_id = is_string($home_club_id_raw) ? trim($home_club_id_raw) : $home_club_id_raw;
+    if ($home_club_id === '') {
+        $home_club_id = null;
+    }
+
+    // Required fields (home_club_id is NOT required)
+    if ($first === '' || $last === '' || $email === '' || $grade === '') {
         http_response_code(400);
         echo json_encode(['message' => 'Missing required fields.']);
         exit;
     }
+
     if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         http_response_code(400);
         echo json_encode(['message' => 'Invalid email address.']);
         exit;
     }
+
     if (!in_array($grade, ['A','B','C','D'], true)) {
         http_response_code(400);
         echo json_encode(['message' => 'Grade must be A, B, C, or D.']);
@@ -49,16 +58,18 @@ try {
         exit;
     }
 
-    // Optional: verify club exists
-    $chk = $pdo->prepare("SELECT 1 FROM clubs WHERE uuid = ? LIMIT 1");
-    $chk->execute([$home_club_id]);
-    if (!$chk->fetchColumn()) {
-        http_response_code(400);
-        echo json_encode(['message' => 'Selected club was not found.']);
-        exit;
+    // If a club was provided, verify it exists
+    if ($home_club_id !== null) {
+        $chk = $pdo->prepare("SELECT 1 FROM clubs WHERE uuid = ? LIMIT 1");
+        $chk->execute([$home_club_id]);
+        if (!$chk->fetchColumn()) {
+            http_response_code(400);
+            echo json_encode(['message' => 'Selected club was not found.']);
+            exit;
+        }
     }
 
-    // Insert
+    // Insert (home_club_id may be NULL)
     $ins = $pdo->prepare("
         INSERT INTO referees (first_name, last_name, email, grade, home_club_id)
         VALUES (?, ?, ?, ?, ?)
@@ -90,7 +101,7 @@ try {
     http_response_code(201);
     echo json_encode(['message' => 'Created', 'referee' => $ref]);
 } catch (PDOException $e) {
-    // Handle duplicate key if you add a UNIQUE index on email
+    // Handle duplicate key if a UNIQUE index on email exists
     if ($e->getCode() === '23000') {
         http_response_code(409);
         echo json_encode(['message' => 'A referee with this email already exists.']);

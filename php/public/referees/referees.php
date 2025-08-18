@@ -28,9 +28,8 @@ $referees = $pdo->query("
         <div class="referees-hero">
             <div class="referees-hero__bg"></div>
             <div class="referees-hero__content">
-                <div>
+                <div class="referees-title-div">
                     <h1 class="referees-title">Referees</h1>
-                    <p class="referees-subtitle">Search, filter and sort — fast.</p>
                 </div>
 
                 <div class="referees-quick">
@@ -176,6 +175,9 @@ $referees = $pdo->query("
             placeholder: "No referees found",
             movableColumns: true,
             columnDefaults: { headerSortTristate: true, sorter: "string", tooltip: false },
+            layout: "fitColumns",
+            layoutColumnsOnNewData: false,
+            columnMinWidth: 110,
 
             // polished UX
             reactiveData: false,
@@ -357,7 +359,7 @@ $referees = $pdo->query("
             const last_name = document.getElementById('last_name').value.trim();
             const email = document.getElementById('email').value.trim();
             const grade = document.getElementById('grade').value.trim().toUpperCase();
-            const home_club_id = document.getElementById('home_club_id').value;
+            const home_club_id = document.getElementById('home_club_id').value || null;
 
             if (!first_name || !last_name || !email || !grade) {
                 alertBox.textContent = 'Please fill in all required fields.';
