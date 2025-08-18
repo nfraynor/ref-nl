@@ -1,4 +1,4 @@
-// matches.js (Full Updated File with Global Conflict Sweep)
+// matches.js (Updated: Tom Select + Global Conflict Sweep, no Select2)
 
 let currentFilters = {};
 let tempSelected = {};
@@ -8,25 +8,27 @@ let suggestedAssignments = {};
 const SEV = { NONE:0, YELLOW:1, ORANGE:2, RED:3, UNAVAILABLE:4 };
 const SEV_FROM_TEXT = { none:SEV.NONE, yellow:SEV.YELLOW, orange:SEV.ORANGE, red:SEV.RED };
 
+// Keep Tom Select instances for cleanup
+const tomSelectRegistry = new Map(); // key: select element, value: TomSelect instance
+
 // Debounce utility
 function debounce(fn, ms=60) {
     let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
 }
 
-function select2SelectionEl($select){
-    const s2 = $select.data('select2');
-    if (!s2) return null;
-    return s2.$selection || s2.$container.find('.select2-selection');
+function tsControlEl(selectEl){
+    const inst = selectEl.tomselect;
+    return inst ? inst.control : null; // .ts-control
 }
 
-function setSelectionSeverity($select, sev){
-    const $selection = select2SelectionEl($select);
-    if (!$selection) return;
-    $selection.removeClass('conflict-red conflict-orange conflict-yellow unavailable');
-    if (sev === SEV.UNAVAILABLE) $selection.addClass('unavailable');
-    else if (sev === SEV.RED)    $selection.addClass('conflict-red');
-    else if (sev === SEV.ORANGE) $selection.addClass('conflict-orange');
-    else if (sev === SEV.YELLOW) $selection.addClass('conflict-yellow');
+function setSelectionSeverity(selectEl, sev){
+    const el = tsControlEl(selectEl);
+    if (!el) return;
+    el.classList.remove('conflict-red','conflict-orange','conflict-yellow','unavailable');
+    if (sev === SEV.UNAVAILABLE) el.classList.add('unavailable');
+    else if (sev === SEV.RED)    el.classList.add('conflict-red');
+    else if (sev === SEV.ORANGE) el.classList.add('conflict-orange');
+    else if (sev === SEV.YELLOW) el.classList.add('conflict-yellow');
 }
 
 function bump(map, key, sev){
@@ -57,33 +59,33 @@ function dayDiff(aYYYYMMDD, bYYYYMMDD){
 
 // ----- The global sweep -----
 function scanAssignmentsAndFlagConflicts(scope=document){
-    const $sels = $(scope).find('.referee-select');
+    const sels = Array.from(scope.querySelectorAll('.referee-select'));
     const recs = [];
 
     // Build records for currently SELECTED refs only
-    $sels.each(function(){
-        const $sel = $(this);
-        const refId = $sel.val();
-        const $opt  = $sel.find('option:selected');
-        const baseAvail    = $opt.data('availability');            // 'available' | 'unavailable'
-        const baseConflict = ($opt.data('conflict') || 'none');    // 'red'|'orange'|'yellow'|'none'
+    sels.forEach((sel) => {
+        const refId = sel.value;
+        const opt  = sel.selectedOptions && sel.selectedOptions[0];
 
         // always start by clearing
-        setSelectionSeverity($sel, SEV.NONE);
+        setSelectionSeverity(sel, SEV.NONE);
 
         if (!refId) return; // nothing selected, nothing to score
 
-        const matchId   = $sel.data('match-id');
-        const dateStr   = $sel.data('match-date');
-        const kickoff   = $sel.data('kickoff');
-        const role      = $sel.data('role');
-        const locNorm   = normalizeAddress($sel.data('location-address'));
+        const baseAvail    = opt ? opt.getAttribute('data-availability') : null;            // 'available' | 'unavailable'
+        const baseConflict = opt ? (opt.getAttribute('data-conflict') || 'none') : 'none';  // 'red'|'orange'|'yellow'|'none'
+
+        const matchId   = sel.getAttribute('data-match-id');
+        const dateStr   = sel.getAttribute('data-match-date');
+        const kickoff   = sel.getAttribute('data-kickoff');
+        const role      = sel.getAttribute('data-role');
+        const locNorm   = normalizeAddress(sel.getAttribute('data-location-address'));
 
         const start = parseDateTime(dateStr, kickoff);
         const end   = new Date(start.getTime() + 90*60*1000);
 
         recs.push({
-            $sel, refId, matchId, role, dateStr, start, end, locNorm,
+            sel, refId, matchId, role, dateStr, start, end, locNorm,
             baseAvail, baseConflictSev: SEV_FROM_TEXT[String(baseConflict)] ?? SEV.NONE
         });
     });
@@ -92,8 +94,8 @@ function scanAssignmentsAndFlagConflicts(scope=document){
     const severity = new Map();
     for (const r of recs) {
         // Base severity from server (availability beats everything)
-        if (r.baseAvail === 'unavailable') bump(severity, r.$sel, SEV.UNAVAILABLE);
-        bump(severity, r.$sel, r.baseConflictSev);
+        if (r.baseAvail === 'unavailable') bump(severity, r.sel, SEV.UNAVAILABLE);
+        bump(severity, r.sel, r.baseConflictSev);
     }
 
     // Group by referee and compute LIVE conflicts across selections
@@ -109,7 +111,7 @@ function scanAssignmentsAndFlagConflicts(scope=document){
         for (const r of arr) (byMatch[r.matchId] ||= []).push(r);
         for (const mid in byMatch) {
             if (byMatch[mid].length > 1) {
-                for (const r of byMatch[mid]) bump(severity, r.$sel, SEV.RED);
+                for (const r of byMatch[mid]) bump(severity, r.sel, SEV.RED);
             }
         }
 
@@ -122,27 +124,27 @@ function scanAssignmentsAndFlagConflicts(scope=document){
                 if (dd === 0) {
                     // overlap -> RED
                     if (a.start < b.end && b.start < a.end) {
-                        bump(severity, a.$sel, SEV.RED); bump(severity, b.$sel, SEV.RED);
+                        bump(severity, a.sel, SEV.RED); bump(severity, b.sel, SEV.RED);
                         continue;
                     }
                     // same day, different venues -> RED
                     if (a.locNorm && b.locNorm && a.locNorm !== b.locNorm) {
-                        bump(severity, a.$sel, SEV.RED); bump(severity, b.$sel, SEV.RED);
+                        bump(severity, a.sel, SEV.RED); bump(severity, b.sel, SEV.RED);
                         continue;
                     }
                     // same day, same venue, no overlap -> ORANGE
-                    bump(severity, a.$sel, SEV.ORANGE); bump(severity, b.$sel, SEV.ORANGE);
+                    bump(severity, a.sel, SEV.ORANGE); bump(severity, b.sel, SEV.ORANGE);
                 } else if (Math.abs(dd) <= 2) {
                     // within ±2 days -> YELLOW (unless already worse)
-                    bump(severity, a.$sel, SEV.YELLOW); bump(severity, b.$sel, SEV.YELLOW);
+                    bump(severity, a.sel, SEV.YELLOW); bump(severity, b.sel, SEV.YELLOW);
                 }
             }
         }
     }
 
     // Apply classes
-    for (const [$sel, sev] of severity.entries()) {
-        setSelectionSeverity($sel, sev);
+    for (const [sel, sev] of severity.entries()) {
+        setSelectionSeverity(sel, sev);
     }
 }
 
@@ -200,6 +202,8 @@ function fetchAndUpdateMatches() {
             const paginationControls = document.getElementById('paginationControls');
 
             if (tableBody) {
+                // Destroy old TomSelect instances before replacing HTML
+                destroyTomSelectInScope(tableBody);
                 tableBody.innerHTML = data.matchesHtml;
             } else {
                 console.error('Error: matchesTableBody element not found.');
@@ -211,7 +215,7 @@ function fetchAndUpdateMatches() {
                 console.error('Error: paginationControls element not found.');
             }
 
-            // Rebuild select2 and rescan conflicts, then reapply suggestions
+            // Rebuild Tom Select and rescan conflicts, then reapply suggestions
             prepareAssignUI(document);
             reapplySuggestions();
 
@@ -235,14 +239,27 @@ function reapplySuggestions() {
             const refId = suggestedAssignments[matchId][role];
             const select = document.querySelector(`select[name="assignments[${matchId}][${role}]"]`);
             if (select) {
-                select.value = refId ?? "";
-                const event = new Event('change', { bubbles: true });
-                select.dispatchEvent(event);
+                setSelectValue(select, refId ?? "");
             }
         }
     }
     // Rescan after all changes
     scanAssignmentsAndFlagConflicts(document);
+}
+
+function setSelectValue(select, value){
+    // Use TomSelect API if present for better sync
+    if (select.tomselect) {
+        if (value === "" || value === null || typeof value === "undefined") {
+            select.tomselect.clear(true);
+        } else {
+            select.tomselect.setValue(String(value), true);
+        }
+    } else {
+        select.value = value ?? "";
+        const event = new Event('change', { bubbles: true });
+        select.dispatchEvent(event);
+    }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -314,6 +331,11 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             modalBody.appendChild(selectElement);
 
+            // Enhance modal select with Tom Select (single + search)
+            setTimeout(() => {
+                new TomSelect('#modalSelectField', { create:false, maxItems:1, plugins:[] });
+            }, 0);
+
             saveButton.dataset.matchUuid = matchUuid;
             saveButton.dataset.fieldType = fieldType;
             saveButton.dataset.cellValueElement = `#matchesTableBody tr td[data-match-uuid='${matchUuid}'][data-field-type='${fieldType}'] span.cell-value`;
@@ -359,13 +381,15 @@ document.addEventListener('DOMContentLoaded', () => {
     // Apply active indicators on initial load
     updateActiveFilterIndicators();
 
-    // Prepare Select2 and run initial sweep
+    // Prepare Tom Select and run initial sweep
     prepareAssignUI(document);
 });
 
-// Re-scan conflicts whenever a selection changes
-$(document).on('change select2:select select2:clear', '.referee-select', debounce(() => {
-    scanAssignmentsAndFlagConflicts(document);
+// Re-scan conflicts whenever a selection changes (Tom Select fires native 'change' on <select>)
+document.addEventListener('change', debounce((e) => {
+    if (e.target && e.target.classList && e.target.classList.contains('referee-select')) {
+        scanAssignmentsAndFlagConflicts(document);
+    }
 }, 60));
 
 function updateActiveFilterIndicators() {
@@ -382,26 +406,15 @@ function updateActiveFilterIndicators() {
 
 document.getElementById('clearAssignments')?.addEventListener('click', () => {
     document.querySelectorAll('select.referee-select').forEach(select => {
-        select.value = "";
-        select.removeAttribute('style');
-
-        const selectId = select.id;
-        if (selectId) {
-            const select2Container = document.querySelector(`[aria-labelledby="select2-${selectId}-container"]`);
-            if (select2Container && select2Container.parentElement) {
-                const selectionElement = select2Container.parentElement.querySelector('.select2-selection');
-                if (selectionElement) selectionElement.removeAttribute('style');
-            } else {
-                let sibling = select.nextElementSibling;
-                if (sibling && sibling.classList.contains('select2-container')) {
-                    const selectionRendered = sibling.querySelector('.select2-selection');
-                    if (selectionRendered) selectionRendered.removeAttribute('style');
-                }
-            }
+        if (select.tomselect) {
+            select.tomselect.clear(true);
+        } else {
+            select.value = "";
+            const event = new Event('change', { bubbles: true });
+            select.dispatchEvent(event);
         }
-
-        const event = new Event('change', { bubbles: true });
-        select.dispatchEvent(event);
+        // Remove conflict visuals
+        setSelectionSeverity(select, SEV.NONE);
     });
     suggestedAssignments = {};
 
@@ -469,9 +482,7 @@ document.getElementById('suggestAssignments')?.addEventListener('click', async (
 
                                     const select = document.querySelector(`select[name="assignments[${matchId}][${role}]"]`);
                                     if (select) {
-                                        select.value = refId ?? "";
-                                        const event = new Event('change', { bubbles: true });
-                                        select.dispatchEvent(event);
+                                        setSelectValue(select, refId ?? "");
                                     }
                                 }
                             }
@@ -600,33 +611,55 @@ function setupFilterDropdown(toggleId, boxId, optionsId, checkboxClass, paramNam
     });
 }
 
-// Initialize Select2 on referee selects (no coloring here)
-function initRefereeSelect2(scope=document){
-    const $sels = $(scope).find('.referee-select');
-    if (!$sels.length) return;
+// Initialize Tom Select on referee selects (checkbox multi + search if multi; single otherwise)
+function initRefereeTom(scope=document){
+    const sels = Array.from(scope.querySelectorAll('.referee-select'));
+    if (!sels.length) return;
 
-    $sels.each(function(){
-        const $sel = $(this);
-        if ($sel.data('select2')) return;
-        $sel.select2({
-            width: 'resolve',
-            theme: 'bootstrap-5',
-            dropdownParent: $('body')
-            // Optional:
-            // matcher: refereeMatcher,
-            // templateResult: ..., templateSelection: ...
+    sels.forEach((sel) => {
+        if (sel.tomselect) return; // already initialized
+
+        const isMulti = sel.hasAttribute('multiple');
+        const plugins = [];
+
+        // For multi-selects, show checkboxes and remove buttons
+        if (isMulti) {
+            plugins.push('checkbox_options', 'remove_button');
+        }
+
+        const ts = new TomSelect(sel, {
+            create: false,
+            maxItems: isMulti ? null : 1,
+            searchField: ['text', 'value'],
+            persist: false,
+            plugins
         });
+
+        tomSelectRegistry.set(sel, ts);
+
+        // When Tom Select changes, ensure conflict rescans
+        sel.addEventListener('change', debounce(() => scanAssignmentsAndFlagConflicts(document), 60));
     });
 }
 
-// Orchestrator: init Select2 then sweep
+function destroyTomSelectInScope(scope=document){
+    const sels = Array.from(scope.querySelectorAll('.referee-select'));
+    sels.forEach((sel) => {
+        if (sel.tomselect) {
+            try { sel.tomselect.destroy(); } catch(e) {}
+        }
+        tomSelectRegistry.delete(sel);
+    });
+}
+
+// Orchestrator: init Tom Select then sweep
 const prepareAssignUI = (scope=document) => {
-    initRefereeSelect2(scope);
-    // next tick guarantees Select2 selection DOM exists
+    initRefereeTom(scope);
+    // next tick guarantees TS controls exist
     setTimeout(() => scanAssignmentsAndFlagConflicts(scope), 0);
 };
 
-// Setup each filter with applyId
+// Setup each filter with applyId (unchanged; still checkbox dropdowns via AJAX)
 setupFilterDropdown('divisionFilterToggle', 'divisionFilterBox', 'divisionFilterOptions', 'division-filter-checkbox', 'division', 'clearDivisionFilter', 'applyDivisionFilter');
 setupFilterDropdown('districtFilterToggle', 'districtFilterBox', 'districtFilterOptions', 'district-filter-checkbox', 'district', 'clearDistrictFilter', 'applyDistrictFilter');
 setupFilterDropdown('pouleFilterToggle', 'pouleFilterBox', 'pouleFilterOptions', 'poule-filter-checkbox', 'poule', 'clearPouleFilter', 'applyPouleFilter');
