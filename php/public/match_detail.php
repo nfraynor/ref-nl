@@ -13,69 +13,106 @@ if (!$matchUuid) {
     exit;
 }
 
+function columnExists(PDO $pdo, string $table, string $column): bool {
+    $stmt = $pdo->prepare("
+        SELECT COUNT(*) 
+        FROM INFORMATION_SCHEMA.COLUMNS 
+        WHERE TABLE_SCHEMA = DATABASE() 
+          AND TABLE_NAME = ? 
+          AND COLUMN_NAME = ?
+    ");
+    $stmt->execute([$table, $column]);
+    return (bool)$stmt->fetchColumn();
+}
+
+$locationColumn = null;
+if (columnExists($pdo, 'matches', 'location_uuid')) {
+    $locationColumn = 'location_uuid';
+} elseif (columnExists($pdo, 'matches', 'location_id')) {
+    // If your schema renamed this, support id-style too
+    $locationColumn = 'location_id';
+}
+
+
 // Handle POST requests for updates
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($matchUuid)) {
-    if (isset($_POST['update_location']) && isset($_POST['location_uuid'])) {
+    // Update location (only if a reference column exists)
+    if ($locationColumn && isset($_POST['update_location']) && isset($_POST['location_uuid'])) {
         $newLocationUuid = $_POST['location_uuid'];
-        if (empty($newLocationUuid)) { // Allow unsetting the location
-            $updateStmt = $pdo->prepare("UPDATE matches SET location_uuid = NULL WHERE uuid = ?");
+
+        if ($newLocationUuid === '') {
+            $updateStmt = $pdo->prepare("UPDATE matches SET {$locationColumn} = NULL WHERE uuid = ?");
             $updateStmt->execute([$matchUuid]);
         } else {
-            // Validate if location_uuid exists in locations table (optional but good practice)
             $locCheckStmt = $pdo->prepare("SELECT uuid FROM locations WHERE uuid = ?");
             $locCheckStmt->execute([$newLocationUuid]);
             if ($locCheckStmt->fetch()) {
-                $updateStmt = $pdo->prepare("UPDATE matches SET location_uuid = ? WHERE uuid = ?");
+                $updateStmt = $pdo->prepare("UPDATE matches SET {$locationColumn} = ? WHERE uuid = ?");
                 $updateStmt->execute([$newLocationUuid, $matchUuid]);
             } else {
-                // Handle error: location_uuid not found (e.g., set a session flash message)
                 $_SESSION['error_message'] = "Invalid location selected.";
             }
         }
-        header("Location: match_detail.php?uuid=" . $matchUuid . "&update_success=1"); // Redirect to avoid form resubmission
+        header("Location: match_detail.php?uuid=" . $matchUuid . "&update_success=1");
         exit;
     }
 
+    // Update referee assigner (unchanged)
     if (isset($_POST['update_referee_assigner']) && isset($_POST['referee_assigner_uuid'])) {
         $newAssignerUuid = $_POST['referee_assigner_uuid'];
-        if (empty($newAssignerUuid)) { // Allow unsetting the assigner
+        if ($newAssignerUuid === '') {
             $updateStmt = $pdo->prepare("UPDATE matches SET referee_assigner_uuid = NULL WHERE uuid = ?");
             $updateStmt->execute([$matchUuid]);
         } else {
-            // Validate if user_uuid exists in users table
             $userCheckStmt = $pdo->prepare("SELECT uuid FROM users WHERE uuid = ?");
             $userCheckStmt->execute([$newAssignerUuid]);
             if ($userCheckStmt->fetch()) {
                 $updateStmt = $pdo->prepare("UPDATE matches SET referee_assigner_uuid = ? WHERE uuid = ?");
                 $updateStmt->execute([$newAssignerUuid, $matchUuid]);
             } else {
-                // Handle error: user_uuid not found
                 $_SESSION['error_message'] = "Invalid referee assigner selected.";
             }
         }
-        header("Location: match_detail.php?uuid=" . $matchUuid . "&update_success=1"); // Redirect
+        header("Location: match_detail.php?uuid=" . $matchUuid . "&update_success=1");
         exit;
     }
 }
 
 
-// Fetch match info
-$stmt = $pdo->prepare("
+$joinLocations = $locationColumn
+    ? "LEFT JOIN locations l ON m.{$locationColumn} = l.uuid"
+    : ""; // no join if there is no reference column
+
+// Select fields for locations (provide NULLs if there’s no join)
+$locationFields = $locationColumn
+    ? "
+        l.name AS location_name,
+        l.address_text AS location_address_text,
+        l.latitude AS location_latitude,
+        l.longitude AS location_longitude,
+        l.notes AS location_specific_notes,
+        m.{$locationColumn} AS match_location_uuid
+      "
+    : "
+        NULL AS location_name,
+        NULL AS location_address_text,
+        NULL AS location_latitude,
+        NULL AS location_longitude,
+        NULL AS location_specific_notes,
+        NULL AS match_location_uuid
+      ";
+
+$sql = "
     SELECT
         m.uuid AS match_uuid,
         m.match_date,
         m.kickoff_time,
-        -- m.location_notes, -- Old notes from matches table, replaced by locations.notes
         m.division,
         ht.team_name AS home_team_name,
         at.team_name AS away_team_name,
         hcl.club_name AS home_club_name,
         acl.club_name AS away_club_name,
-        l.name AS location_name,                 -- from locations table
-        l.address_text AS location_address_text, -- from locations table
-        l.latitude AS location_latitude,         -- from locations table
-        l.longitude AS location_longitude,       -- from locations table
-        l.notes AS location_specific_notes,      -- from locations table
+        {$locationFields},
         CONCAT(main_ref.first_name, ' ', main_ref.last_name) AS main_ref_name,
         main_ref.uuid AS main_ref_uuid,
         CONCAT(ar1.first_name, ' ', ar1.last_name) AS ar1_name,
@@ -83,21 +120,23 @@ $stmt = $pdo->prepare("
         CONCAT(ar2.first_name, ' ', ar2.last_name) AS ar2_name,
         ar2.uuid AS ar2_uuid,
         assigner_user.username AS referee_assigner_username,
-        m.referee_assigner_uuid -- Fetching the UUID of the assigner
+        m.referee_assigner_uuid
     FROM matches m
     JOIN teams ht ON m.home_team_id = ht.uuid
     JOIN teams at ON m.away_team_id = at.uuid
     LEFT JOIN clubs hcl ON ht.club_id = hcl.uuid
     LEFT JOIN clubs acl ON at.club_id = acl.uuid
-    LEFT JOIN locations l ON m.location_uuid = l.uuid
+    {$joinLocations}
     LEFT JOIN referees main_ref ON m.referee_id = main_ref.uuid
     LEFT JOIN referees ar1 ON m.ar1_id = ar1.uuid
     LEFT JOIN referees ar2 ON m.ar2_id = ar2.uuid
-    LEFT JOIN users assigner_user ON m.referee_assigner_uuid = assigner_user.uuid -- Join for referee assigner
+    LEFT JOIN users assigner_user ON m.referee_assigner_uuid = assigner_user.uuid
     WHERE m.uuid = ?
-");
+";
+$stmt = $pdo->prepare($sql);
 $stmt->execute([$matchUuid]);
 $match = $stmt->fetch();
+
 
 if (!$match) {
     echo "<div class='container mt-4'><p class='alert alert-danger'>Match not found.</p></div>";
@@ -156,19 +195,26 @@ if (isset($_GET['update_success'])) {
                     <!-- Editable Location -->
                     <dt class="col-sm-3">Location</dt>
                     <dd class="col-sm-9">
-                        <form method="POST" action="match_detail.php?uuid=<?= htmlspecialchars($matchUuid) ?>" class="mb-3">
-                            <div class="input-group">
-                                <select name="location_uuid" class="form-select">
-                                    <option value="">-- Select New Location --</option>
-                                    <?php foreach ($allLocations as $loc): ?>
-                                        <option value="<?= htmlspecialchars($loc['uuid']) ?>" <?= ($match['location_uuid'] ?? '') == $loc['uuid'] ? 'selected' : '' ?>>
-                                            <?= htmlspecialchars($loc['name'] . ($loc['address_text'] ? ' - ' . $loc['address_text'] : '')) ?>
-                                        </option>
-                                    <?php endforeach; ?>
-                                </select>
-                                <button type="submit" name="update_location" class="btn btn-primary">Update Location</button>
+                        <?php if ($locationColumn): ?>
+                            <form method="POST" action="match_detail.php?uuid=<?= htmlspecialchars($matchUuid) ?>" class="mb-3">
+                                <div class="input-group">
+                                    <select name="location_uuid" class="form-select">
+                                        <option value="">-- Select New Location --</option>
+                                        <?php foreach ($allLocations as $loc): ?>
+                                            <option value="<?= htmlspecialchars($loc['uuid']) ?>" <?= ($match['match_location_uuid'] ?? '') == $loc['uuid'] ? 'selected' : '' ?>>
+                                                <?= htmlspecialchars($loc['name'] . ($loc['address_text'] ? ' - ' . $loc['address_text'] : '')) ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                    <button type="submit" name="update_location" class="btn btn-primary">Update Location</button>
+                                </div>
+                            </form>
+                        <?php else: ?>
+                            <div class="alert alert-warning mb-2">
+                                This match schema has no location reference column on <code>matches</code>. Location editing is disabled.
                             </div>
-                        </form>
+                        <?php endif; ?>
+
                         Current:
                         <?php if ($match['location_name'] || $match['location_address_text']): ?>
                             <strong><?= htmlspecialchars($match['location_name'] ?: 'N/A') ?></strong><br>
@@ -181,6 +227,7 @@ if (isset($_GET['update_success'])) {
                             N/A
                         <?php endif; ?>
                     </dd>
+
 
                     <!-- Editable Referee Assigner -->
                     <dt class="col-sm-3">Referee Assigner</dt>
