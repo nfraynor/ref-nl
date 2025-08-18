@@ -69,6 +69,14 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
                         <input id="globalFilter" class="form-control" placeholder="Search matches…">
                     </div>
 
+                    <div class="grade-pills" id="gradePills">
+                        <button type="button" class="pill js-grade-pill is-active" data-grade="*">All</button>
+                        <button type="button" class="pill js-grade-pill" data-grade="A">A</button>
+                        <button type="button" class="pill js-grade-pill" data-grade="B">B</button>
+                        <button type="button" class="pill js-grade-pill" data-grade="C">C</button>
+                        <button type="button" class="pill js-grade-pill" data-grade="D">D</button>
+                    </div>
+
                     <div class="d-flex align-items-center gap-2">
                         <div>
                             <small class="text-muted d-block">From</small>
@@ -215,7 +223,11 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
         <?php endforeach; ?>
         return map;
     })();
-
+    const refereeMeta = {
+        <?php foreach ($referees as $r): ?>
+        "<?= h($r['uuid']) ?>": { grade: "<?= h($r['grade'] ?? '') ?>" },
+        <?php endforeach; ?>
+    };
     const assignerOptions = (() => {
         const map = {};
         <?php foreach ($assigners as $u): ?>
@@ -223,7 +235,78 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
         <?php endforeach; ?>
         return map;
     })();
+    // ---- Grade filter state ----
+    const GRADES = ["A","B","C","D"];
+    let activeGrades = new Set(GRADES); // default = All
 
+    function updatePillUI(){
+        const pills = document.querySelectorAll('.js-grade-pill');
+        pills.forEach(btn => {
+            const g = btn.dataset.grade;
+            const on = (g === "*") ? (activeGrades.size === GRADES.length) : activeGrades.has(g);
+            btn.classList.toggle('is-active', on);
+        });
+    }
+
+    // Build master list once
+    const REF_LIST_ALL = Object.keys(refereeOptions).map(id => ({
+        value: id,
+        label: refereeOptions[id],
+        grade: (refereeMeta[id]?.grade || "").toUpperCase()
+    }));
+
+    // Quick lookup by grade
+    const REF_BY_GRADE = GRADES.reduce((acc, g) => {
+        acc[g] = REF_LIST_ALL.filter(x => x.grade === g);
+        return acc;
+    }, {});
+
+    // Current list for editors (honors activeGrades)
+    function refListForEditors(){
+        if (activeGrades.size === GRADES.length) return REF_LIST_ALL;
+        const out = [];
+        activeGrades.forEach(g => out.push(...(REF_BY_GRADE[g] || [])));
+        return out;
+    }
+
+    // Tabulator "list" editor expects {value:label} object (easy to generate)
+    function listValuesMap(){
+        const map = {};
+        refListForEditors().forEach(x => { map[x.value] = `${x.label}`; });
+        return map;
+    }
+
+    // Wire up the pills
+    document.addEventListener('DOMContentLoaded', () => {
+        document.querySelectorAll('.js-grade-pill').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const g = btn.dataset.grade;
+                if (g === "*") {
+                    activeGrades = new Set(GRADES);
+                } else {
+                    // If we were on "All", start a fresh selection with this one
+                    if (activeGrades.size === GRADES.length) activeGrades = new Set();
+                    activeGrades.has(g) ? activeGrades.delete(g) : activeGrades.add(g);
+                    // Avoid empty set => treat as All
+                    if (activeGrades.size === 0) activeGrades = new Set(GRADES);
+                }
+                updatePillUI();
+
+                // (Optional) If you also want to filter table rows by grade, uncomment:
+                // matchesTable?.setFilter(row => {
+                //   const roles = ['referee_id','ar1_id','ar2_id','commissioner_id'];
+                //   for (const role of roles) {
+                //     const id = row[role];
+                //     if (!id) continue;
+                //     const g = (refereeMeta[id]?.grade || '').toUpperCase();
+                //     if (activeGrades.has(g)) return true;
+                //   }
+                //   // If no one assigned, keep row visible when "All" is active
+                //   return activeGrades.size === GRADES.length;
+                // });
+            });
+        });
+    });
     const ASSIGN_MODE = <?= $assignMode ? 'true' : 'false' ?>;
 
     /* ==== Helpers ==== */
@@ -236,7 +319,7 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
     function gradeBadge(g) {
         if (!g) return '<span class="badge chip-E fw-700">—</span>';
         const G = String(g).toUpperCase();
-        const cls = ['A','B','C','D','E'].includes(G) ? `chip-${G}` : 'chip-E';
+        const cls = ['A','B','C','D'].includes(G) ? `chip-${G}` : 'chip-E';
         return `<span class="badge ${cls} fw-700">${G}</span>`;
     }
 
@@ -339,6 +422,26 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
                     alert("Saving assigner failed.");
                 }
             },
+        };
+    }
+    const assignCols = ['referee_id','ar1_id','ar2_id','commissioner_id'];
+
+    function formatRefCell(cell){
+        const id = cell.getValue();
+        if (!id) return "—";
+        const label = refereeOptions[id] || "—";
+        const g = (refereeMeta[id]?.grade || "").toUpperCase();
+        return `${label}`;
+    }
+
+    function editorParamsFactory(/*cell*/){
+        // rebuild values each time an editor opens so grade pills are honored
+        return {
+            values: listValuesMap(),     // {value: label}
+            autocomplete: true,
+            listOnEmpty: true,
+            // allowEmpty lets users clear the field (press backspace, Enter)
+            // (Tabulator accepts unknown params silently; these two are the key ones)
         };
     }
 
@@ -475,12 +578,38 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
                 makeAssignerCol(),
 
                 // ⬇️ These three become dropdowns in assign mode, otherwise show names
-                makeRefereeCol("Referee", "referee_id", 180),
-                makeRefereeCol("AR1",     "ar1_id",      180),
-                makeRefereeCol("AR2",     "ar2_id",      180),
-
-                // Optional: Commissioner same behavior — include if you want this editable too
-                makeRefereeCol("Commissioner", "commissioner_id", 190),
+                {
+                    title: "Referee",
+                    field: "referee_id",
+                    minWidth: 200,
+                    formatter: formatRefCell,
+                    editor: ASSIGN_MODE ? "list" : false,
+                    editorParams: editorParamsFactory,
+                },
+                {
+                    title: "AR1",
+                    field: "ar1_id",
+                    minWidth: 200,
+                    formatter: formatRefCell,
+                    editor: ASSIGN_MODE ? "list" : false,
+                    editorParams: editorParamsFactory,
+                },
+                {
+                    title: "AR2",
+                    field: "ar2_id",
+                    minWidth: 200,
+                    formatter: formatRefCell,
+                    editor: ASSIGN_MODE ? "list" : false,
+                    editorParams: editorParamsFactory,
+                },
+                {
+                    title: "Commissioner",
+                    field: "commissioner_id",
+                    minWidth: 200,
+                    formatter: formatRefCell,
+                    editor: ASSIGN_MODE ? "list" : false,
+                    editorParams: editorParamsFactory,
+                },
             ],
         });
 
