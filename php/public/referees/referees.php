@@ -50,6 +50,7 @@ $referees = $pdo->query("
                     </div>
 
                     <div class="actions">
+                        <button id="addRefBtn" class="btn btn-primary">Add Referee</button>
                         <button id="clearFilters" class="btn btn-outline-secondary">Clear</button>
                         <button id="downloadCsv" class="btn btn-secondary">Export CSV</button>
                     </div>
@@ -61,6 +62,75 @@ $referees = $pdo->query("
         <div id="referees-table"></div>
     </div>
 </div>
+
+<?php
+// preload clubs for the selector
+$clubs = $pdo->query("SELECT uuid, club_name FROM clubs ORDER BY club_name")
+    ->fetchAll(PDO::FETCH_ASSOC);
+?>
+
+<!-- Add Referee Modal -->
+<div class="modal fade" id="addRefModal" tabindex="-1" aria-labelledby="addRefLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-md">
+        <div class="modal-content" style="border-radius:16px;">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addRefLabel">Add Referee</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <form id="addRefForm" novalidate>
+                <div class="modal-body">
+                    <div id="addRefAlert" class="alert alert-danger d-none" role="alert"></div>
+
+                    <div class="row g-3">
+                        <div class="col-sm-6">
+                            <label class="form-label">First Name<span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="first_name" required>
+                        </div>
+                        <div class="col-sm-6">
+                            <label class="form-label">Last Name<span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="last_name" required>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Email<span class="text-danger">*</span></label>
+                            <input type="email" class="form-control" id="email" required>
+                            <div class="form-text">Email must be unique.</div>
+                        </div>
+                        <div class="col-sm-6">
+                            <label class="form-label">Referee Grade<span class="text-danger">*</span></label>
+                            <select class="form-select" id="grade" required>
+                                <option value="">Select grade…</option>
+                                <option>A</option><option>B</option><option>C</option><option>D</option>
+                            </select>
+                        </div>
+                        <div class="col-sm-6">
+                            <label class="form-label">Home Club</label>
+                            <select class="form-select" id="home_club_id">
+                                <option value="">Select a club…</option>
+                                <?php foreach($clubs as $club): ?>
+                                    <option value="<?= htmlspecialchars($club['uuid']) ?>">
+                                        <?= htmlspecialchars($club['club_name']) ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" id="addRefSubmit" class="btn btn-primary">
+                        <span class="submit-text">Create</span>
+                        <span class="spinner-border spinner-border-sm ms-2 d-none" role="status" aria-hidden="true"></span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+
+
 
 <?php
 $referees = $pdo->query("
@@ -250,6 +320,97 @@ $referees = $pdo->query("
         const chip = (label, n) => `<span style="display:inline-block;margin-right:.4rem;padding:.2rem .5rem;border:1px solid var(--border);border-radius:999px;font-weight:700;font-size:12px;background:var(--card);">${label}: ${n ?? 0}</span>`;
         renderStats();
         table.on("dataFiltered", (filters, rows) => renderStats(rows.length));
+    });
+
+    document.addEventListener('DOMContentLoaded', () => {
+        // Ensure we can reach the Tabulator instance:
+        const table = window.refTable || window.table || undefined;
+
+        const addBtn = document.getElementById('addRefBtn');
+        const modalEl = document.getElementById('addRefModal');
+        const modal = new bootstrap.Modal(modalEl, { backdrop: 'static' });
+
+        const form = document.getElementById('addRefForm');
+        const alertBox = document.getElementById('addRefAlert');
+        const submitBtn = document.getElementById('addRefSubmit');
+        const spinner = submitBtn.querySelector('.spinner-border');
+        const submitText = submitBtn.querySelector('.submit-text');
+
+        const setBusy = (busy) => {
+            submitBtn.disabled = busy;
+            spinner.classList.toggle('d-none', !busy);
+            submitText.textContent = busy ? 'Creating…' : 'Create';
+        };
+
+        addBtn.addEventListener('click', () => {
+            alertBox.classList.add('d-none');
+            form.reset();
+            modal.show();
+        });
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            alertBox.classList.add('d-none');
+
+            // basic front-end validation
+            const first_name = document.getElementById('first_name').value.trim();
+            const last_name = document.getElementById('last_name').value.trim();
+            const email = document.getElementById('email').value.trim();
+            const grade = document.getElementById('grade').value.trim().toUpperCase();
+            const home_club_id = document.getElementById('home_club_id').value;
+
+            if (!first_name || !last_name || !email || !grade) {
+                alertBox.textContent = 'Please fill in all required fields.';
+                alertBox.classList.remove('d-none');
+                return;
+            }
+            if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+                alertBox.textContent = 'Please enter a valid email address.';
+                alertBox.classList.remove('d-none');
+                return;
+            }
+            if (!['A','B','C','D'].includes(grade)) {
+                alertBox.textContent = 'Grade must be A, B, C, or D.';
+                alertBox.classList.remove('d-none');
+                return;
+            }
+
+            setBusy(true);
+            try {
+                const res = await fetch('referees_create.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ first_name, last_name, email, grade, home_club_id })
+                });
+
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok) {
+                    // 409 from server for duplicate email, 400 validation, 500 fallback
+                    alertBox.textContent = data.message || 'Failed to create referee.';
+                    alertBox.classList.remove('d-none');
+                    return;
+                }
+
+                // success -> add row to table and close
+                if (data && data.referee && table) {
+                    // Insert at top
+                    table.addData([data.referee], true);
+                }
+                modal.hide();
+                // Optional: flash a quick success
+                const stats = document.getElementById('table-stats');
+                if (stats) {
+                    const old = stats.innerHTML;
+                    stats.innerHTML = `<span class="badge bg-success" style="border-radius:999px;">Referee created</span> ${old}`;
+                    setTimeout(() => (stats.innerHTML = old), 2500);
+                }
+            } catch (err) {
+                alertBox.textContent = 'Network error. Please try again.';
+                alertBox.classList.remove('d-none');
+            } finally {
+                setBusy(false);
+            }
+        });
     });
 </script>
 
