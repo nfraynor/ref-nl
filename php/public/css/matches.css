@@ -97,6 +97,18 @@
     position: relative;
 }
 
+.select2-container .select2-selection.conflict-red    { background:#fdecea; border-color:#f5c2c7; }
+.select2-container .select2-selection.conflict-orange { background:#fff4e5; border-color:#ffd59e; }
+.select2-container .select2-selection.conflict-yellow { background:#fffbe6; border-color:#ffe58f; }
+.select2-container .select2-selection.unavailable     { background:#f1f1f1; border-color:#e0e0e0; color:#888; }
+.select2-container .select2-selection { transition: background .15s ease, border-color .15s ease; }
+
+.s2-badge{display:inline-block;font-size:.75rem;line-height:1;padding:.15rem .35rem;border-radius:.35rem;margin-left:.35rem}
+.s2-unavailable{background:#e0e0e0;color:#555}
+.s2-red{background:#f8d7da;color:#842029}
+.s2-orange{background:#ffe8cc;color:#8a4b08}
+.s2-yellow{background:#fff3cd;color:#664d03}
+
 .sticky-assign-button {
     position: sticky;
     top: 0;

@@ -116,10 +116,19 @@ if (!empty($_GET['end_date'])) {
     $params[] = $_GET['end_date'];
 }
 
+$filterColumnMap = [
+    'division'          => 'division',
+    'district'          => 'district',
+    'poule'             => 'poule',
+    'location'          => 'location_address',      // << fix
+    'referee_assigner'  => 'referee_assigner_uuid', // << fix
+];
+
 foreach (['division', 'district', 'poule', 'location', 'referee_assigner'] as $filter) {
     if (!empty($_GET[$filter]) && is_array($_GET[$filter])) {
+        $column = $filterColumnMap[$filter] ?? $filter;
         $placeholders = implode(',', array_fill(0, count($_GET[$filter]), '?'));
-        $whereClauses[] = "m.$filter IN ($placeholders)";
+        $whereClauses[] = "m.$column IN ($placeholders)";
         $params = array_merge($params, $_GET[$filter]);
     }
 }
@@ -132,18 +141,12 @@ send_progress(5, 'Filtering matches based on criteria...');
 $matches = [];
 if ($loadMatches) {
     $stmt = $pdo->prepare("
-        SELECT 
-            m.uuid,
-            m.match_date,
-            m.kickoff_time,
-            l.latitude AS location_lat,
-            l.longitude AS location_lon,
-            m.division
-        FROM matches m
-        LEFT JOIN locations l ON m.location_uuid = l.uuid
-        $whereSQL
-        ORDER BY m.match_date ASC, m.kickoff_time ASC
-    ");
+    SELECT
+      m.uuid, m.match_date, m.kickoff_time, m.division,
+      m.location_address, m.location_lat, m.location_lon
+    FROM matches m
+    $whereSQL
+    ORDER BY m.match_date ASC, m.kickoff_time ASC");
     $stmt->execute($params);
     $matches = $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
@@ -183,12 +186,13 @@ unset($match);
 $existingAssignments = [];
 if (!$testingMode) {
     $existingAssignments = $pdo->query("
-        SELECT 
-            m.uuid AS match_id, m.match_date, m.kickoff_time, l.latitude AS location_lat, l.longitude AS location_lon,
-            m.referee_id, m.ar1_id, m.ar2_id, m.commissioner_id
-        FROM matches m
-        LEFT JOIN locations l ON m.location_uuid = l.uuid
-        WHERE referee_id IS NOT NULL OR ar1_id IS NOT NULL OR ar2_id IS NOT NULL OR commissioner_id IS NOT NULL
+    SELECT
+      m.uuid AS match_id, m.match_date, m.kickoff_time,
+      m.location_address, m.location_lat, m.location_lon,
+      m.referee_id, m.ar1_id, m.ar2_id, m.commissioner_id
+    FROM matches m
+    WHERE referee_id IS NOT NULL OR ar1_id IS NOT NULL OR ar2_id IS NOT NULL OR commissioner_id IS NOT NULL
+
     ")->fetchAll(PDO::FETCH_ASSOC);
 
     foreach ($existingAssignments as &$assign) {
@@ -216,26 +220,30 @@ foreach ($existingAssignments as $assignment) {
             $existingAssignmentsByWeekRef[$week][$refId] = ($existingAssignmentsByWeekRef[$week][$refId] ?? 0) + 1;
 
             $existingMatchDetailsByDateRef[$date][$refId][] = [
-                'kickoff_minutes' => $assignment['kickoff_minutes'],
-                'location_lat' => $assignment['location_lat'],
-                'location_lon' => $assignment['location_lon']
+                'kickoff_minutes'  => $assignment['kickoff_minutes'],
+                'location_address' => $assignment['location_address'] ?? null,
+                'location_lat'     => $assignment['location_lat'],
+                'location_lon'     => $assignment['location_lon'],
             ];
+
         }
     }
 }
 
-// Load referees with travel data (fixed UUID ambiguity)
+// Load referees with travel data
 $referees = $pdo->query("
     SELECT 
-        r.uuid, 
-        r.grade, 
-        IFNULL(r.home_lat, c.precise_location_lat) AS home_lat, 
-        IFNULL(r.home_lon, c.precise_location_lon) AS home_lon, 
-        r.max_travel_distance 
-    FROM referees r 
-    LEFT JOIN clubs c ON r.home_club_id = c.uuid 
+        r.uuid,
+        r.grade,
+        COALESCE(r.home_lat, l.latitude) AS home_lat,
+        COALESCE(r.home_lon, l.longitude) AS home_lon,
+        r.max_travel_distance
+    FROM referees r
+    LEFT JOIN clubs c      ON r.home_club_id = c.uuid
+    LEFT JOIN locations l  ON c.location_uuid = l.uuid
     ORDER BY r.grade DESC
 ")->fetchAll(PDO::FETCH_ASSOC);
+
 
 send_progress(20, 'Loaded all referees and their data.');
 error_log('Number of referees loaded: ' . count($referees));
@@ -362,35 +370,40 @@ function canAssign($refId, $matchId, $matchDate, $matchWeek, $kickoffMinutes, $l
     // Check suggested conflicts
     $suggestedDetails = $suggestedMatchDetailsByDateRef[$matchDate][$refId] ?? [];
     foreach ($suggestedDetails as $sDetail) {
-        if ($locationLat !== null && $sDetail['location_lat'] !== null && ($locationLat !== $sDetail['location_lat'] || $locationLon !== $sDetail['location_lon'])) {
-            error_log("Ref $refId skipped for match $matchId: Red - Different location");
-            return false; // Red
-        }
-
+        // time overlap → red (unchanged)
         $otherEndMinutes = $sDetail['kickoff_minutes'] + MATCH_DURATION_MINUTES;
-        if ($kickoffMinutes < ($otherEndMinutes + BUFFER_MINUTES) && $sDetail['kickoff_minutes'] < ($currentEndMinutes + BUFFER_MINUTES)) {
-            error_log("Ref $refId skipped for match $matchId: Red - Time overlap (suggested)");
-            return false; // Red
+        if ($kickoffMinutes < ($otherEndMinutes + BUFFER_MINUTES) &&
+            $sDetail['kickoff_minutes'] < ($currentEndMinutes + BUFFER_MINUTES)) {
+            return false; // red
         }
 
-        $isOrange = true;
+        $curAddrN = normalize_address($locationAddress ?? null);
+        $sAddrN   = normalize_address($sDetail['location_address'] ?? null);
+        if ($curAddrN !== null && $sAddrN !== null) {
+            if ($curAddrN !== $sAddrN) return false;
+            else $isOrange = true;
+        } else {
+            $isOrange = true;
+        }
     }
 
     // Check existing conflicts
     $existingDetails = $existingMatchDetailsByDateRef[$matchDate][$refId] ?? [];
     foreach ($existingDetails as $eDetail) {
-        if ($locationLat !== null && $eDetail['location_lat'] !== null && ($locationLat !== $eDetail['location_lat'] || $locationLon !== $eDetail['location_lon'])) {
-            error_log("Ref $refId skipped for match $matchId: Red - Different location (existing)");
-            return false; // Red
-        }
-
         $otherEndMinutes = $eDetail['kickoff_minutes'] + MATCH_DURATION_MINUTES;
-        if ($kickoffMinutes < ($otherEndMinutes + BUFFER_MINUTES) && $eDetail['kickoff_minutes'] < ($currentEndMinutes + BUFFER_MINUTES)) {
-            error_log("Ref $refId skipped for match $matchId: Red - Time overlap (existing)");
-            return false; // Red
+        if ($kickoffMinutes < ($otherEndMinutes + BUFFER_MINUTES) &&
+            $eDetail['kickoff_minutes'] < ($currentEndMinutes + BUFFER_MINUTES)) {
+            return false; // red
         }
 
-        $isOrange = true;
+        $curAddrN = normalize_address($locationAddress ?? null);
+        $eAddrN   = normalize_address($eDetail['location_address'] ?? null);
+        if ($curAddrN !== null && $eAddrN !== null) {
+            if ($curAddrN !== $eAddrN) return false;  // red
+            else $isOrange = true;
+        } else {
+            $isOrange = true;
+        }
     }
 
     if ($isOrange && !$allowOrange) {

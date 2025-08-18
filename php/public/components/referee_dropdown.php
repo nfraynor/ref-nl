@@ -15,6 +15,18 @@ if (!function_exists('sameVenue')) {
     }
 }
 
+if (!function_exists('normalize_address')) {
+    function normalize_address(?string $s): ?string {
+        if ($s === null) return null;
+        $s = mb_strtolower(trim($s));
+        // strip punctuation that often varies
+        $s = preg_replace('/[.,;:()\-]/u', ' ', $s);
+        // collapse whitespace
+        $s = preg_replace('/\s+/u', ' ', $s);
+        return $s;
+    }
+}
+
 if (!function_exists('isRefereeAvailable_Cached')) {
     function isRefereeAvailable_Cached($refId, $matchDateStr, $kickoffTimeStr, $cache) {
         if (!isset($cache[$refId])) return true; // Default to available if no data for this ref
@@ -61,82 +73,84 @@ if (!function_exists('get_assignment_details_for_referee')) {
      *  - role
      *  - location_address    <-- replaced location_uuid
      */
-    function get_assignment_details_for_referee(
-        $refereeIdToCheck,
-        $currentMatchContext,
-        $refereeSchedule,
-        $refereeAvailabilityCache
-    ) {
-        $availability = isRefereeAvailable_Cached(
+    if (!function_exists('get_assignment_details_for_referee')) {
+        function get_assignment_details_for_referee(
             $refereeIdToCheck,
-            $currentMatchContext['match_date'],
-            $currentMatchContext['kickoff_time'],
+            $currentMatchContext,      // has 'location_address'
+            $refereeSchedule,
             $refereeAvailabilityCache
-        );
-
-        if (!$availability) {
-            return ['conflict_type' => null, 'is_available' => false];
-        }
-
-        $conflictLevel = null;
-
-        $currentMatchDateObj = new DateTime($currentMatchContext['match_date']);
-        $currentMatchStartTimestamp = strtotime("1970-01-01T" . $currentMatchContext['kickoff_time']);
-        $currentMatchEndTimestamp = $currentMatchStartTimestamp + (90 * 60); // Assuming 90 min match duration
-
-        // Red conflict if already assigned to another role in the same match (live row state)
-        foreach ($currentMatchContext['assigned_roles'] as $roleInSameMatch => $assignedRefIdInSameMatch) {
-            if ($roleInSameMatch !== $currentMatchContext['current_role_being_rendered'] &&
-                $assignedRefIdInSameMatch === $refereeIdToCheck) {
-                return ['conflict_type' => 'red', 'is_available' => true];
+        ) {
+            // availability
+            if (!isRefereeAvailable_Cached(
+                $refereeIdToCheck,
+                $currentMatchContext['match_date'],
+                $currentMatchContext['kickoff_time'],
+                $refereeAvailabilityCache
+            )) {
+                return ['conflict_type' => null, 'is_available' => false];
             }
-        }
 
-        // Check against other scheduled matches for this referee
-        if (isset($refereeSchedule[$refereeIdToCheck])) {
-            foreach ($refereeSchedule[$refereeIdToCheck] as $scheduledMatch) {
-                // Skip if the exact same role in the exact same match
-                if ($scheduledMatch['match_id'] === $currentMatchContext['uuid'] &&
-                    $scheduledMatch['role'] === $currentMatchContext['current_role_being_rendered']) {
-                    continue;
+            // already assigned to another role in THIS match
+            foreach ($currentMatchContext['assigned_roles'] as $role => $assignedRefId) {
+                if ($role !== $currentMatchContext['current_role_being_rendered'] &&
+                    $assignedRefId === $refereeIdToCheck) {
+                    return ['conflict_type' => 'red', 'is_available' => true];
                 }
+            }
 
-                // Same match, different role in DB -> red
-                if ($scheduledMatch['match_id'] === $currentMatchContext['uuid']) {
-                    $conflictLevel = 'red';
-                    break;
-                }
+            $conflictLevel = null;
+            $curDateObj = new DateTime($currentMatchContext['match_date']);
+            $curStartTS = strtotime("1970-01-01T" . $currentMatchContext['kickoff_time']);
+            $curEndTS   = $curStartTS + 90*60;
 
-                // Different match
-                $scheduledMatchDateObj = new DateTime($scheduledMatch['match_date_str']);
-                $daysBetween = (int)$currentMatchDateObj->diff($scheduledMatchDateObj)->format('%r%a');
+            $curAddrN = normalize_address($currentMatchContext['location_address'] ?? null);
 
-                if ($daysBetween === 0) { // Same day
-                    $scheduledMatchStartTimestamp = strtotime("1970-01-01T" . $scheduledMatch['kickoff_time_str']);
-                    $scheduledMatchEndTimestamp = $scheduledMatchStartTimestamp + (90 * 60);
-                    if ($currentMatchStartTimestamp < $scheduledMatchEndTimestamp && $scheduledMatchStartTimestamp < $currentMatchEndTimestamp) {
-                        $conflictLevel = 'red'; // Time overlap
-                        break;
-                    } else {
-                        // No overlap: if different venues -> red; same venue -> orange
-                        $same = sameVenue(
-                            $scheduledMatch['location_address'] ?? null,
-                            $currentMatchContext['location_address'] ?? null
-                        );
-                        if (!$same) {
-                            $conflictLevel = 'red';
-                            break;
-                        } else {
-                            if ($conflictLevel !== 'red') $conflictLevel = 'orange';
-                        }
+            if (isset($refereeSchedule[$refereeIdToCheck])) {
+                foreach ($refereeSchedule[$refereeIdToCheck] as $s) {
+                    // same match + same role? skip
+                    if ($s['match_id'] === $currentMatchContext['uuid'] &&
+                        $s['role']     === $currentMatchContext['current_role_being_rendered']) {
+                        continue;
                     }
-                } elseif (abs($daysBetween) <= 2) { // Within +/- 2 days (fatigue/yellow)
-                    if ($conflictLevel !== 'red' && $conflictLevel !== 'orange') $conflictLevel = 'yellow';
+                    // same match but different role → red
+                    if ($s['match_id'] === $currentMatchContext['uuid']) {
+                        return ['conflict_type' => 'red', 'is_available' => true];
+                    }
+
+                    $sDateObj = new DateTime($s['match_date_str']);
+                    $daysBetween = (int)$curDateObj->diff($sDateObj)->format('%r%a');
+
+                    if ($daysBetween === 0) {
+                        // time overlap → red
+                        $sStartTS = strtotime("1970-01-01T" . $s['kickoff_time_str']);
+                        $sEndTS   = $sStartTS + 90*60;
+                        if ($curStartTS < $sEndTS && $sStartTS < $curEndTS) {
+                            return ['conflict_type' => 'red', 'is_available' => true];
+                        }
+
+                        // same day, different venues? compare address only
+                        $sAddrN = normalize_address($s['location_address'] ?? null);
+                        if ($curAddrN !== null && $sAddrN !== null) {
+                            if ($curAddrN !== $sAddrN) {
+                                return ['conflict_type' => 'red', 'is_available' => true];
+                            } else {
+                                // same venue, same day, no overlap → orange
+                                if ($conflictLevel !== 'red') $conflictLevel = 'orange';
+                            }
+                        } else {
+                            // venue unknown for one side → caution (orange) but not red
+                            if ($conflictLevel === null) $conflictLevel = 'orange';
+                        }
+                    } elseif (abs($daysBetween) <= 2) {
+                        if ($conflictLevel === null) $conflictLevel = 'yellow';
+                    }
                 }
             }
+
+            return ['conflict_type' => $conflictLevel, 'is_available' => true];
         }
-        return ['conflict_type' => $conflictLevel, 'is_available' => true];
     }
+
 }
 
 // Helper to get referee name, assuming $all_referees_list is available
@@ -167,15 +181,15 @@ function renderRefereeDropdown(
         'commissioner_id' => $match_details_for_dropdown['commissioner_id'] ?? null
     ];
 
-    // NOTE: use location_address now (no more location_uuid)
     $details_for_conflict_check = [
-        'uuid'                        => $match_details_for_dropdown['uuid'],
-        'match_date'                  => $match_details_for_dropdown['match_date'],
-        'kickoff_time'                => $match_details_for_dropdown['kickoff_time'],
-        'location_address'            => $match_details_for_dropdown['location_address'] ?? null,
-        'assigned_roles'              => $current_match_existing_assignments,
+        'uuid'           => $match_details_for_dropdown['uuid'],
+        'match_date'     => $match_details_for_dropdown['match_date'],
+        'kickoff_time'   => $match_details_for_dropdown['kickoff_time'],
+        'location_address'=> $match_details_for_dropdown['location_address'] ?? null, // << only address
+        'assigned_roles' => $current_match_existing_assignments,
         'current_role_being_rendered' => $role_being_rendered
     ];
+
 
     $overall_style = '';
 
@@ -200,10 +214,15 @@ function renderRefereeDropdown(
 
     if ($assignMode) {
         $selectId = 'referee_' . $match_details_for_dropdown['uuid'] . '_' . $role_being_rendered;
-        echo '<select id="' . $selectId . '" 
-                    class="referee-select form-control" 
-                    name="assignments[' . $match_details_for_dropdown['uuid'] . '][' . $role_being_rendered . ']" 
-                    style="' . $overall_style . '">';
+
+        echo '<select id="' . $selectId . '"
+                class="referee-select form-control"
+                name="assignments[' . $match_details_for_dropdown['uuid'] . '][' . $role_being_rendered . ']"
+                data-match-id="' . htmlspecialchars($match_details_for_dropdown['uuid']) . '"
+                data-match-date="' . htmlspecialchars($match_details_for_dropdown['match_date']) . '"
+                data-kickoff="' . htmlspecialchars($match_details_for_dropdown['kickoff_time']) . '"
+                data-location-address="' . htmlspecialchars($match_details_for_dropdown['location_address'] ?? '') . '"
+                data-role="' . htmlspecialchars($role_being_rendered) . '">';
         echo '<option value="">-- Select Referee --</option>';
 
         foreach ($all_referees_list as $ref_option) {
@@ -216,13 +235,13 @@ function renderRefereeDropdown(
                 $refereeAvailabilityCache_precomputed
             );
 
-            $option_style_parts = [];
-            $availability_data_attr = 'available';
+            $availability_data_attr = $optionInfo['is_available'] ? 'available' : 'unavailable';
+            $conflict_data_attr     = $optionInfo['conflict_type'] ?? 'none';
 
+            $option_style_parts = [];
             if (!$optionInfo['is_available']) {
                 $option_style_parts[] = 'background-color: lightgrey';
                 $option_style_parts[] = 'color: #6c757d';
-                $availability_data_attr = 'unavailable';
             } else {
                 if ($optionInfo['conflict_type'] === 'red') {
                     $option_style_parts[] = 'background-color: red';
@@ -238,10 +257,11 @@ function renderRefereeDropdown(
             $option_style_str = implode('; ', $option_style_parts);
             if ($option_style_str) $option_style_str .= ';';
 
-            echo '<option value="' . htmlspecialchars($ref_option['uuid']) . '" ' . $selected_attr . ' 
+            echo '<option value="' . htmlspecialchars($ref_option['uuid']) . '" ' . $selected_attr . '
                   style="' . $option_style_str . '"
-                  data-grade="' . htmlspecialchars($ref_option['grade']) . '" 
-                  data-availability="' . $availability_data_attr . '">'
+                  data-grade="' . htmlspecialchars($ref_option['grade']) . '"
+                  data-availability="' . $availability_data_attr . '"
+                  data-conflict="' . $conflict_data_attr . '">'
                 . htmlspecialchars($ref_option['first_name'] . ' ' . $ref_option['last_name'] . ' (' . $ref_option['grade'] . ')') .
                 '</option>';
         }
@@ -266,9 +286,12 @@ function renderRefereeDropdown(
         }
 
         $final_style = 'padding: .375rem .75rem; border: 1px solid #ced4da; border-radius: .25rem;';
-        $final_style .= 'background-color: #e9ecef;';
         if (!empty($overall_style)) {
-            $final_style = $overall_style . ' ' . $final_style;
+            // conflict color should win
+            $final_style .= ' ' . $overall_style;
+        } else {
+            // neutral display
+            $final_style .= ' background-color: #e9ecef;';
         }
 
         echo '<div class="form-control" style="' . $final_style . '">';

@@ -184,15 +184,15 @@ if ($loadInitialMatches) {
                     $refereeSchedule_initial[$ref_id] = [];
                 }
                 $refereeSchedule_initial[$ref_id][] = [
-                    'match_id'        => $match_uuid,
-                    'match_date_str'  => $match_date_str,
-                    'kickoff_time_str'=> $kickoff_time_str,
-                    'role'            => $role_key,
-                    // no more location_uuid; use address if you need it:
-                    'location_address'=> $mrow['location_address'] ?? null
+                    'match_id'         => $match_uuid,
+                    'match_date_str'   => $match_date_str,
+                    'kickoff_time_str' => $kickoff_time_str,
+                    'role'             => $role_key,
+                    'location_address' => $mrow['location_address'] ?? null, // << use address only
                 ];
             }
         }
+
     }
 }
 
