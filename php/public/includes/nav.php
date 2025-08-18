@@ -23,7 +23,9 @@ if (session_status() == PHP_SESSION_NONE) {
                 <?php if (isset($_SESSION['user_id']) && !empty($_SESSION['user_id'])): ?>
                     <li class="nav-item">
                         <span class="navbar-text me-2">
-                            Welcome, <?php echo htmlspecialchars($_SESSION['username']); ?>!
+                            <a class="nav-link d-inline p-0" href="/profile.php" title="View profile">
+                                <?= htmlspecialchars($_SESSION['username']); ?>
+                            </a>
                         </span>
                     </li>
                     <li class="nav-item">

@@ -61,6 +61,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     // Store user details in session
                     $_SESSION['user_id'] = $user['uuid']; // uuid is the primary key
                     $_SESSION['username'] = $user['username'];
+                    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
                     $_SESSION['user_role'] = $user['role']; // Store the global role
                     $_SESSION['division_ids'] = ($user['role'] === 'super_admin') ? [] : explode(',', $user['division_ids'] ?? ''); // Super_admin has all divisions/districts implicitly
                     $_SESSION['district_ids'] = ($user['role'] === 'super_admin') ? [] : explode(',', $user['district_ids'] ?? ''); // Super_admin has all divisions/districts implicitly
