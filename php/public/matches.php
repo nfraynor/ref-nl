@@ -50,7 +50,7 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
     .actions .btn{ border-radius: 12px; height: 44px; }
 </style>
 
-<div class="container">
+<div class="container matches-container">
     <div class="content-card">
         <!-- Glassy hero (same as Referees/Clubs) -->
         <div class="referees-hero">
@@ -104,6 +104,106 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
 </div>
 
 <script>
+    // ---- Conflict helpers ----
+    const SEV = { NONE:0, YELLOW:1, ORANGE:2, RED:3, UNAVAILABLE:4 };
+    const sevClass = (s) =>
+        s===SEV.UNAVAILABLE ? "sev-unavail" :
+            s===SEV.RED        ? "sev-red"     :
+                s===SEV.ORANGE     ? "sev-orange"  :
+                    s===SEV.YELLOW     ? "sev-yellow"  : "";
+
+    const parseDT  = (d,t)=>{ const hhmm=(t||"00:00").slice(0,5); return new Date(`${d}T${hhmm}:00`); };
+    const dayDiff  = (a,b)=> Math.round((new Date(b+"T00:00:00") - new Date(a+"T00:00:00"))/86400000);
+    const normAddr = (s)=> (s||"").toLowerCase().replace(/[.,;:()\-]/g," ").replace(/\s+/g," ").trim();
+
+    // Build a severity map for visible rows: key = `${uuid}:${role}` -> SEV.*
+    function computeConflicts(rows){
+        const recs = [];
+        rows.forEach(r=>{
+            const d = r.getData();
+            const roles = ["referee_id","ar1_id","ar2_id","commissioner_id"];
+            roles.forEach(role=>{
+                const refId = d[role];
+                if (!refId) return;
+                const start = parseDT(d.match_date, d.kickoff_time);
+                recs.push({
+                    key: `${d.uuid}:${role}`,
+                    matchId: d.uuid, role, refId,
+                    dateStr: d.match_date,
+                    start, end: new Date(start.getTime()+90*60*1000),
+                    loc: normAddr(d.location_address || ""),
+                    // Optional server hints (if you ever add them to your JSON):
+                    baseAvail: d[`_${role}_availability`] || null,   // 'available' | 'unavailable'
+                    baseConf : d[`_${role}_conflict`]     || "none", // 'red'|'orange'|'yellow'|'none'
+                });
+            });
+        });
+
+        const sev = new Map();
+        const bump = (k,s)=>{ const cur = sev.get(k) ?? SEV.NONE; if (s>cur) sev.set(k,s); };
+
+        // Seed from server-provided hints (if present)
+        for (const r of recs){
+            if (r.baseAvail === "unavailable") bump(r.key, SEV.UNAVAILABLE);
+            if (r.baseConf === "red")    bump(r.key, SEV.RED);
+            if (r.baseConf === "orange") bump(r.key, SEV.ORANGE);
+            if (r.baseConf === "yellow") bump(r.key, SEV.YELLOW);
+        }
+
+        // Group by referee to find live conflicts
+        const byRef = {};
+        recs.forEach(r => (byRef[r.refId] ||= []).push(r));
+
+        Object.values(byRef).forEach(list=>{
+            list.sort((a,b)=> a.start - b.start);
+
+            // Same match, multiple roles -> RED for all in that match
+            const byMatch = {};
+            list.forEach(r => (byMatch[r.matchId] ||= []).push(r));
+            Object.values(byMatch).forEach(arr=>{
+                if (arr.length > 1) arr.forEach(r => bump(r.key, SEV.RED));
+            });
+
+            // Pairwise checks across a ref's assignments
+            for (let i=0;i<list.length;i++){
+                for (let j=i+1;j<list.length;j++){
+                    const A=list[i], B=list[j];
+                    const dd = dayDiff(A.dateStr, B.dateStr);
+
+                    if (dd === 0){
+                        // time overlap -> RED
+                        if (A.start < B.end && B.start < A.end){ bump(A.key,SEV.RED); bump(B.key,SEV.RED); continue; }
+                        // same day, different venues -> RED
+                        if (A.loc && B.loc && A.loc !== B.loc){ bump(A.key,SEV.RED); bump(B.key,SEV.RED); continue; }
+                        // same day, same venue, no overlap -> ORANGE
+                        bump(A.key,SEV.ORANGE); bump(B.key,SEV.ORANGE);
+                    } else if (Math.abs(dd) <= 2){
+                        bump(A.key,SEV.YELLOW); bump(B.key,SEV.YELLOW);
+                    }
+                }
+            }
+        });
+
+        return sev;
+    }
+
+    // Apply classes to referee cells based on computeConflicts
+    function applyConflictClasses(table){
+        const rows = table.getRows(true); // visible only (perf)
+        const sevMap = computeConflicts(rows);
+
+        rows.forEach(r=>{
+            const d = r.getData();
+            ["referee_id","ar1_id","ar2_id","commissioner_id"].forEach(role=>{
+                const cell = r.getCell(role);
+                if (!cell) return;
+                const el = cell.getElement();
+                el.classList.remove("sev-unavail","sev-red","sev-orange","sev-yellow");
+                const cls = sevClass(sevMap.get(`${d.uuid}:${role}`) ?? SEV.NONE);
+                if (cls) el.classList.add(cls);
+            });
+        });
+    }
     /* ==== Preloaded option maps for editors ==== */
     const refereeOptions = (() => {
         const map = {};
@@ -386,6 +486,11 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
 
         table.on("dataLoaded", data => console.log("[Matches] Loaded rows:", Array.isArray(data)?data.length:data));
         table.on("dataLoadError", err => console.error("[Matches] dataLoadError:", err));
+        table.on("dataLoaded",       ()=> applyConflictClasses(table));
+        table.on("dataProcessed",    ()=> applyConflictClasses(table));
+        table.on("renderComplete",   ()=> applyConflictClasses(table));
+        table.on("pageLoaded",       ()=> applyConflictClasses(table));
+        table.on("cellEdited",       ()=> applyConflictClasses(table));
 
         // Filters -> refresh remote
         const triggerRefresh = () => table.setData(); // re-hits ajaxURLGenerator
@@ -412,7 +517,9 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
                             if (roles[role]) updates.push({ uuid: matchId, [role]: roles[role] });
                         });
                     });
-                    if (updates.length) table.updateData(updates);
+                    if (updates.length){
+                        table.updateData(updates).then(()=> applyConflictClasses(table));
+                    }
                 };
                 while(true){
                     const {value, done} = await reader.read(); if (done) break;

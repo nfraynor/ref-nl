@@ -1,87 +1,7 @@
-/* ===== Modern “pretty” theme (slightly larger) ===== */
-.tabulator {
-    --radius: 16px;
-    --bg: #fff;
-    --border: #e9ecef;
-    --text: #1f2937;
-    --muted: #6b7280;
-    --hover: #f8fafc;
-    --stripe: #fcfcfd;
-    --shadow: 0 12px 36px rgba(2,6,23,.07);
-
-    /* density vars (default = Cozy) */
-    --fs: 15px;           /* cell font-size */
-    --lh: 1.45;           /* cell line-height */
-    --cell-py: 12px;      /* vertical padding */
-    --cell-px: 14px;      /* horizontal padding */
-    --row-min: 46px;      /* min height */
-    --header-fs: 13.5px;  /* header font-size */
-    --chip-fs: 13px;
-    --chip-py: 4px;
-    --chip-px: 10px;
-
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    box-shadow: var(--shadow);
-    color: var(--text);
-    background: var(--bg);
-}
-
-/* Density presets via data attribute */
-#referees-table[data-density="compact"] {
-    --fs: 14px; --lh: 1.35; --cell-py: 8px; --cell-px: 10px; --row-min: 36px;
-    --header-fs: 12.5px; --chip-fs: 12px; --chip-py: 2px; --chip-px: 8px;
-}
-#referees-table[data-density="roomy"] {
-    --fs: 16px; --lh: 1.55; --cell-py: 14px; --cell-px: 16px; --row-min: 50px;
-    --header-fs: 14px; --chip-fs: 13.5px; --chip-py: 5px; --chip-px: 12px;
-}
-
-/* Header & cells */
-.tabulator .tabulator-header { background: var(--bg); border-bottom: 1px solid var(--border); }
-.tabulator .tabulator-col { font-size: var(--header-fs); font-weight: 600; color: #111827; }
-.tabulator .tabulator-cell { font-size: var(--fs); line-height: var(--lh); padding: var(--cell-py) var(--cell-px); }
-.tabulator-row { background: #fff; transition: background .15s ease, transform .08s ease; min-height: var(--row-min); }
-.tabulator-row:nth-child(even){ background: var(--stripe); }
-.tabulator-row:hover { background: var(--hover); }
-
-/* Sticky header inside fixed-height table */
-#referees-table .tabulator-header { position: sticky; top: 0; z-index: 2; }
-
-/* Two-line name cell */
-.cell-title { font-weight: 700; letter-spacing: .1px; }
-.cell-sub { font-size: calc(var(--fs) - 2px); color: var(--muted); margin-top: 2px; }
-
-/* Grade chips (slightly larger) */
-.badge { display:inline-block; padding: var(--chip-py) var(--chip-px); border-radius:999px; font-size: var(--chip-fs); line-height: 1; font-weight: 700; border:1px solid rgba(0,0,0,.06); }
-.chip-A { background: rgba(37,99,235,.08); color:#1d4ed8; border-color: rgba(37,99,235,.25); }
-.chip-B { background: rgba(22,163,74,.08); color:#15803d; border-color: rgba(22,163,74,.25); }
-.chip-C { background: rgba(202,138,4,.10); color:#a16207; border-color: rgba(202,138,4,.28); }
-.chip-D { background: rgba(220,38,38,.10); color:#b91c1c; border-color: rgba(220,38,38,.28); }
-.chip-default { background: rgba(100,116,139,.10); color:#475569; border-color: rgba(100,116,139,.28); }
-
-/* Left accent by grade */
-.tabulator-row.grade-A { box-shadow: inset 3px 0 0 0 #2563eb; }
-.tabulator-row.grade-B { box-shadow: inset 3px 0 0 0 #16a34a; }
-.tabulator-row.grade-C { box-shadow: inset 3px 0 0 0 #ca8a04; }
-.tabulator-row.grade-D { box-shadow: inset 3px 0 0 0 #dc2626; }
-
-/* Toolbar polish */
-.tab-toolbar { display:flex; gap:.6rem; align-items:center; margin-bottom:.9rem; }
-.input-with-icon { position:relative; flex:1; }
-.input-with-icon input { padding-left:38px; height: 44px; font-size: 15px; }
-.input-with-icon svg { position:absolute; left:10px; top:50%; transform:translateY(-50%); pointer-events:none; opacity:.6; }
-.btn-group .btn, .btn { border-radius: 999px; }
-#table-stats { font-size: 12.5px; color: var(--muted); margin-top:.35rem; }
-
-/* Smooth density transitions */
-#referees-table { transition: font-size .12s ease, padding .12s ease; }
-
-/* Force light background + light UA widgets */
-html { color-scheme: light; }
-
-/* Light palette */
-:root {
+/* =========================
+   THEME & GLOBALS
+   ========================= */
+:root{
     --text: #0f172a;
     --muted: #64748b;
     --border: #e2e8f0;
@@ -91,17 +11,25 @@ html { color-scheme: light; }
     --grad-1: #4f46e5;
     --grad-2: #06b6d4;
     --accent: #2563eb;
+
+    /* surfaces */
+    --card: #fff;
 }
 
-.content-card {
+html{ color-scheme: light; }
+html { scrollbar-gutter: stable both-edges; }
+
+.content-card{
     border: 0;
     background: transparent;
     box-shadow: none;
     padding: 0;
 }
 
-/* Glassy hero header */
-.referees-hero {
+/* =========================
+   GLASSY HERO
+   ========================= */
+.referees-hero{
     position: relative;
     border-radius: 20px;
     overflow: clip;
@@ -111,45 +39,44 @@ html { color-scheme: light; }
     backdrop-filter: blur(8px);
     border: 1px solid rgba(255,255,255,.18);
 }
-.referees-hero__bg {
-    position:absolute; inset: -20%;
+.referees-hero__bg{
+    position:absolute; inset:-20%;
     background:
             radial-gradient(1200px 480px at 5% -10%, color-mix(in oklab, var(--grad-1) 64%, transparent), transparent 60%),
             radial-gradient(1000px 420px at 120% 0%, color-mix(in oklab, var(--grad-2) 64%, transparent), transparent 65%);
     opacity:.35; pointer-events:none;
 }
 .referees-hero__content{
-    position:relative; z-index:1; padding: 22px 22px;
-    display:grid; grid-template-columns: 1fr; gap:12px;
+    position:relative; z-index:1; padding:22px;
+    display:grid; grid-template-columns:1fr; gap:12px;
 }
-@media (min-width: 860px){
-    .referees-hero__content{ grid-template-columns: 1fr auto; align-items: top; }
+@media (min-width:860px){
+    .referees-hero__content{ grid-template-columns:1fr auto; align-items:start; }
 }
-.referees-title-div{
-
-}
-
-.referees-title{
-    font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji","Segoe UI Emoji", "Segoe UI Symbol";
-    margin:0; font-weight: 800; letter-spacing:.1px; color: var(--text);
-    font-size: clamp(22px, 3.2vw, 32px);
-}
-.referees-subtitle{ margin: 2px 0 0; color: var(--muted); font-size: 14px; }
-
+.referees-title{ margin:0; font-weight:800; color:var(--text); letter-spacing:.1px; font-size:clamp(22px,3.2vw,32px); }
+.referees-subtitle{ margin:2px 0 0; color:var(--muted); font-size:14px; }
 .referees-quick{ display:flex; gap:.6rem; flex-wrap:wrap; justify-content:flex-end; }
-.input-with-icon{ position:relative; min-width: min(360px, 100%); }
-.input-with-icon input{
-    height: 46px; padding-left: 38px; border-radius: 999px; border:1px solid var(--border);
-    background: var(--card); color: var(--text); box-shadow: 0 2px 12px rgba(2,6,23,.06);
-}
-.input-with-icon svg{ position:absolute; left:12px; top:50%; transform:translateY(-50%); opacity:.7; color: var(--muted); }
 
+/* toolbar / inputs */
+.tab-toolbar{ display:flex; gap:.6rem; align-items:center; margin-bottom:.9rem; }
+.input-with-icon{ position:relative; min-width:min(360px,100%); }
+.input-with-icon input{
+    height:46px; padding-left:38px; border-radius:999px; border:1px solid var(--border);
+    background:var(--card); color:var(--text); box-shadow:0 2px 12px rgba(2,6,23,.06); font-size:15px;
+}
+.input-with-icon svg{
+    position:absolute; left:12px; top:50%; transform:translateY(-50%); opacity:.7; color:var(--muted);
+}
+.actions .btn{ border-radius:12px; height:46px; }
+.table-stats{ color:var(--muted); margin:6px 6px 8px; font-size:13px; }
+
+/* grade pills (if used above table) */
 .grade-pills{ display:flex; gap:.4rem; align-items:center; }
 .pill{
-    appearance:none; border:1px solid var(--border); background: var(--card); color: var(--text);
-    padding: 8px 14px; border-radius: 999px; font-weight: 700; font-size: 13px; line-height: 1;
+    appearance:none; border:1px solid var(--border); background:var(--card); color:var(--text);
+    padding:8px 14px; border-radius:999px; font-weight:700; font-size:13px; line-height:1;
     transition: transform .06s ease, box-shadow .15s ease, border-color .15s ease;
-    box-shadow: 0 2px 10px rgba(2,6,23,.06);
+    box-shadow:0 2px 10px rgba(2,6,23,.06);
 }
 .pill:hover{ transform: translateY(-1px); }
 .pill.is-active{
@@ -157,153 +84,152 @@ html { color-scheme: light; }
     box-shadow: 0 6px 20px color-mix(in oklab, var(--accent) 25%, transparent);
 }
 
-.actions .btn{ border-radius: 12px; height: 46px; }
+/* =========================
+   TABULATOR – BASE THEME
+   ========================= */
+.tabulator{
+    /* density defaults (Cozy) */
+    --radius:16px;
+    --fs:15px;      /* cell font-size */
+    --lh:1.45;      /* cell line-height */
+    --cell-py:12px; /* vertical padding */
+    --cell-px:14px; /* horizontal padding */
+    --row-min:46px; /* min row height */
+    --header-fs:13.5px;
+    --chip-fs:13px; --chip-py:4px; --chip-px:10px;
 
-.table-stats{ color: var(--muted); margin: 6px 6px 8px; font-size: 13px; }
+    color:var(--text);
+    background:var(--card);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    box-shadow:var(--shadow);
+}
 
-/* ===== Tabulator theme ===== */
-#referees-table { border: 1px solid var(--border); border-radius: 18px; box-shadow: var(--shadow); overflow: clip; background: var(--card); }
-.tabulator { background: var(--card); color: var(--text); }
-
+/* Header & cells */
 .tabulator .tabulator-header{
     background: linear-gradient(180deg, rgba(255,255,255,.9), rgba(255,255,255,.75));
-    border-bottom: 1px solid var(--border);
+    border-bottom:1px solid var(--border);
     backdrop-filter: blur(6px);
 }
-
-.tabulator .tabulator-col{
-    font-size: 13.5px; font-weight: 700; letter-spacing:.2px; color: var(--text);
+.tabulator .tabulator-col{ font-size:var(--header-fs); font-weight:700; letter-spacing:.2px; color:var(--text); }
+.tabulator .tabulator-header .tabulator-col .tabulator-col-content .tabulator-col-title{ padding:10px 12px; }
+.tabulator .tabulator-cell{ font-size:var(--fs); line-height:var(--lh); padding:var(--cell-py) var(--cell-px); }
+.tabulator-row{
+    background:var(--card); min-height:var(--row-min);
+    transition: background .15s ease, transform .08s ease, box-shadow .2s ease;
 }
-.tabulator .tabulator-header .tabulator-col .tabulator-col-content .tabulator-col-title { padding: 10px 12px; }
-
-.tabulator .tabulator-cell{
-    font-size: 15px; line-height: 1.5; padding: 14px 14px;
-}
-.tabulator-row{ background: var(--card); min-height: 48px; transition: background .15s ease, transform .08s ease, box-shadow .2s ease; }
-.tabulator-row:nth-child(even){ background: var(--stripe); }
-.tabulator-row:hover{ background: var(--hover); transform: translateY(-1px); }
+.tabulator-row:nth-child(even){ background:var(--stripe); }
+.tabulator-row:hover{ background:var(--hover); transform: translateY(-1px); }
 .tabulator-row.tabulator-selected{ box-shadow: inset 0 0 0 2px color-mix(in oklab, var(--accent) 60%, transparent); }
 
-/* Sticky header */
-#referees-table .tabulator-header{ position: sticky; top: 0; z-index: 2; }
-
-/* Name cell with subline & avatar */
-.name-cell{ display:flex; gap:12px; align-items:center; }
-.avatar{
-    width: 34px; height: 34px; border-radius: 50%; display:grid; place-items:center; font-weight: 800;
-    background: radial-gradient(120% 120% at 20% 0%, color-mix(in oklab, var(--grad-1) 70%, transparent), color-mix(in oklab, var(--grad-2) 65%, transparent));
-    color:#fff; text-transform: uppercase; letter-spacing: .2px; flex:0 0 34px;
-}
-.cell-sub{ font-size: 12.5px; color: var(--muted); margin-top: 2px; }
-
-/* Grade chips */
-.badge { display:inline-block; padding:4px 10px; border-radius:999px; font-size: 13px; line-height: 1; font-weight: 800; border:1px solid rgba(0,0,0,.06); }
-.chip-A { background: rgba(37,99,235,.10); color:#1d4ed8; border-color: rgba(37,99,235,.25); }
-.chip-B { background: rgba(22,163,74,.10); color:#15803d; border-color: rgba(22,163,74,.25); }
-.chip-C { background: rgba(202,138,4,.12); color:#a16207; border-color: rgba(202,138,4,.30); }
-.chip-D { background: rgba(220,38,38,.12); color:#b91c1c; border-color: rgba(220,38,38,.30); }
-.chip-default { background: rgba(100,116,139,.12); color:#475569; border-color: rgba(100,116,139,.28); }
-
-/* Grade left accents */
-.tabulator-row.grade-A { box-shadow: inset 3px 0 0 0 #2563eb; }
-.tabulator-row.grade-B { box-shadow: inset 3px 0 0 0 #16a34a; }
-.tabulator-row.grade-C { box-shadow: inset 3px 0 0 0 #ca8a04; }
-.tabulator-row.grade-D { box-shadow: inset 3px 0 0 0 #dc2626; }
-
-/* Header filter inputs (if you keep any) */
-.tabulator-header-filter input, .tabulator-header-filter select{
-    border-radius: 10px; border:1px solid var(--border); padding: 6px 8px; font-size: 13px; background: var(--card); color: var(--text);
-}
-
-/* Apply density + transitions to both tables */
-#referees-table,
-#clubs-table {
-    border: 1px solid var(--border);
-    border-radius: 18px;
-    box-shadow: var(--shadow);
-    overflow: clip;
-    background: var(--card);
-    transition: font-size .12s ease, padding .12s ease;
-}
-
-/* Sticky header on both */
+/* Sticky header for all main tables */
 #referees-table .tabulator-header,
-#clubs-table .tabulator-header {
-    position: sticky;
-    top: 0;
-    z-index: 2;
-}
+#clubs-table .tabulator-header,
+#matches-table .tabulator-header{ position: sticky; top: 0; z-index: 2; }
 
-/* Density presets for both */
+/* Density presets (apply on the container div with data-density="…") */
 #referees-table[data-density="compact"],
-#clubs-table[data-density="compact"] {
-    --fs: 14px; --lh: 1.35; --cell-py: 8px; --cell-px: 10px; --row-min: 36px;
-    --header-fs: 12.5px; --chip-fs: 12px; --chip-py: 2px; --chip-px: 8px;
+#clubs-table[data-density="compact"],
+#matches-table[data-density="compact"]{
+    --fs:14px; --lh:1.35; --cell-py:8px; --cell-px:10px; --row-min:36px;
+    --header-fs:12.5px; --chip-fs:12px; --chip-py:2px; --chip-px:8px;
 }
-
 #referees-table[data-density="roomy"],
-#clubs-table[data-density="roomy"] {
-    --fs: 16px; --lh: 1.55; --cell-py: 14px; --cell-px: 16px; --row-min: 50px;
-    --header-fs: 14px; --chip-fs: 13.5px; --chip-py: 5px; --chip-px: 12px;
+#clubs-table[data-density="roomy"],
+#matches-table[data-density="roomy"]{
+    --fs:16px; --lh:1.55; --cell-py:14px; --cell-px:16px; --row-min:50px;
+    --header-fs:14px; --chip-fs:13.5px; --chip-py:5px; --chip-px:12px;
 }
-/* Make status badges look like the chips used elsewhere */
-.badge.bg-success,
-.badge.bg-secondary {
-    border-radius: 999px;
-    font-weight: 700;
-    border: 1px solid rgba(0,0,0,.06);
-    padding: 4px 10px;
-    line-height: 1;
-    font-size: var(--chip-fs, 13px);
-}
-/* Prevent page width from shifting when the vertical scrollbar appears/disappears */
-html { scrollbar-gutter: stable both-edges; }
 
-/* Keep the table area consistent on large screens, fluid on small */
-.table-viewport {
+/* Header filter inputs */
+.tabulator-header-filter input,
+.tabulator-header-filter select{
+    border-radius:10px; border:1px solid var(--border);
+    padding:6px 8px; font-size:13px;
+    background:var(--card); color:var(--text);
+}
+
+/* =========================
+   TABLE CONTAINERS & WIDTHS
+   ========================= */
+.table-viewport{
     margin: 0 auto;
     width: 100%;
-    max-width: 1200px;   /* <— adjust to taste */
+    max-width: 1200px; /* default cap for most pages */
 }
+#referees-table, #clubs-table, #matches-table{ width:100%; }
 
-/* Ensure Tabulator fills the viewport and doesn’t collapse narrower */
-#referees-table, #clubs-table {
-    width: 100%;
-    min-width: 1000px;   /* <— adjust to your column set */
-}
+/* Prevent over-squash; tweak per table */
+#matches-table .tabulator-table{ min-width: 1200px; }
+#referees-table .tabulator-table,
+#clubs-table .tabulator-table{ min-width: 1000px; }
 
-/* If you want the hero/toolbar to match the same width */
-.referees-hero,
-.tab-toolbar,
-.table-stats {
-    max-width: 1200px;   /* same as .table-viewport */
-    margin-left: auto;
-    margin-right: auto;
-}
-/* Keep Tabulator inside its viewport; scroll horizontally if needed */
+/* Keep tables scrollable when wider than viewport */
+#referees-table .tabulator-tableholder,
 #clubs-table .tabulator-tableholder,
-#referees-table .tabulator-tableholder {
+#matches-table .tabulator-tableholder{
     overflow-x: auto !important;
     overflow-y: auto;
 }
 
-/* Do NOT let Tabulator expand beyond the viewport width */
-#clubs-table .tabulator,
-#referees-table .tabulator {
+/* Widen Matches page on desktop */
+@media (min-width: 1200px){
+    .matches-container{ max-width: 90vw; } /* use ~90% of screen */
+    .matches-container .table-viewport{ max-width: 100%; }
+}
+
+/* If you also want hero/toolbar to follow viewport width */
+.referees-hero, .tab-toolbar, .table-stats{
+    max-width: 1200px; margin-left:auto; margin-right:auto;
+}
+.matches-container .referees-hero,
+.matches-container .tab-toolbar,
+.matches-container .table-stats{
     max-width: 100%;
 }
 
-/* Wrap potentially long content so it doesn't force width growth */
-#clubs-table .tabulator-cell[tabulator-field="address_text"],
-#clubs-table .tabulator-cell[tabulator-field="field_name"] {
-    white-space: normal;          /* allow wrapping */
-    word-break: break-word;       /* break long tokens */
+/* =========================
+   CELLS, BADGES & ACCENTS
+   ========================= */
+.name-cell{ display:flex; gap:12px; align-items:center; }
+.avatar{
+    width:34px; height:34px; border-radius:50%; display:grid; place-items:center; font-weight:800;
+    background: radial-gradient(120% 120% at 20% 0%, color-mix(in oklab, var(--grad-1) 70%, transparent), color-mix(in oklab, var(--grad-2) 65%, transparent));
+    color:#fff; text-transform:uppercase; letter-spacing:.2px; flex:0 0 34px;
+}
+.cell-sub{ font-size:12.5px; color:var(--muted); margin-top:2px; }
+
+/* Chips / badges (unified) */
+.badge{
+    display:inline-block; padding: var(--chip-py) var(--chip-px);
+    border-radius:999px; font-size:var(--chip-fs); line-height:1;
+    font-weight:700; border:1px solid rgba(0,0,0,.06);
+}
+.chip-A{ background:rgba(37,99,235,.10); color:#1d4ed8; border-color:rgba(37,99,235,.25); }
+.chip-B{ background:rgba(22,163,74,.10); color:#15803d; border-color:rgba(22,163,74,.25); }
+.chip-C{ background:rgba(202,138,4,.12); color:#a16207; border-color:rgba(202,138,4,.30); }
+.chip-D{ background:rgba(220,38,38,.12); color:#b91c1c; border-color:rgba(220,38,38,.30); }
+.chip-default{ background:rgba(100,116,139,.12); color:#475569; border-color:rgba(100,116,139,.28); }
+
+/* Make status badges match chip style if you use Bootstrap classes */
+.badge.bg-success,
+.badge.bg-secondary{
+    border-radius:999px; font-weight:700; border:1px solid rgba(0,0,0,.06);
+    padding:4px 10px; line-height:1; font-size:var(--chip-fs, 13px);
 }
 
-/* (optional) give the viewport a steady max width */
-.table-viewport {
-    margin: 0 auto;
-    width: 100%;
-    max-width: 1200px;            /* adjust to taste */
+/* Left accents by grade (optional) */
+.tabulator-row.grade-A{ box-shadow: inset 3px 0 0 0 #2563eb; }
+.tabulator-row.grade-B{ box-shadow: inset 3px 0 0 0 #16a34a; }
+.tabulator-row.grade-C{ box-shadow: inset 3px 0 0 0 #ca8a04; }
+.tabulator-row.grade-D{ box-shadow: inset 3px 0 0 0 #dc2626; }
+
+/* =========================
+   PAGE-SPECIFIC WRAPS
+   ========================= */
+/* Let long club fields wrap (keeps width stable) */
+#clubs-table .tabulator-cell[tabulator-field="address_text"],
+#clubs-table .tabulator-cell[tabulator-field="field_name"]{
+    white-space: normal;
+    word-break: break-word;
 }
-#clubs-table, #referees-table { width: 100%; }

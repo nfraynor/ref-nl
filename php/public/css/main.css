@@ -255,3 +255,10 @@ h1 .edit-icon:hover {
 #referee-details-messages .alert {
     margin-bottom: 1rem;
 }
+.sev-unavail{
+    background: repeating-linear-gradient(45deg, rgba(108,117,125,.15), rgba(108,117,125,.15) 10px,
+    rgba(108,117,125,.25) 10px, rgba(108,117,125,.25) 20px);
+}
+.sev-red    { box-shadow: inset 0 0 0 2px rgba(220,53,69,.45);  background: rgba(220,53,69,.10); }
+.sev-orange { box-shadow: inset 0 0 0 2px rgba(253,126,20,.45); background: rgba(253,126,20,.10); }
+.sev-yellow { box-shadow: inset 0 0 0 2px rgba(255,193,7,.45);  background: rgba(255,193,7,.10); }
