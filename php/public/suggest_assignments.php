@@ -308,8 +308,13 @@ function isRefereeAvailable($refId, $matchDate, $kickoffTime, $unavailability, $
     $hour = (int)date('H', strtotime($kickoffTime));
     $slot = $hour < 12 ? 'morning_available' : ($hour < 17 ? 'afternoon_available' : 'evening_available');
 
-    return isset($weekly[$refId][$weekday]) && (bool)$weekly[$refId][$weekday][$slot];
+    if (isset($weekly[$refId][$weekday])) {
+        return (bool)$weekly[$refId][$weekday][$slot];
+    }
+    // Default if no weekly rule for that day
+    return true;
 }
+
 
 // Haversine for distance
 function haversine($lat1, $lon1, $lat2, $lon2) {
@@ -320,10 +325,39 @@ function haversine($lat1, $lon1, $lat2, $lon2) {
     $c = 2 * atan2(sqrt($a), sqrt(1 - $a));
     return $R * $c;
 }
+if (!function_exists('normalize_address')) {
+    function normalize_address(?string $s): ?string {
+        if ($s === null) return null;
+        $s = mb_strtolower(trim($s));
+        // strip punctuation that often varies
+        $s = preg_replace('/[.,;:()\-]/u', ' ', $s);
+        // collapse whitespace
+        $s = preg_replace('/\s+/u', ' ', $s);
+        return $s;
+    }
+}
 
 // canAssign function (returns false or score; higher score = better)
-function canAssign($refId, $matchId, $matchDate, $matchWeek, $kickoffMinutes, $locationLat, $locationLon, $currentRole, $existingAssignmentsByDateRef, $existingMatchDetailsByDateRef, $existingAssignmentsByWeekRef, $suggestedAssignmentsCountThisRun, $suggestedMatchDetailsByDateRef, $suggestedAssignmentsByWeekRef, $allowOrange, $referees, $division) {
-    global $preferredGradeByDivision;
+function canAssign(
+    $refId,
+    $matchId,
+    $matchDate,
+    $matchWeek,
+    $kickoffMinutes,
+    $locationAddress,
+    $locationLat,
+    $locationLon,
+    $currentRole,
+    $existingAssignmentsByDateRef,
+    $existingMatchDetailsByDateRef,
+    $existingAssignmentsByWeekRef,
+    $suggestedAssignmentsCountThisRun,
+    $suggestedMatchDetailsByDateRef,
+    $suggestedAssignmentsByWeekRef,
+    $allowOrange,
+    $referees,
+    $division
+)  {  global $preferredGradeByDivision;
 
     // Find ref data
     $refData = null;
@@ -364,25 +398,25 @@ function canAssign($refId, $matchId, $matchDate, $matchWeek, $kickoffMinutes, $l
     }
 
     $currentEndMinutes = $kickoffMinutes + MATCH_DURATION_MINUTES;
-
     $isOrange = false;
 
     // Check suggested conflicts
     $suggestedDetails = $suggestedMatchDetailsByDateRef[$matchDate][$refId] ?? [];
     foreach ($suggestedDetails as $sDetail) {
-        // time overlap → red (unchanged)
         $otherEndMinutes = $sDetail['kickoff_minutes'] + MATCH_DURATION_MINUTES;
         if ($kickoffMinutes < ($otherEndMinutes + BUFFER_MINUTES) &&
             $sDetail['kickoff_minutes'] < ($currentEndMinutes + BUFFER_MINUTES)) {
             return false; // red
         }
 
+        // Use address-only comparison when both available
         $curAddrN = normalize_address($locationAddress ?? null);
         $sAddrN   = normalize_address($sDetail['location_address'] ?? null);
         if ($curAddrN !== null && $sAddrN !== null) {
-            if ($curAddrN !== $sAddrN) return false;
-            else $isOrange = true;
+            if ($curAddrN !== $sAddrN) return false; // different venues same day -> red
+            else $isOrange = true;                   // same venue, no overlap -> orange
         } else {
+            // venue unknown for one side → treat as caution (orange)
             $isOrange = true;
         }
     }
@@ -407,7 +441,6 @@ function canAssign($refId, $matchId, $matchDate, $matchWeek, $kickoffMinutes, $l
     }
 
     if ($isOrange && !$allowOrange) {
-        error_log("Ref $refId skipped for match $matchId: Orange not allowed");
         return false;
     }
 
@@ -470,7 +503,26 @@ function attemptAssignment(
                 continue;
             }
 
-            $score = canAssign($refId, $matchId, $matchDate, $matchWeek, $match['kickoff_minutes'], $match['location_lat'], $match['location_lon'], $role, $existingAssignmentsByDateRef, $existingMatchDetailsByDateRef, $existingAssignmentsByWeekRef, $suggestedAssignmentsCountThisRun, $suggestedMatchDetailsByDateRef, $suggestedAssignmentsByWeekRef, $allowOrange, $referees, $match['division']);
+            $score = canAssign(
+                $refId,
+                $matchId,
+                $matchDate,
+                $matchWeek,
+                $match['kickoff_minutes'],
+                $match['location_address'] ?? null,   // <-- NEW
+                $match['location_lat'],
+                $match['location_lon'],
+                $role,
+                $existingAssignmentsByDateRef,
+                $existingMatchDetailsByDateRef,
+                $existingAssignmentsByWeekRef,
+                $suggestedAssignmentsCountThisRun,
+                $suggestedMatchDetailsByDateRef,
+                $suggestedAssignmentsByWeekRef,
+                $allowOrange,
+                $referees,
+                $match['division']
+            );
             if ($score !== false) {
                 $eligibleRefs[] = ['refId' => $refId, 'score' => $score];
             }
@@ -489,7 +541,26 @@ function attemptAssignment(
                 continue;
             }
 
-            $score = canAssign($refId, $matchId, $matchDate, $matchWeek, $match['kickoff_minutes'], $match['location_lat'], $match['location_lon'], $role, $existingAssignmentsByDateRef, $existingMatchDetailsByDateRef, $existingAssignmentsByWeekRef, $suggestedAssignmentsCountThisRun, $suggestedMatchDetailsByDateRef, $suggestedAssignmentsByWeekRef, $allowOrange, $referees, $match['division']);
+            $score = canAssign(
+                $refId,
+                $matchId,
+                $matchDate,
+                $matchWeek,
+                $match['kickoff_minutes'],
+                $match['location_address'] ?? null,   // <-- NEW
+                $match['location_lat'],
+                $match['location_lon'],
+                $role,
+                $existingAssignmentsByDateRef,
+                $existingMatchDetailsByDateRef,
+                $existingAssignmentsByWeekRef,
+                $suggestedAssignmentsCountThisRun,
+                $suggestedMatchDetailsByDateRef,
+                $suggestedAssignmentsByWeekRef,
+                $allowOrange,
+                $referees,
+                $match['division']
+            );
             if ($score !== false) {
                 $eligibleRefs[] = ['refId' => $refId, 'score' => $score];
             }
@@ -517,6 +588,7 @@ function attemptAssignment(
         if (!isset($suggestedMatchDetailsByDateRef[$matchDate][$bestRefId])) $suggestedMatchDetailsByDateRef[$matchDate][$bestRefId] = [];
         $suggestedMatchDetailsByDateRef[$matchDate][$bestRefId][] = [
             'kickoff_minutes' => $match['kickoff_minutes'],
+            'location_address' => $match['location_address'] ?? null,
             'location_lat' => $match['location_lat'],
             'location_lon' => $match['location_lon']
         ];
