@@ -83,7 +83,7 @@ if ($proceedWithQuery) {
 // Add new filters for location and referee_assigner
     if (!empty($_GET['location']) && is_array($_GET['location'])) {
         $placeholders = implode(',', array_fill(0, count($_GET['location']), '?'));
-        $whereClauses[] = "m.location_uuid IN ($placeholders)";
+        $whereClauses[] = "m.location_address IN ($placeholders)";
         foreach ($_GET['location'] as $value) {
             $params[] = $value;
         }
@@ -150,8 +150,8 @@ $referees = $pdo->query("SELECT uuid, first_name, last_name, grade FROM referees
 $refereeSchedule = [];
 foreach ($matches as $match_item) {
     $match_uuid = $match_item['uuid'];
-    $match_date_for_schedule = $match_item['match_date']; // Store string date
-    $kickoff_time_for_schedule = $match_item['kickoff_time']; // Store string time
+    $match_date_for_schedule = $match_item['match_date'];       // string date
+    $kickoff_time_for_schedule = $match_item['kickoff_time'];   // string time
 
     foreach (['referee_id', 'ar1_id', 'ar2_id', 'commissioner_id'] as $role_key) {
         if (!empty($match_item[$role_key])) {
@@ -160,11 +160,11 @@ foreach ($matches as $match_item) {
                 $refereeSchedule[$ref_id_for_schedule] = [];
             }
             $refereeSchedule[$ref_id_for_schedule][] = [
-                'match_id' => $match_uuid,
-                'match_date_str' => $date_for_schedule, // Store date string
-                'kickoff_time_str' => $kickoff_time_for_schedule, // Store time string
-                'role' => $role_key,
-                'location_uuid' => $match_item['location_uuid']
+                'match_id'         => $match_uuid,
+                'match_date_str'   => $match_date_for_schedule,       // ✅ correct var
+                'kickoff_time_str' => $kickoff_time_for_schedule,
+                'role'             => $role_key,
+                'location_address' => $match_item['location_address'] ?? null // ✅ address-based
             ];
         }
     }
@@ -216,7 +216,7 @@ function isRefereeAvailable_Cached($refId, $matchDateStr, $kickoffTimeStr, $cach
     }
     return true;
 }
-
+/*
 function get_assignment_details_for_referee(
     $refereeIdToCheck,
     $currentMatchContext, // ['uuid', 'match_date', 'kickoff_time', 'location_uuid', 'assigned_roles' => [...], 'current_role_being_rendered' => 'role_name']
@@ -298,7 +298,7 @@ function get_assignment_details_for_referee(
         }
     }
     return ['conflict_type' => $conflictLevel, 'is_available' => true];
-}
+}*/
 // --- END: Pre-computation ---
 
 ob_start();
