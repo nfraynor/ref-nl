@@ -158,6 +158,11 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
             body: `match_uuid=${encodeURIComponent(matchUuid)}&field_type=referee_assigner&new_value=${encodeURIComponent(assignerUuid || '')}`
         }).then(r => r.json()).catch(() => ({success:false}));
     }
+    function formatRefName(id){
+        if (!id) return "—";
+        const label = refereeOptions[id];
+        return label ? label : "—";
+    }
 
     document.addEventListener('DOMContentLoaded', () => {
         const statsEl = document.getElementById('table-stats');
@@ -202,26 +207,45 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
                 return finalURL;
             },
 
-            /* Force Tabulator to use *our* fetch so we can log raw text */
+            // IMPORTANT: build the querystring from Tabulator's params
             ajaxRequestFunc: (url, config, params) => {
-                dlog("ajaxRequestFunc GET", url);
-                return fetch(url, { method: "GET" })
-                    .then(async res => {
-                        const txt = await res.text();
-                        dlog("RAW response", res.status, txt.slice(0, 2000));
-                        // Return parsed JSON (Tabulator will pass this to ajaxResponse)
-                        try { return JSON.parse(txt); }
-                        catch (e) {
-                            derr("JSON parse failed:", e, "Body sample:", txt.slice(0, 400));
-                            // Re-throw so Tabulator triggers dataLoadError
-                            throw e;
-                        }
-                    })
-                    .catch(err => {
-                        derr("ajaxRequestFunc error:", err);
-                        throw err;
+                console.log("[Matches] ajaxRequestFunc", config?.method || "GET", url);
+                // Tabulator gives you current page/size/sort here:
+                // params = { page, size, sort: [{field, dir}], filter: [...] }
+                const q = new URLSearchParams();
+
+                // page & size (1-based page)
+                q.set("page", String(params.page || 1));
+                q.set("size", String(params.size || 50));
+
+                // sort (use the first sort for server)
+                if (Array.isArray(params.sort) && params.sort.length) {
+                    q.set("sort_col", params.sort[0].field);
+                    q.set("sort_dir", params.sort[0].dir);
+                }
+
+                // extras from the UI (date range + global search)
+                const s = document.getElementById("startDate")?.value;
+                const e = document.getElementById("endDate")?.value;
+                const gl = document.getElementById("globalFilter")?.value?.trim();
+                if (s) q.set("start_date", s);
+                if (e) q.set("end_date", e);
+                if (gl) q.set("search", gl);
+
+                // cache-buster for some CDNs/proxies
+                q.set("_ts", Date.now().toString());
+
+                const finalURL = `${url}?${q.toString()}`;
+                console.log("[Matches] fetch >", finalURL, config || {method: "GET"});
+
+                return fetch(finalURL, { method: "GET", headers: { Accept: "application/json" } })
+                    .then(async (r) => {
+                        const raw = await r.text();
+                        console.log("[Matches] fetch <", r.status, finalURL, raw);
+                        try { return JSON.parse(raw); } catch { return raw; }
                     });
             },
+
             /* Unwrap + validate + log shape before handing rows to Tabulator */
             ajaxResponse: (url, params, resp) => {
                 try {
@@ -270,22 +294,31 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
                     formatter: (cell) => cell.getValue() || "—"
                 },
                 // chips for assignment presence
-                { title: "Referee", field: "referee_id", width: 110, hozAlign: "center",
-                    formatter: (c)=> c.getValue() ? "<span class='badge bg-success-subtle text-success fw-700'>Assigned</span>"
-                        : "<span class='badge bg-secondary-subtle text-secondary fw-700'>—</span>"
+                {
+                    title: "Referee",
+                    field: "referee_id",
+                    minWidth: 180,
+                    formatter: (cell) => formatRefName(cell.getValue()),
                 },
-                { title: "AR1", field: "ar1_id", width: 100, hozAlign: "center",
-                    formatter: (c)=> c.getValue() ? "<span class='badge bg-success-subtle text-success fw-700'>Assigned</span>"
-                        : "<span class='badge bg-secondary-subtle text-secondary fw-700'>—</span>"
+                {
+                    title: "AR1",
+                    field: "ar1_id",
+                    minWidth: 180,
+                    formatter: (cell) => formatRefName(cell.getValue()),
                 },
-                { title: "AR2", field: "ar2_id", width: 100, hozAlign: "center",
-                    formatter: (c)=> c.getValue() ? "<span class='badge bg-success-subtle text-success fw-700'>Assigned</span>"
-                        : "<span class='badge bg-secondary-subtle text-secondary fw-700'>—</span>"
+                {
+                    title: "AR2",
+                    field: "ar2_id",
+                    minWidth: 180,
+                    formatter: (cell) => formatRefName(cell.getValue()),
                 },
-                { title: "Commissioner", field: "commissioner_id", width: 130, hozAlign: "center",
-                    formatter: (c)=> c.getValue() ? "<span class='badge bg-success-subtle text-success fw-700'>Assigned</span>"
-                        : "<span class='badge bg-secondary-subtle text-secondary fw-700'>—</span>"
+                {
+                    title: "Commissioner",
+                    field: "commissioner_id",
+                    minWidth: 190,
+                    formatter: (cell) => formatRefName(cell.getValue()),
                 },
+
             ],
         });
 
