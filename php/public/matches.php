@@ -56,51 +56,61 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
         <div class="referees-hero">
             <div class="referees-hero__bg"></div>
             <div class="referees-hero__content">
-                <div class="referees-title-div">
-                    <h1 class="referees-title">Matches</h1>
-                    <p class="referees-subtitle">Search, filter, sort & assign — fast.</p>
-                </div>
-
-                <div class="referees-quick">
-                    <div class="input-with-icon" style="min-width:min(380px,100%);">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                            <path d="M21 21l-4.3-4.3M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15Z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                        </svg>
-                        <input id="globalFilter" class="form-control" placeholder="Search matches…">
-                    </div>
-
-                    <div class="grade-pills" id="gradePills">
-                        <button type="button" class="pill js-grade-pill is-active" data-grade="*">All</button>
-                        <button type="button" class="pill js-grade-pill" data-grade="A">A</button>
-                        <button type="button" class="pill js-grade-pill" data-grade="B">B</button>
-                        <button type="button" class="pill js-grade-pill" data-grade="C">C</button>
-                        <button type="button" class="pill js-grade-pill" data-grade="D">D</button>
-                    </div>
-
-                    <div class="d-flex align-items-center gap-2">
-                        <div>
-                            <small class="text-muted d-block">From</small>
-                            <input type="date" id="startDate" class="form-control" style="width: 175px;">
+                <div class="toolbar">
+                    <!-- LEFT: title + filters -->
+                    <div class="toolbar-left">
+                        <div class="title-wrap">
+                            <h1 class="referees-title">Matches</h1>
+                            <p class="referees-subtitle">Search, filter & assign officials quickly.</p>
                         </div>
-                        <div>
-                            <small class="text-muted d-block">To</small>
-                            <input type="date" id="endDate" class="form-control" style="width: 175px;">
+
+                        <div class="filters-row">
+                            <div class="input-with-icon search">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                                    <path d="M21 21l-4.3-4.3M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15Z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                </svg>
+                                <input id="globalFilter" class="form-control" placeholder="Search teams, division, district… ( / to focus )">
+                            </div>
+
+                            <div class="date-pair">
+                                <div class="date-col">
+                                    <small class="text-muted d-block">From</small>
+                                    <input type="date" id="startDate" class="form-control">
+                                </div>
+                                <div class="date-col">
+                                    <small class="text-muted d-block">To</small>
+                                    <input type="date" id="endDate" class="form-control">
+                                </div>
+                            </div>
+
+                            <div class="quick-ranges">
+                                <button class="btn btn-ghost" data-range="today"   title="Today">Today</button>
+                                <button class="btn btn-ghost" data-range="weekend" title="Upcoming weekend">Weekend</button>
+                                <button class="btn btn-ghost" data-range="next7"   title="Next 7 days">Next 7</button>
+                            </div>
                         </div>
                     </div>
 
-                    <div class="actions">
+                    <!-- RIGHT: actions -->
+                    <div class="toolbar-right actions">
                         <?php if ($assignMode): ?>
-                            <a href="matches.php" class="btn btn-sm btn-outline-secondary">Disable Assign Mode</a>
+                            <a href="matches.php" class="btn btn-neutral">Disable Assign</a>
+                            <button type="button" id="suggestAssignments" class="btn btn-accent">Suggest</button>
                         <?php else: ?>
-                            <a href="matches.php?assign_mode=1" class="btn btn-sm btn-warning">Enable Assign Mode</a>
+                            <a href="matches.php?assign_mode=1" class="btn btn-accent">Enable Assign</a>
                         <?php endif; ?>
-                        <a href="export_matches.php" class="btn btn-sm btn-info">Export CSV</a>
-                        <a href="assign_assigner.php" class="btn btn-sm btn-primary">Assign Assigner</a>
-                        <?php if ($assignMode): ?>
-                            <button type="button" id="suggestAssignments" class="btn btn-sm btn-main-action">Suggest Assignments</button>
-                        <?php endif; ?>
+                        <button type="button" id="exportCsv" class="btn btn-outline">Export CSV</button>
+                        <a href="assign_assigner.php" class="btn btn-neutral">Assign Assigner</a>
                     </div>
                 </div>
+            </div>
+
+            <!-- Floating legend -->
+            <div class="conflict-legend" aria-label="Conflict legend">
+                <span class="dot sev-red"></span> Red (overlap / diff venue same day)
+                <span class="dot sev-orange"></span> Orange (same venue same day, no overlap)
+                <span class="dot sev-yellow"></span> Yellow (±2 days proximity)
+                <span class="dot sev-unavail"></span> Unavailable
             </div>
         </div>
 
@@ -112,6 +122,22 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
 </div>
 
 <script>
+    // fields we persist
+    const ASSIGN_FIELDS = ["referee_id","ar1_id","ar2_id","commissioner_id"];
+    let table;
+    // per-row baseline to detect programmatic vs manual changes
+    const baselineById = new Map();
+
+    function captureBaseline(table){
+        baselineById.clear();
+        table.getRows().forEach(r=>{
+            const d = r.getData();
+            baselineById.set(d.uuid, Object.fromEntries(
+                ASSIGN_FIELDS.map(f => [f, d[f] ?? null])
+            ));
+        });
+    }
+
     // ---- Conflict helpers ----
     const SEV = { NONE:0, YELLOW:1, ORANGE:2, RED:3, UNAVAILABLE:4 };
     const sevClass = (s) =>
@@ -275,6 +301,48 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
         refListForEditors().forEach(x => { map[x.value] = `${x.label}`; });
         return map;
     }
+    // Quick date ranges
+    function yyyy_mm_dd(dt){ return dt.toISOString().slice(0,10); }
+    function setRange(start, end){
+        const sEl = document.getElementById('startDate');
+        const eEl = document.getElementById('endDate');
+        sEl.value = yyyy_mm_dd(start); eEl.value = yyyy_mm_dd(end);
+        sEl.dispatchEvent(new Event('change'));
+    }
+    function goToday(){ const d=new Date(); setRange(d, d); }
+    function goWeekend(){
+        const now=new Date(); const day=now.getDay(); // 0=Sun..6=Sat
+        const sat=new Date(now); sat.setDate(now.getDate()+((6-day+7)%7));
+        const sun=new Date(sat); sun.setDate(sat.getDate()+1);
+        setRange(sat, sun);
+    }
+    function goNext7(){ const now=new Date(); const end=new Date(now); end.setDate(now.getDate()+7); setRange(now, end); }
+    document.querySelectorAll('.quick-ranges .btn').forEach(b=>{
+        b.addEventListener('click', ()=>{
+            const r=b.dataset.range;
+            if(r==='today') goToday();
+            else if(r==='weekend') goWeekend();
+            else if(r==='next7') goNext7();
+        });
+    });
+
+    // CSV
+    document.getElementById('exportCsv')?.addEventListener('click', ()=>{
+        if (typeof table?.download === "function") {
+            const ts = new Date().toISOString().replace(/[:T]/g,'-').slice(0,16);
+            table.download("csv", `matches-${ts}.csv`);
+        } else {
+            window.location.href = "export_matches.php";
+        }
+    });
+
+    // Search hotkey
+    document.addEventListener('keydown', (e)=>{
+        if (e.key === '/' && !e.target.closest('input,textarea,[contenteditable="true"]')) {
+            e.preventDefault();
+            document.getElementById('globalFilter')?.focus();
+        }
+    });
 
     // Wire up the pills
     document.addEventListener('DOMContentLoaded', () => {
@@ -371,9 +439,12 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
                 try {
                     const res = await saveAssignment(row.uuid, field, newVal);
                     if (!res?.success) throw new Error(res?.message || "Save failed");
+                    // ✅ keep baseline in sync
+                    const base = baselineById.get(row.uuid) || {};
+                    base[field] = newVal || null;
+                    baselineById.set(row.uuid, base);
                 } catch (err) {
                     console.error("[Matches] saveAssignment failed:", err);
-                    // revert if server save fails
                     cell.setValue(cell.getOldValue(), true);
                     alert("Saving assignment failed.");
                 }
@@ -452,7 +523,7 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
         const endEl   = document.getElementById('endDate');
         const searchEl= document.getElementById('globalFilter');
 
-        const table = new Tabulator("#matches-table", {
+        table = new Tabulator("#matches-table", {
             index: "uuid",
             height: "70vh",
             layout: "fitColumns",
@@ -620,6 +691,9 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
         table.on("renderComplete",   ()=> applyConflictClasses(table));
         table.on("pageLoaded",       ()=> applyConflictClasses(table));
         table.on("cellEdited",       ()=> applyConflictClasses(table));
+        table.on("dataLoaded", () => captureBaseline(table));
+        table.on("pageLoaded",  () => captureBaseline(table));
+
 
         // Filters -> refresh remote
         const triggerRefresh = () => table.setData(); // re-hits ajaxURLGenerator
@@ -640,15 +714,52 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
                 const reader = resp.body.getReader(); const decoder=new TextDecoder(); let buf='';
                 const applyBatch = (suggestions) => {
                     const updates = [];
-                    Object.keys(suggestions||{}).forEach(matchId=>{
-                        const roles = suggestions[matchId]||{};
-                        ['referee_id','ar1_id','ar2_id','commissioner_id'].forEach(role=>{
-                            if (roles[role]) updates.push({ uuid: matchId, [role]: roles[role] });
+                    const changesToPersist = []; // {uuid, field, value}
+
+                    Object.keys(suggestions || {}).forEach(matchId => {
+                        const roles = suggestions[matchId] || {};
+                        ASSIGN_FIELDS.forEach(field => {
+                            const newVal = roles[field] || null;
+                            if (newVal) {
+                                updates.push({ uuid: matchId, [field]: newVal });
+
+                                // diff against baseline to avoid redundant saves
+                                const base = baselineById.get(matchId) || {};
+                                const oldVal = base[field] ?? null;
+                                if (String(oldVal ?? "") !== String(newVal ?? "")) {
+                                    changesToPersist.push({ uuid: matchId, field, value: newVal });
+                                }
+                            }
                         });
                     });
-                    if (updates.length){
-                        table.updateData(updates).then(()=> applyConflictClasses(table));
-                    }
+
+                    if (!updates.length) return;
+
+
+                    table.updateData(updates).then(async () => {
+                        applyConflictClasses(table);
+                        // 🔐 persist only the diffs
+                        if (changesToPersist.length) {
+                            try {
+                                const results = await Promise.allSettled(
+                                    changesToPersist.map(c => saveAssignment(c.uuid, c.field, c.value || ""))
+                                );
+                                // update baseline for successful saves
+                                results.forEach((res, i) => {
+                                    if (res.status === "fulfilled" && res.value?.success) {
+                                        const { uuid, field, value } = changesToPersist[i];
+                                        const base = baselineById.get(uuid) || {};
+                                        base[field] = value ?? null;
+                                        baselineById.set(uuid, base);
+                                    }
+                                });
+                                const failed = results.filter(r => r.status === "rejected" || (r.value && !r.value.success));
+                                if (failed.length) console.warn(`[Suggest] ${failed.length} suggestion(s) failed to save`);
+                            } catch (e) {
+                                console.error("[Suggest] Persist failed:", e);
+                            }
+                        }
+                    });
                 };
                 while(true){
                     const {value, done} = await reader.read(); if (done) break;

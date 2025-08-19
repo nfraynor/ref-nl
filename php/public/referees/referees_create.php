@@ -50,11 +50,20 @@ try {
     $pdo = Database::getConnection();
 
     // Unique email check
-    $stmt = $pdo->prepare("SELECT 1 FROM referees WHERE email = ? LIMIT 1");
+    $stmt = $pdo->prepare("
+    SELECT referee_id, email
+    FROM referees
+    WHERE TRIM(LOWER(email)) = TRIM(LOWER(?))
+    LIMIT 1
+");
     $stmt->execute([$email]);
-    if ($stmt->fetchColumn()) {
+    if ($conflict = $stmt->fetch(PDO::FETCH_ASSOC)) {
         http_response_code(409);
-        echo json_encode(['message' => 'A referee with this email already exists.']);
+        echo json_encode([
+            'message' => 'A referee with this email already exists.',
+            'conflict_referee_id' => (int)$conflict['referee_id'],
+            'conflict_email' => $conflict['email'], // handy while debugging; remove later if you like
+        ]);
         exit;
     }
 

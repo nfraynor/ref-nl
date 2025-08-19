@@ -581,6 +581,8 @@ function attemptAssignment(
 
         $suggestions[$matchId][$role] = $bestRefId;
         $suggestedInThisWeek[$bestRefId]++;
+        $suggestedAssignmentsCountThisRun[$bestRefId]++;
+
 
         if (!isset($suggestedAssignmentsByWeekRef[$matchWeek][$bestRefId])) $suggestedAssignmentsByWeekRef[$matchWeek][$bestRefId] = 0;
         $suggestedAssignmentsByWeekRef[$matchWeek][$bestRefId]++;

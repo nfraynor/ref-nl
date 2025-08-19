@@ -16,20 +16,15 @@ function debounce(fn, ms=60) {
     let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
 }
 
-function tsControlEl(selectEl){
-    const inst = selectEl.tomselect;
-    return inst ? inst.control : null; // .ts-control
-}
-
 function setSelectionSeverity(selectEl, sev){
-    const el = tsControlEl(selectEl);
-    if (!el) return;
+    const el = selectEl; // use the native select
     el.classList.remove('conflict-red','conflict-orange','conflict-yellow','unavailable');
     if (sev === SEV.UNAVAILABLE) el.classList.add('unavailable');
     else if (sev === SEV.RED)    el.classList.add('conflict-red');
     else if (sev === SEV.ORANGE) el.classList.add('conflict-orange');
     else if (sev === SEV.YELLOW) el.classList.add('conflict-yellow');
 }
+
 
 function bump(map, key, sev){
     const cur = map.get(key) ?? SEV.NONE;

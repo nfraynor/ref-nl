@@ -235,6 +235,6 @@ $clubs = $pdo->query("
     });
 </script>
 
-<script src="js/club.js"></script>
+<script src="clubs/js/club.js"></script>
 
 <?php include 'includes/footer.php'; ?>

@@ -144,7 +144,7 @@ $divisions = $pdo->query("
                     <div class="card-body">
                         <div class="kv-pair">
                             <div class="kv-label">Field</div>
-                            <div class="flex-grow-1"><?= $club['field_name'] ? safe($club['field_name']) : '—' ?></div>
+                            <div class="flex-grow-1" id="fieldNameText"><?= $club['field_name'] ? safe($club['field_name']) : '—' ?></div>
                         </div>
 
                         <!-- Address display -->
@@ -455,7 +455,57 @@ $divisions = $pdo->query("
          data-location-uuid="<?= safe($locationUuid ?? '') ?>">
     </div>
 
+
 </div> <!-- /container -->
+<?php if ($isSuperAdmin): ?>
+    <!-- Team Add/Edit Modal -->
+    <div class="modal fade" id="teamModal" tabindex="-1" aria-labelledby="teamModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="teamModalLabel">Add New Team</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+
+                <div class="modal-body">
+                    <div id="teamModalMsg" class="mb-2"></div>
+
+                    <div class="mb-3">
+                        <label for="teamNameInput" class="form-label">Team name <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="teamNameInput" maxlength="255" placeholder="e.g., U17 Girls">
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="districtSelect" class="form-label">District <span class="text-danger">*</span></label>
+                        <select id="districtSelect" class="form-select">
+                            <option value="">Select district…</option>
+                            <?php foreach ($districts as $d): ?>
+                                <option value="<?= (int)$d['id'] ?>"><?= safe($d['name']) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="divisionSelect" class="form-label">Division <span class="text-danger">*</span></label>
+                        <select id="divisionSelect" class="form-select">
+                            <option value="">Select division…</option>
+                            <?php foreach ($divisions as $div): ?>
+                                <option value="<?= safe($div) ?>"><?= safe($div) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button class="btn btn-primary" id="saveTeamBtn">
+                        <i class="bi bi-check-lg me-1"></i>Save
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+<?php endif; ?>
 
 <script src="js/club.js"></script>
 
