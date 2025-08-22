@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css"> <!-- Added Bootstrap Icons -->
     <link rel="stylesheet" href="/css/main.css">
     <link rel="stylesheet" href="/css/matches.css">
-    <link rel="stylesheet" href="/css/referee_modal.css"> >
+    <link rel="stylesheet" href="/css/referee_modal.css">
     <link rel="stylesheet" href="/css/tabular.css">
 
     <!-- Flatpickr CSS -->

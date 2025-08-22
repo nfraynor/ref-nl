@@ -70,26 +70,30 @@ CREATE TABLE IF NOT EXISTS teams (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Referees
+-- Referees
 CREATE TABLE IF NOT EXISTS referees (
-                                        uuid                   CHAR(36) PRIMARY KEY,
-                                        referee_id             VARCHAR(50) UNIQUE,
-                                        first_name             VARCHAR(100),
-                                        last_name              VARCHAR(100),
-                                        email                  VARCHAR(100),
-                                        phone                  VARCHAR(50),
-                                        home_club_id           CHAR(36),
-                                        home_location_city     VARCHAR(100),
-                                        grade                  VARCHAR(50),
-                                        ar_grade               VARCHAR(50),
-                                        home_lat               DECIMAL(10,8) DEFAULT NULL,
-                                        home_lon               DECIMAL(11,8) DEFAULT NULL,
-                                        max_travel_distance    INT,
-                                        district_id            INT,
-                                        max_matches_per_weekend INT NOT NULL DEFAULT 1,
-                                        max_days_per_weekend    INT NOT NULL DEFAULT 1,
-                                        FOREIGN KEY (home_club_id) REFERENCES clubs(uuid),
-                                        FOREIGN KEY (district_id)  REFERENCES districts(id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    uuid                      CHAR(36) PRIMARY KEY,
+    ref_number                INT NOT NULL AUTO_INCREMENT UNIQUE,
+    referee_id                VARCHAR(50) UNIQUE,
+    first_name                VARCHAR(100),
+    last_name                 VARCHAR(100),
+    email                     VARCHAR(100),
+    phone                     VARCHAR(50),
+    home_club_id              CHAR(36),
+    home_location_city        VARCHAR(100),
+    grade                     VARCHAR(50),
+    ar_grade                  VARCHAR(50),
+    home_lat                  DECIMAL(10,8) DEFAULT NULL,
+    home_lon                  DECIMAL(11,8) DEFAULT NULL,
+    max_travel_distance       INT,
+    district_id               INT,
+    max_matches_per_weekend   INT NOT NULL DEFAULT 1,
+    max_days_per_weekend      INT NOT NULL DEFAULT 1,
+
+    FOREIGN KEY (home_club_id) REFERENCES clubs(uuid),
+    FOREIGN KEY (district_id)  REFERENCES districts(id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 
 -- Referee exempt clubs
 CREATE TABLE IF NOT EXISTS referee_exempt_clubs (

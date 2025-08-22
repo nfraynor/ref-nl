@@ -116,9 +116,10 @@ $seeded_referees_count = 0;
 $existing_referees_count = 0;
 $stmt_insert_referee = $pdo->prepare("
     INSERT IGNORE INTO referees 
-        (uuid, referee_id, first_name, last_name, email, phone, home_club_id, home_location_city, grade, ar_grade, home_lat, home_lon, district_id) 
+      (uuid, referee_id, first_name, last_name, email, phone, home_club_id, home_location_city, grade, ar_grade, home_lat, home_lon, district_id) 
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ");
+
 
 foreach ($referees_data as $index => $ref) {
     // Generate referee_id

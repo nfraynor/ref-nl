@@ -60,7 +60,7 @@ try {
     if ($conflict = $stmt->fetch(PDO::FETCH_ASSOC)) {
         http_response_code(409);
         echo json_encode([
-            'message' => 'A referee with this email already exists.',
+            'message' => 'A referee with this email already exists12.',
             'conflict_referee_id' => (int)$conflict['referee_id'],
             'conflict_email' => $conflict['email'], // handy while debugging; remove later if you like
         ]);
@@ -80,31 +80,36 @@ try {
 
     // Insert (home_club_id may be NULL)
     $ins = $pdo->prepare("
-        INSERT INTO referees (first_name, last_name, email, grade, home_club_id)
-        VALUES (?, ?, ?, ?, ?)
-    ");
+          INSERT INTO referees (uuid, first_name, last_name, email, grade, home_club_id)
+          VALUES (UUID(), ?, ?, ?, ?, ?)
+        ");
     $ins->execute([$first, $last, $email, $grade, $home_club_id]);
 
-    $newId = (int)$pdo->lastInsertId();
+// Use the AI ref_number from this insert to set referee_id = REF###
+    $refNumber = (int)$pdo->lastInsertId();  // requires referees.ref_number INT AUTO_INCREMENT
+    if ($refNumber > 0) {
+        $upd = $pdo->prepare("
+          UPDATE referees
+             SET referee_id = CONCAT('REF', LPAD(?, 3, '0'))
+           WHERE ref_number = ?
+             AND (referee_id IS NULL OR referee_id = '')
+          LIMIT 1
+        ");
+        $upd->execute([$refNumber, $refNumber]);
+    }
 
-    // Return the row in the same shape your table expects
     $row = $pdo->prepare("
-        SELECT 
-            r.referee_id,
-            r.first_name,
-            r.last_name,
-            r.email,
-            r.phone,
-            c.club_name AS home_club_name,
-            r.home_location_city,
-            r.grade,
-            r.ar_grade
-        FROM referees r
-        LEFT JOIN clubs c ON r.home_club_id = c.uuid
-        WHERE r.referee_id = ?
-        LIMIT 1
+      SELECT 
+        r.uuid, r.ref_number, r.referee_id,
+        r.first_name, r.last_name, r.email, r.phone,
+        c.club_name AS home_club_name,
+        r.home_location_city, r.grade, r.ar_grade
+      FROM referees r
+      LEFT JOIN clubs c ON r.home_club_id = c.uuid
+      WHERE r.ref_number = ?
+      LIMIT 1
     ");
-    $row->execute([$newId]);
+    $row->execute([$refNumber]);
     $ref = $row->fetch(PDO::FETCH_ASSOC);
 
     http_response_code(201);
@@ -113,7 +118,7 @@ try {
     // Handle duplicate key if a UNIQUE index on email exists
     if ($e->getCode() === '23000') {
         http_response_code(409);
-        echo json_encode(['message' => 'A referee with this email already exists.']);
+        echo json_encode(['message' => 'A referee with this email already exists222.']);
         exit;
     }
     http_response_code(500);

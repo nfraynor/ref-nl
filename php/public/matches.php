@@ -243,7 +243,6 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
         const map = {};
         <?php foreach ($referees as $r):
         $label = trim(($r['first_name'] ?? '') . ' ' . ($r['last_name'] ?? ''));
-        $label .= $r['grade'] ? ' (' . $r['grade'] . ')' : '';
         ?>
         map["<?= h($r['uuid']) ?>"] = "<?= h($label) ?>";
         <?php endforeach; ?>
@@ -415,78 +414,63 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
         return label ? label : "—";
     }
 
-    function makeRefereeCol(title, field, minWidth = 180){
-        const base = {
-            title, field, minWidth,
-            formatter: (cell) => formatRefName(cell.getValue()),
-        };
-        if (!ASSIGN_MODE) return base;
-
+    function makeRefereeCol(title, field, minWidth = 200){
         return {
-            ...base,
-            editor: "list",
-            editorParams: {
-                // Tabulator accepts an object map {value: label}
-                values: refereeOptions,
-                clearable: true,          // allow clearing assignment
-                autocomplete: true,       // quick type-to-search
-                listOnEmpty: true,
-                freetext: false,
-            },
-            cellEdited: async (cell) => {
+            title,
+            field,
+            minWidth,
+            formatter: formatRefCell,          // keep your nice label + grade + ✕
+            editor: ASSIGN_MODE ? "list" : false,
+            editorParams: editorParamsFactory, // uses grade-filtered list + “— Unassigned —”
+            cellEdited: async (cell) => {      // persist to server
                 const row = cell.getRow().getData();
                 const newVal = cell.getValue() || "";
                 try {
                     const res = await saveAssignment(row.uuid, field, newVal);
                     if (!res?.success) throw new Error(res?.message || "Save failed");
-                    // ✅ keep baseline in sync
+                    // optional: keep baseline in sync if you use it
                     const base = baselineById.get(row.uuid) || {};
                     base[field] = newVal || null;
                     baselineById.set(row.uuid, base);
                 } catch (err) {
                     console.error("[Matches] saveAssignment failed:", err);
-                    cell.setValue(cell.getOldValue(), true);
+                    cell.setValue(cell.getOldValue(), true);      // revert UI
                     alert("Saving assignment failed.");
                 }
             },
         };
     }
 
-    // Assigner column editable only in ASSIGN_MODE
+
     function makeAssignerCol(){
         const base = {
             title: "Assigner",
-            field: "referee_assigner_username",
+            field: "referee_assigner_uuid", // ← use UUID field
             headerFilter: "input",
             minWidth: 130,
-            formatter: (cell) => cell.getValue() || "—",
+            formatter: (cell) => assignerOptions[cell.getValue()] || "—",
         };
         if (!ASSIGN_MODE) return base;
 
         return {
             ...base,
             editor: "list",
-            editorParams: {
-                values: assignerOptions,  // {uuid: username}
-                clearable: true,
+            editorParams: () => ({
+                values: { "": "— Unassigned —", ...assignerOptions }, // empty first
                 autocomplete: true,
                 listOnEmpty: true,
-                freetext: false,
-            },
-            // store uuid in DB, but we show username in the cell
-            mutatorEdit: (value, data, type, params, component) => {
-                // mutatorEdit runs before cellEdited; translate username->uuid here if needed
-                // We actually want the selected *uuid*. Tabulator list editor returns the key (uuid)
-                // because `values` is a map. So just pass through.
-                return value;
-            },
+            }),
             cellEdited: async (cell) => {
-                const row = cell.getRow().getData();
+                const row  = cell.getRow().getData();
                 const uuid = cell.getValue() || "";
                 try {
                     const res = await saveAssigner(row.uuid, uuid);
                     if (!res?.success) throw new Error(res?.message || "Save failed");
-                    // Optional: if your server responds with the username string, you could refresh the row here.
+                    // (optional) also keep username column in sync if you show it elsewhere
+                    table.updateData([{
+                        uuid: row.uuid,
+                        referee_assigner_username: assignerOptions[uuid] || null,
+                    }]);
                 } catch (err) {
                     console.error("[Matches] saveAssigner failed:", err);
                     cell.setValue(cell.getOldValue(), true);
@@ -495,26 +479,33 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
             },
         };
     }
+
     const assignCols = ['referee_id','ar1_id','ar2_id','commissioner_id'];
 
     function formatRefCell(cell){
         const id = cell.getValue();
-        if (!id) return "—";
-        const label = refereeOptions[id] || "—";
+        const label = id ? (refereeOptions[id] || "—") : "—";
         const g = (refereeMeta[id]?.grade || "").toUpperCase();
-        return `${label}`;
+        const klass = ["A","B","C","D"].includes(g) ? `chip-${g}` : "chip-default";
+        const grade = g ? ` <span class="badge ${klass}">${g}</span>` : "";
+
+        const clearBtn = ASSIGN_MODE
+            ? `<button class="assign-clear-btn" type="button" title="Unassign" aria-label="Unassign">×</button>`
+            : "";
+
+        return `<span class="assign-text">${label}${grade}</span>${clearBtn}`;
     }
 
-    function editorParamsFactory(/*cell*/){
-        // rebuild values each time an editor opens so grade pills are honored
+    function editorParamsFactory(){
+        const vals = listValuesMap();        // existing helper -> {value: label}
+        const values = { "": "— Unassigned —", ...vals }; // <-- put empty at top
         return {
-            values: listValuesMap(),     // {value: label}
+            values,
             autocomplete: true,
             listOnEmpty: true,
-            // allowEmpty lets users clear the field (press backspace, Enter)
-            // (Tabulator accepts unknown params silently; these two are the key ones)
         };
     }
+
 
 
     document.addEventListener('DOMContentLoaded', () => {
@@ -539,6 +530,27 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
             paginationDataReceived: {
                 last_page: "last_page",
                 data: "data",
+            },
+
+            cellContextMenu: function(cell){
+                const field = cell.getField();
+                if (!assignCols.includes(field)) return [];
+                return [
+                    {
+                        label: "Unassign",
+                        action: function(e, c){
+                            const row = c.getRow().getData();
+                            const oldVal = c.getValue();
+                            // optimistic UI
+                            table.updateData([{ uuid: row.uuid, [field]: "" }]);
+                            saveAssignment(row.uuid, field, "").then(res => {
+                                if (!res?.success) table.updateData([{ uuid: row.uuid, [field]: oldVal }]);
+                            }).catch(() => {
+                                table.updateData([{ uuid: row.uuid, [field]: oldVal }]);
+                            });
+                        },
+                    },
+                ];
             },
 
             ajaxURLGenerator: (url, _cfg, params) => {
@@ -648,39 +660,11 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
                 // ⬇️ Assigner becomes editable in assign mode
                 makeAssignerCol(),
 
-                // ⬇️ These three become dropdowns in assign mode, otherwise show names
-                {
-                    title: "Referee",
-                    field: "referee_id",
-                    minWidth: 200,
-                    formatter: formatRefCell,
-                    editor: ASSIGN_MODE ? "list" : false,
-                    editorParams: editorParamsFactory,
-                },
-                {
-                    title: "AR1",
-                    field: "ar1_id",
-                    minWidth: 200,
-                    formatter: formatRefCell,
-                    editor: ASSIGN_MODE ? "list" : false,
-                    editorParams: editorParamsFactory,
-                },
-                {
-                    title: "AR2",
-                    field: "ar2_id",
-                    minWidth: 200,
-                    formatter: formatRefCell,
-                    editor: ASSIGN_MODE ? "list" : false,
-                    editorParams: editorParamsFactory,
-                },
-                {
-                    title: "Commissioner",
-                    field: "commissioner_id",
-                    minWidth: 200,
-                    formatter: formatRefCell,
-                    editor: ASSIGN_MODE ? "list" : false,
-                    editorParams: editorParamsFactory,
-                },
+                makeRefereeCol("Referee",      "referee_id"),
+                makeRefereeCol("AR1",          "ar1_id"),
+                makeRefereeCol("AR2",          "ar2_id"),
+                makeRefereeCol("Commissioner", "commissioner_id"),
+
             ],
         });
 
@@ -693,6 +677,25 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
         table.on("cellEdited",       ()=> applyConflictClasses(table));
         table.on("dataLoaded", () => captureBaseline(table));
         table.on("pageLoaded",  () => captureBaseline(table));
+        table.on("cellClick", (e, cell) => {
+            const btn = e.target.closest(".assign-clear-btn");
+            if (!btn) return;
+
+            const field = cell.getField();
+            if (!assignCols.includes(field)) return;
+
+            e.stopPropagation(); // prevent opening the editor
+            const row = cell.getRow().getData();
+            const oldVal = cell.getValue();
+
+            // optimistic UI
+            table.updateData([{ uuid: row.uuid, [field]: "" }]);
+            saveAssignment(row.uuid, field, "").then(res => {
+                if (!res?.success) table.updateData([{ uuid: row.uuid, [field]: oldVal }]);
+            }).catch(() => {
+                table.updateData([{ uuid: row.uuid, [field]: oldVal }]);
+            });
+        });
 
 
         // Filters -> refresh remote

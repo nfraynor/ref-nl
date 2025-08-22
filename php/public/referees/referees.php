@@ -279,6 +279,39 @@ $referees = $pdo->query("
             ],
         });
 
+        window.refTable = table; // so the later block can find it
+
+        function renderStats(filteredCount) {
+            const statsEl = document.getElementById('table-stats');
+            if (!statsEl) return;
+
+            // If Tabulator gave us a filtered count, use it. Otherwise compute from current rows.
+            const currentRows = table.getData();            // all rows in current data set
+            const total = filteredCount ?? currentRows.length;
+
+            // Count by grade
+            const counts = currentRows.reduce((m, r) => {
+                const g = (r.grade || '').toUpperCase();
+                m[g] = (m[g] || 0) + 1;
+                return m;
+            }, {});
+
+            const chip = (label, n) =>
+                `<span style="display:inline-block;margin-right:.4rem;padding:.2rem .5rem;border:1px solid var(--border);border-radius:999px;font-weight:700;font-size:12px;background:var(--card);">${label}: ${n ?? 0}</span>`;
+
+            statsEl.innerHTML = [
+                chip('Total', total),
+                chip('A', counts.A),
+                chip('B', counts.B),
+                chip('C', counts.C),
+                chip('D', counts.D),
+            ].join(' ');
+        }
+
+// initial render + keep updated on filter changes
+        renderStats();
+        table.on("dataFiltered", (filters, rows) => renderStats(rows.length));
+
         // Global search
         document.getElementById("globalFilter").addEventListener("input", function () {
             const q = this.value.toLowerCase();
@@ -326,7 +359,7 @@ $referees = $pdo->query("
 
     document.addEventListener('DOMContentLoaded', () => {
         // Ensure we can reach the Tabulator instance:
-        const table = window.refTable || window.table || undefined;
+        const table = window.refTable
 
         const addBtn = document.getElementById('addRefBtn');
         const modalEl = document.getElementById('addRefModal');
