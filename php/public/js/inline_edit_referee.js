@@ -76,16 +76,30 @@ document.addEventListener('DOMContentLoaded', function () {
                 inputElement = document.createElement('select');
                 inputElement.classList.add('form-control', 'form-control-sm', 'mr-2');
                 inputElement.style.flexGrow = '1';
-                const currentDistrictId = ddElement.dataset.currentDistrictId;
+                const currentDistrictId = String(ddElement.dataset.currentDistrictId || '');
 
                 // Add a default "loading" option
                 const loadingOption = document.createElement('option');
                 loadingOption.textContent = 'Loading districts...';
                 inputElement.appendChild(loadingOption);
 
-                fetch('../ajax/district_options.php')
-                    .then(response => response.json())
-                    .then(districts => {
+                // If referee_detail.php and get_districts.php live in the same folder:
+                //   fetch('get_districts.php')
+                // If your page is in /referees/ and endpoint is also in /referees/:
+                //   fetch('get_districts.php')
+                // If your page is in /referees/ and endpoint is one level up:
+                //   fetch('../referees/get_districts.php')
+                fetch('get_districts.php', { headers: { 'Accept': 'application/json' } })
+                    .then(response => {
+                        if (!response.ok) throw new Error('HTTP ' + response.status);
+                        return response.json();
+                    })
+                    .then(payload => {
+                        if (payload.status !== 'success' || !Array.isArray(payload.data)) {
+                            throw new Error('Bad payload');
+                        }
+                        const districts = payload.data;
+
                         inputElement.innerHTML = ''; // Clear loading option
                         const pleaseSelectOption = document.createElement('option');
                         pleaseSelectOption.value = '';
@@ -94,9 +108,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
                         districts.forEach(district => {
                             const option = document.createElement('option');
-                            option.value = district.id;
+                            option.value = String(district.id);
                             option.textContent = district.name;
-                            if (district.id === currentDistrictId) {
+                            if (String(district.id) === currentDistrictId) {
                                 option.selected = true;
                             }
                             inputElement.appendChild(option);
@@ -106,7 +120,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         console.error('Error fetching districts:', error);
                         inputElement.innerHTML = '<option>Error loading districts</option>';
                         displayMessage('Error loading districts. Please try again.', 'danger');
-                    });
+            });
             } else if (fieldName === 'grade' || fieldName === 'ar_grade') {
                 inputElement = document.createElement('select');
                 inputElement.classList.add('form-control', 'form-control-sm', 'mr-2');

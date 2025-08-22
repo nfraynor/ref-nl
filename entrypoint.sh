@@ -1,85 +1,79 @@
-#!/bin/bash
-set -e
+#!/usr/bin/env bash
+set -euo pipefail
 
 DATADIR="/var/lib/mysql"
+RUNDIR="/var/run/mysqld"
+SOCKET="${RUNDIR}/mysqld.sock"
+CONF_DIR="/etc/mysql/conf.d"   # MySQL-compatible include dir
+MYSQL_ROOT_PASSWORD="password"
+# ---- config via env ----
+: "${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD must be set (e.g. -e MYSQL_ROOT_PASSWORD=...)}"
 
-# Ensure the MySQL/MariaDB data directory is owned by the mysql user
-# This is important for bind mounts, as the host directory might have different ownership.
-echo "Ensuring $DATADIR ownership is mysql:mysql..."
-chown -R mysql:mysql "$DATADIR"
-chmod -R 700 "$DATADIR" # MariaDB/MySQL prefers stricter permissions on its data directory
+echo "Ensuring MySQL dirs/ownership..."
+mkdir -p "$DATADIR" "$RUNDIR" "$CONF_DIR"
+chown -R mysql:mysql "$DATADIR" "$RUNDIR"
+chmod 700 "$DATADIR"
 
-# Initialize MariaDB data directory if it's empty
-# (e.g., first run with an empty bind mount)
-if [ -z "$(ls -A $DATADIR)" ]; then
-    echo "Data directory is empty. Initializing MariaDB..."
+# ---- make sure bind-address is 0.0.0.0 and DNS lookups are off ----
+# Debian/MariaDB primary file:
+if [ -f /etc/mysql/mariadb.conf.d/50-server.cnf ]; then
+  sed -i -E "s|^[# ]*bind-address[[:space:]]*=.*|bind-address = 0.0.0.0|" /etc/mysql/mariadb.conf.d/50-server.cnf
+fi
+# Generic include (applies to MySQL/MariaDB):
+cat > "${CONF_DIR}/60-docker.cnf" <<'EOF'
+[mysqld]
+bind-address=0.0.0.0
+skip-name-resolve=ON
+# do NOT set: skip-networking
+EOF
+
+# ---- initialize data dir if empty ----
+if [ ! -d "${DATADIR}/mysql" ] || [ -z "$(ls -A "${DATADIR}/mysql" 2>/dev/null || true)" ]; then
+  echo "Initializing data directory..."
+  if command -v mysql_install_db >/dev/null 2>&1; then
     mysql_install_db --user=mysql --datadir="$DATADIR"
-    echo "MariaDB data directory initialized."
+  else
+    mysqld --initialize-insecure --user=mysql --datadir="$DATADIR"
+  fi
 fi
 
-# Start MariaDB/MySQL server
-echo "Attempting to start MariaDB/MySQL server..."
-# Using mysqld_safe ensures it daemonizes correctly and logs issues.
-# The & backgrounds it so this script can continue.
-mysqld_safe --user=mysql --datadir="$DATADIR" &
+# ---- start mysqld (background) ----
+echo "Starting mysqld..."
+mysqld_safe --user=mysql --datadir="$DATADIR" --socket="$SOCKET" --port=3306 >/dev/null 2>&1 &
 
-# Give MariaDB/MySQL a few seconds to initialize
-echo "Waiting for MariaDB/MySQL to initialize (up to 30 seconds)..."
-for i in {1..30}; do
-    if mysqladmin ping -hlocalhost --silent; then
-        echo "MariaDB/MySQL started."
-        break
-    fi
-    echo -n "."
-    sleep 1
+# ---- wait for readiness via socket ----
+echo "Waiting for MySQL to be ready (up to 60s)..."
+for i in {1..60}; do
+  if mysqladmin --socket="$SOCKET" ping --silent; then
+    echo "mysqld is ready."
+    break
+  fi
+  sleep 1
 done
-
-if ! mysqladmin ping -hlocalhost --silent; then
-    echo "ERROR: MariaDB/MySQL failed to start after 30 seconds."
-    # Attempt to print logs if available
-    if [ -f "$DATADIR/$(hostname).err" ]; then
-        echo "Displaying MariaDB/MySQL error log:"
-        cat "$DATADIR/$(hostname).err"
-    fi
-    exit 1
+if ! mysqladmin --socket="$SOCKET" ping --silent; then
+  echo "ERROR: mysqld failed to start in time."
+  if [ -f "$DATADIR/$(hostname).err" ]; then
+    echo "----- mysqld error log -----"
+    cat "$DATADIR/$(hostname).err" || true
+  fi
+  exit 1
 fi
 
-# Check if the database exists.
-# Need to handle case where root password isn't set yet on first init.
-# Try without password first. If it fails, it means it's likely set (e.g. by a previous run or init).
-DB_EXISTS_QUERY="SHOW DATABASES LIKE 'refnl';"
-if mysql -uroot -e "$DB_EXISTS_QUERY" > /dev/null 2>&1; then
-    DB_EXISTS=$(mysql -uroot -e "$DB_EXISTS_QUERY" | grep "refnl" > /dev/null; echo "$?")
-elif mysql -uroot -p"password" -e "$DB_EXISTS_QUERY" > /dev/null 2>&1; then
-    DB_EXISTS=$(mysql -uroot -p"password" -e "$DB_EXISTS_QUERY" | grep "refnl" > /dev/null; echo "$?")
-else
-    # If neither works, assume DB doesn't exist and root password needs setting.
-    DB_EXISTS=1
-fi
+# ---- root password + remote root grant (no provisioning) ----
+# Keep root@localhost for socket/tunnel logins; add root@% for remote admin
+mysql --socket="$SOCKET" -uroot -p"${MYSQL_ROOT_PASSWORD}" <<SQL
+ALTER USER 'root'@'localhost' IDENTIFIED BY '${MYSQL_ROOT_PASSWORD}';
+CREATE USER IF NOT EXISTS 'root'@'%' IDENTIFIED BY '${MYSQL_ROOT_PASSWORD}';
+GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' WITH GRANT OPTION;
+FLUSH PRIVILEGES;
+SQL
 
-if [ "$DB_EXISTS" -eq "1" ]; then
-    echo "Database 'refnl' does not exist. Creating and provisioning..."
-    # Create database
-    mysql -uroot -e "CREATE DATABASE IF NOT EXISTS refnl CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
 
-    # Set/update root password and ensure root can connect from localhost (usually default)
-    # Note: Initial MySQL setup often has root without a password or with a temporary one.
-    # This command will set the root password.
-    mysql -uroot -e "ALTER USER 'root'@'localhost' IDENTIFIED BY 'password';"
-    mysql -uroot -p"password" -e "GRANT ALL PRIVILEGES ON refnl.* TO 'root'@'localhost';"
-    mysql -uroot -p"password" -e "FLUSH PRIVILEGES;"
+# Optional hardening: require SSL for remote root (comment out if you won’t use SSL clients)
+# mysql --socket="$SOCKET" -uroot -p"${MYSQL_ROOT_PASSWORD}" -e "ALTER USER 'root'@'%' REQUIRE SSL;"
 
-    echo "MySQL root password set to 'password' and granted privileges on 'refnl' database."
+# ---- show listener for quick sanity ----
+(if command -v ss >/dev/null 2>&1; then ss -lntp; else netstat -lntp; fi) 2>/dev/null | grep 3306 || true
 
-    # Run provisioning and seeding scripts
-    # The application will now connect as root with the new password.
-    # WORKDIR is /app, scripts are in php/provisioning/
-    # php php/provisioning/provision.php
-    # php php/provisioning/seed.php
-    echo "Database created and provisioned."
-else
-    echo "Database 'refnl' already exists."
-fi
-
-# Execute the CMD from the Dockerfile (apache2-foreground)
+# ---- hand off to Apache ----
 exec "$@"
