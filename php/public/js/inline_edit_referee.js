@@ -83,12 +83,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 loadingOption.textContent = 'Loading districts...';
                 inputElement.appendChild(loadingOption);
 
-                // If referee_detail.php and get_districts.php live in the same folder:
-                //   fetch('get_districts.php')
-                // If your page is in /referees/ and endpoint is also in /referees/:
-                //   fetch('get_districts.php')
-                // If your page is in /referees/ and endpoint is one level up:
-                //   fetch('../referees/get_districts.php')
+
                 fetch('get_districts.php', { headers: { 'Accept': 'application/json' } })
                     .then(response => {
                         if (!response.ok) throw new Error('HTTP ' + response.status);

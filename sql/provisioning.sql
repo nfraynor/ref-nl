@@ -70,7 +70,6 @@ CREATE TABLE IF NOT EXISTS teams (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Referees
--- Referees
 CREATE TABLE IF NOT EXISTS referees (
     uuid                      CHAR(36) PRIMARY KEY,
     ref_number                INT NOT NULL AUTO_INCREMENT UNIQUE,

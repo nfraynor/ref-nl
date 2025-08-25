@@ -439,7 +439,7 @@ document.getElementById('suggestAssignments')?.addEventListener('click', async (
     const queryString = params.toString();
 
     try {
-        const response = await fetch(`suggest_assignments.php${queryString ? '?' + queryString : ''}`);
+        const response = await fetch(`suggest_weekend_referees.php${queryString ? '?' + queryString : ''}`);
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
 
         const reader = response.body.getReader();

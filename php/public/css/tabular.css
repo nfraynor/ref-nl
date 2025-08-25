@@ -343,3 +343,64 @@ html { scrollbar-gutter: stable both-edges; }
 }
 .tabulator-cell:hover .assign-clear-btn{ visibility: visible; }
 .assign-clear-btn:hover{ opacity: .9; }
+/* Modal shell */
+.modal.hidden{ display:none; }
+.modal{
+    position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
+    background:rgba(15,23,42,.45); /* dim backdrop */
+    z-index: 1000; /* above sticky header */
+}
+
+/* Dialog */
+.modal__dialog{
+    background:#fff;
+    border-radius:16px;
+    width:min(1200px, 98vw);   /* wider */
+    overflow-y:auto;           /* scroll if content taller */
+    padding:16px 20px 20px;
+    box-shadow:0 10px 30px rgba(0,0,0,.15);
+}
+
+/* Header/body */
+.modal__header{ display:flex; align-items:center; justify-content:space-between; padding:4px 4px 8px; }
+.modal__close{ background:transparent; border:0; font-size:22px; line-height:1; cursor:pointer; }
+
+.modal__body{ padding:4px 0 0; }
+
+/* Reuse your existing add-row styles */
+.card-like{ background:#fff; border:1px solid var(--border); border-radius:14px; padding:12px; box-shadow:var(--shadow,none); }
+.add-row__grid{ display:grid; grid-template-columns:repeat(8, minmax(120px,1fr)); gap:10px; align-items:end; }
+.add-row__grid label{ display:flex; flex-direction:column; gap:6px; font-size:.9rem; }
+.add-row__actions{ display:flex; gap:8px; justify-content:flex-end; margin-top:8px; }
+.form-error{ color:#b91c1c; margin-top:6px; }
+@media (max-width:1200px){ .add-row__grid{ grid-template-columns:repeat(4,1fr); } }
+/* Modal width */
+#newMatchModal .modal__dialog{
+
+    width: 92vw;
+}
+
+/* Compact card padding inside modal */
+#newMatchModal .card-like{ padding: 16px; }
+
+/* Responsive grid:
+   - auto-fit columns of at least 160px
+   - inputs stretch full width
+*/
+.add-row__grid{
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px;
+    align-items: end;   /* keep bottoms aligned */
+}
+
+.add-row__grid label{ display:flex; flex-direction:column; gap:6px; min-width:0; }
+.add-row__grid input{ width:100%; }
+
+/* Let Location be wider when space allows */
+.add-row__grid .col-span-2{ grid-column: span 2; }
+
+/* On narrow screens we still get 2–3 columns cleanly */
+@media (max-width: 900px){
+    .add-row__grid{ grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
+}
