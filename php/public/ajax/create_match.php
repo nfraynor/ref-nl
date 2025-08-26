@@ -36,22 +36,34 @@ if (!$match_date || (!$home_team_id && !$home_team_txt) || (!$away_team_id && !$
 
 try {
     $pdo = Database::getConnection();
-
-    /* ---- Helpers to detect columns (so this works with either schema) ---- */
+    // Make sure PDO throws so we can see what failed
+    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $pdo->setAttribute(PDO::ATTR_EMULATE_PREPARES, true);
     $hasCol = function(PDO $pdo, string $table, string $col): bool {
         $q = $pdo->prepare("SHOW COLUMNS FROM `$table` LIKE :c");
         $q->execute([':c'=>$col]);
         return (bool)$q->fetch(PDO::FETCH_ASSOC);
     };
+
+    // ---- Detect columns present in `matches`
     $has_home_id     = $hasCol($pdo, 'matches', 'home_team_id');
+    $has_home_uuid   = $hasCol($pdo, 'matches', 'home_team_uuid');
     $has_away_id     = $hasCol($pdo, 'matches', 'away_team_id');
+    $has_away_uuid   = $hasCol($pdo, 'matches', 'away_team_uuid');
     $has_home_txt    = $hasCol($pdo, 'matches', 'home_team');
     $has_away_txt    = $hasCol($pdo, 'matches', 'away_team');
-    $has_location_id = $hasCol($pdo, 'matches', 'location_uuid');
-    $has_location_ad = $hasCol($pdo, 'matches', 'location_address');
 
-    /* ---- Resolve display labels for response + optional legacy address ---- */
-    // Team names for the grid row
+    $has_location_uuid = $hasCol($pdo, 'matches', 'location_uuid');
+    $has_location_addr = $hasCol($pdo, 'matches', 'location_address');
+
+    // Optional assignment columns
+    $has_assigner   = $hasCol($pdo, 'matches', 'referee_assigner_uuid');
+    $has_referee    = $hasCol($pdo, 'matches', 'referee_id');
+    $has_ar1        = $hasCol($pdo, 'matches', 'ar1_id');
+    $has_ar2        = $hasCol($pdo, 'matches', 'ar2_id');
+    $has_comm       = $hasCol($pdo, 'matches', 'commissioner_id');
+
+    // ---- Resolve labels for the response
     $home_label = $home_team_txt;
     $away_label = $away_team_txt;
 
@@ -66,22 +78,20 @@ try {
         $away_label = $stmt->fetchColumn() ?: $away_team_txt;
     }
 
-    // Location label (and optional address fallback)
     $resolved_location_label = $location_label;
     $resolved_location_addr  = $location_addr;
     if ($location_uuid) {
         $stmt = $pdo->prepare("
-      SELECT 
-        CASE
-          WHEN COALESCE(name,'')<>'' AND COALESCE(address_text,'')<>'' THEN CONCAT(name, ' – ', address_text)
-          ELSE COALESCE(name, address_text, '')
-        END AS label,
-        address_text
-      FROM locations WHERE uuid=:u
-    ");
+            SELECT 
+              CASE
+                WHEN COALESCE(name,'')<>'' AND COALESCE(address_text,'')<>'' THEN CONCAT(name, ' – ', address_text)
+                ELSE COALESCE(name, address_text, '')
+              END AS label,
+              address_text
+            FROM locations WHERE uuid=:u
+        ");
         $stmt->execute([':u'=>$location_uuid]);
-        $row = $stmt->fetch(PDO::FETCH_ASSOC);
-        if ($row) {
+        if ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
             $resolved_location_label = $row['label'];
             if (!$resolved_location_addr) $resolved_location_addr = $row['address_text'];
         }
@@ -90,11 +100,9 @@ try {
         $resolved_location_label = $resolved_location_addr;
     }
 
-    /* ---- Build INSERT dynamically based on available columns ---- */
-    $cols = ['uuid','match_date','kickoff_time','division','district','poule',
-        'referee_assigner_uuid','referee_id','ar1_id','ar2_id','commissioner_id'];
-    $vals = [':uuid',':match_date',':kickoff_time',':division',':district',':poule',
-        'NULL','NULL','NULL','NULL','NULL'];
+    // ---- Build INSERT dynamically
+    $cols = ['uuid','match_date','kickoff_time','division','district','poule'];
+    $vals = [':uuid',':match_date',':kickoff_time',':division',':district',':poule'];
     $bind = [
         ':uuid'         => $uuid,
         ':match_date'   => $match_date,
@@ -104,51 +112,109 @@ try {
         ':poule'        => $poule ?: null,
     ];
 
-    // teams: prefer *_id columns if present; otherwise fall back to text columns
-    if ($has_home_id && $has_away_id) {
+    // Teams: prefer uuid/id columns if available, else fall back to text columns
+    if ($has_home_uuid && $has_away_uuid) {
+        $cols[]='home_team_uuid'; $vals[]=':home_team_uuid'; $bind[':home_team_uuid'] = $home_team_id ?: null;
+        $cols[]='away_team_uuid'; $vals[]=':away_team_uuid'; $bind[':away_team_uuid'] = $away_team_id ?: null;
+    } elseif ($has_home_id && $has_away_id) {
         $cols[]='home_team_id'; $vals[]=':home_team_id'; $bind[':home_team_id'] = $home_team_id ?: null;
         $cols[]='away_team_id'; $vals[]=':away_team_id'; $bind[':away_team_id'] = $away_team_id ?: null;
     } elseif ($has_home_txt && $has_away_txt) {
         $cols[]='home_team'; $vals[]=':home_team'; $bind[':home_team'] = $home_label ?: $home_team_txt;
         $cols[]='away_team'; $vals[]=':away_team'; $bind[':away_team'] = $away_label ?: $away_team_txt;
     } else {
-        throw new RuntimeException('Matches table missing team columns.');
+        throw new RuntimeException('Matches table missing team columns (id/uuid/text).');
     }
 
-    // location: prefer location_uuid; else fall back to location_address
-    if ($has_location_id) {
-        $cols[]='location_uuid';  $vals[]=':location_uuid';  $bind[':location_uuid']  = $location_uuid ?: null;
-        // If your table also still has location_address and you want to keep it synced, uncomment:
-        // if ($has_location_ad) { $cols[]='location_address'; $vals[]=':location_address'; $bind[':location_address'] = $resolved_location_addr ?: null; }
-    } elseif ($has_location_ad) {
+    // Location: prefer location_uuid; else fall back to location_address if present
+    if ($has_location_uuid) {
+        $cols[]='location_uuid';    $vals[]=':location_uuid';    $bind[':location_uuid']    = $location_uuid ?: null;
+    } elseif ($has_location_addr) {
         $cols[]='location_address'; $vals[]=':location_address'; $bind[':location_address'] = $resolved_location_addr ?: $resolved_location_label ?: null;
-    } // else: no location columns, just skip
+    }
+    foreach ($cols as $c) {
+        if ($c === '' || $c === null) {
+            throw new RuntimeException('Empty column name detected in INSERT.');
+        }
+    }
+    // Optional assignment columns: include only if they exist
+    if ($has_assigner) { $cols[]='referee_assigner_uuid'; $vals[]='NULL'; }
+    if ($has_referee)  { $cols[]='referee_id';            $vals[]='NULL'; }
+    if ($has_ar1)      { $cols[]='ar1_id';                $vals[]='NULL'; }
+    if ($has_ar2)      { $cols[]='ar2_id';                $vals[]='NULL'; }
+    if ($has_comm)     { $cols[]='commissioner_id';       $vals[]='NULL'; }
 
-    $sql = "INSERT INTO matches (".implode(',', $cols).") VALUES (".implode(',', $vals).")";
+    $quoteId = function(string $id): string {
+        // allow letters, digits, underscore ONLY (adjust if you need more)
+        if (!preg_match('/^[A-Za-z0-9_]+$/', $id)) {
+            throw new RuntimeException("Illegal identifier: $id");
+        }
+        return "`$id`";
+    };
+
+    $cols_sql = implode(',', array_map($quoteId, $cols));
+    $sql = "INSERT INTO `matches` ($cols_sql) VALUES (".implode(',', $vals).")";
+    if (count($cols) !== count($vals)) {
+        throw new RuntimeException("Columns/values length mismatch: cols=".count($cols).", vals=".count($vals));
+    }
+
+// Extract placeholders from VALUES
+    $placeholders = [];
+    foreach ($vals as $v) {
+        if ($v === 'NULL') continue;
+        if (!preg_match('/^:[A-Za-z0-9_]+$/', $v)) {
+            throw new RuntimeException("Bad placeholder token in VALUES: ".$v);
+        }
+        $placeholders[] = $v;
+    }
+
+// Check that every placeholder is bound
+    foreach ($placeholders as $ph) {
+        if (!array_key_exists($ph, $bind)) {
+            throw new RuntimeException("Missing bind for placeholder ".$ph);
+        }
+    }
+
+// Check for extra binds that won’t be used (helps catch typos)
+    foreach ($bind as $k => $v) {
+        if (!in_array($k, $placeholders, true)) {
+            error_log("create_match WARN: extra bind key not used in SQL: ".$k);
+        }
+    }
     $stmt = $pdo->prepare($sql);
+    if (true) { // set to false in prod
+        error_log("create_match INSERT SQL: $sql");
+        // Log bound values in a readable way
+        $dbg = [];
+        foreach ($bind as $k => $v) {
+            $dbg[$k] = (is_null($v) ? 'NULL' : (string)$v);
+        }
+        error_log("create_match BIND: ".json_encode($dbg, JSON_UNESCAPED_SLASHES));
+    }
     $stmt->execute($bind);
 
-    /* ---- Response shaped for your grid (expects location_label) ---- */
     echo json_encode([
         'success'=>true,
         'row'=>[
-            'uuid'                    => $uuid,
-            'match_date'              => $match_date,
-            'kickoff_time'            => $kickoff_time ?: null,
-            'home_team'               => $home_label,
-            'away_team'               => $away_label,
-            'division'                => $division ?: null,
-            'district'                => $district ?: null,
-            'poule'                   => $poule ?: null,
-            'location_label'          => $resolved_location_label ?: null,   // used by the Location column & conflicts
-            'referee_assigner_uuid'   => null,
-            'referee_id'              => null,
-            'ar1_id'                  => null,
-            'ar2_id'                  => null,
-            'commissioner_id'         => null,
+            'uuid'           => $uuid,
+            'match_date'     => $match_date,
+            'kickoff_time'   => $kickoff_time ?: null,
+            'home_team'      => $home_label,
+            'away_team'      => $away_label,
+            'division'       => $division ?: null,
+            'district'       => $district ?: null,
+            'poule'          => $poule ?: null,
+            'location_label' => $resolved_location_label ?: null,
+            'referee_assigner_uuid' => null,
+            'referee_id'     => null,
+            'ar1_id'         => null,
+            'ar2_id'         => null,
+            'commissioner_id'=> null,
         ]
     ]);
 } catch (Throwable $e) {
+    // Log full details to server logs; return a helpful message in dev
+    error_log("create_match.php error: ".$e->getMessage());
     http_response_code(500);
-    echo json_encode(['success'=>false,'message'=>'Insert failed']);
+    echo json_encode(['success'=>false,'message'=>'Insert failed: '.$e->getMessage()]);
 }

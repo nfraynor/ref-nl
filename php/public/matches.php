@@ -3,7 +3,9 @@ require_once __DIR__ . '/../utils/session_auth.php';
 require_once __DIR__ . '/../utils/db.php';
 include 'includes/header.php';
 include 'includes/nav.php';
-
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
 $pdo = Database::getConnection();
 $assignMode = isset($_GET['assign_mode']) && $_GET['assign_mode'] == '1';
 
@@ -755,6 +757,17 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
 
             columns: [
                 {
+                    title: "", field: "actions", width: 56, hozAlign: "center", headerSort: false, frozen: true,
+                    formatter: () => `
+                        <button class="btn btn-ghost btn-icon delete-row-btn" title="Delete match" aria-label="Delete match">
+                          🗑️
+                        </button>`,
+                    cellClick: (e, cell) => {
+                        const rowData = cell.getRow().getData();
+                        confirmAndDeleteMatch(rowData.uuid, cell.getRow());
+                    }
+                },
+                {
                     title: "Date", field: "match_date", width: 120, sorter: "string", headerFilter: "input",
                     formatter: (cell) => {
                         const d = cell.getValue();
@@ -770,7 +783,7 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
                 { title: "Division", field: "division", headerFilter: "input", width: 140 },
                 { title: "District", field: "district", headerFilter: "input", width: 130 },
                 { title: "Poule", field: "poule", headerFilter: "input", width: 110 },
-                { title: "Location", field: "location_label", headerFilter: "input", minWidth: 200 }, // expects from API
+                { title: "Location", field: "location_label", headerFilter: "input", minWidth: 200, visible: false}, // expects from API
                 makeAssignerCol(),
                 makeRefereeCol("Referee",      "referee_id"),
                 makeRefereeCol("AR1",          "ar1_id"),
@@ -839,6 +852,34 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
             }
         });
     });
+
+    async function deleteMatchOnServer(uuid){
+        const res = await fetch('/ajax/delete_match.php', {
+            method: 'POST',
+            headers: { 'Content-Type':'application/x-www-form-urlencoded' },
+            body: `match_uuid=${encodeURIComponent(uuid)}`
+        });
+        const j = await res.json().catch(() => ({}));
+        if (!res.ok || !j?.success) {
+            throw new Error(j?.message || `Delete failed (HTTP ${res.status})`);
+        }
+    }
+
+
+    function confirmAndDeleteMatch(uuid, row){
+        if (!confirm('Delete this match? This cannot be undone.')) return;
+
+        row.getElement().style.opacity = 0.5;
+
+        deleteMatchOnServer(uuid).then(() => {
+            row.delete();
+            try { applyConflictClasses(table); } catch(e){}
+        }).catch(err => {
+            alert(err.message || 'Delete failed');
+            row.getElement().style.opacity = 1;
+        });
+    }
+
 </script>
 
 <?php include 'includes/footer.php'; ?>

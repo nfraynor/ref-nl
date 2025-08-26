@@ -29,3 +29,5 @@ ALTER TABLE referees
     ADD INDEX idx_referees_home_club_id (home_club_id),
     ADD INDEX idx_referees_district_id (district_id),
     ADD INDEX idx_referees_grade (grade);
+
+ALTER TABLE matches ADD COLUMN deleted_at DATETIME NULL DEFAULT NULL, ADD INDEX (deleted_at);

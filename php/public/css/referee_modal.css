@@ -190,3 +190,9 @@ html body #refereeFilterModal > span.select2-dropdown .select2-results__option {
     font-family: inherit; /* Ensure font consistency with the modal */
     /* Add any other overrides for padding, hover effects if needed */
 }
+.modal { z-index: 1055 !important; }
+.modal-backdrop { z-index: 1050 !important; }
+
+/* If any global CSS hid modals, force them visible when shown */
+.modal.show,
+.modal[aria-hidden="false"] { opacity: 1 !important; visibility: visible !important; }

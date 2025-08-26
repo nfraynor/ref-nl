@@ -1,7 +1,7 @@
 <?php
 require_once __DIR__ . '/../../utils/session_auth.php';
 require_once __DIR__ . '/../../utils/db.php';
-include '../includes/header.php';
+include '../includes/header.php'; // <body> likely begins here and includes BS5 bundle
 include '../includes/nav.php';
 
 $pdo = Database::getConnection();
@@ -68,9 +68,14 @@ $clubs = $pdo->query("SELECT uuid, club_name FROM clubs ORDER BY club_name")
     ->fetchAll(PDO::FETCH_ASSOC);
 ?>
 
-<!-- Add Referee Modal -->
-<div class="modal fade" id="addRefModal" tabindex="-1" aria-labelledby="addRefLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-md">
+<!-- Add Referee Modal (kept simple; JS will relocate under <body>) -->
+<div class="modal" id="addRefModal"
+     tabindex="-1"
+     role="dialog"
+     aria-labelledby="addRefLabel"
+     aria-modal="true"
+     aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-md" role="document">
         <div class="modal-content" style="border-radius:16px;">
             <div class="modal-header">
                 <h5 class="modal-title" id="addRefLabel">Add Referee</h5>
@@ -128,9 +133,6 @@ $clubs = $pdo->query("SELECT uuid, club_name FROM clubs ORDER BY club_name")
     </div>
 </div>
 
-
-
-
 <?php
 $referees = $pdo->query("
     SELECT 
@@ -149,14 +151,11 @@ $referees = $pdo->query("
 ")->fetchAll(PDO::FETCH_ASSOC);
 ?>
 <script>
-    const refereeData = <?=
-        json_encode($referees, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE);
-        ?>;
-
+    /* --------------------- Utilities --------------------- */
+    const refereeData = <?= json_encode($referees, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE); ?>;
     const esc = s => (s ?? '').toString()
         .replace(/&/g,'&amp;').replace(/</g,'&lt;')
         .replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
-
     const initials = (first, last) => {
         const a = (first||'').trim()[0] || '';
         const b = (last||'').trim()[0] || '';
@@ -165,21 +164,17 @@ $referees = $pdo->query("
     const gradeClass = g => (['A','B','C','D'].includes((g||'').toUpperCase()) ? `chip-${(g||'').toUpperCase()}` : 'chip-default');
     const gradeBadge = g => `<span class="badge ${gradeClass(g)}">${esc(g || '')}</span>`;
 
+    /* --------------------- Table --------------------- */
     document.addEventListener('DOMContentLoaded', () => {
-        const statsEl = document.getElementById('table-stats');
-
         const table = new Tabulator("#referees-table", {
             data: refereeData,
-            layout: "fitColumns",
             height: "70vh",
             placeholder: "No referees found",
             movableColumns: true,
             columnDefaults: { headerSortTristate: true, sorter: "string", tooltip: false },
-            layout: "fitColumns",
             layoutColumnsOnNewData: false,
             columnMinWidth: 110,
 
-            // polished UX
             reactiveData: false,
             pagination: true,
             paginationMode: "local",
@@ -187,7 +182,6 @@ $referees = $pdo->query("
             paginationSizeSelector: [25, 50, 100],
             responsiveLayout: "collapse",
             responsiveLayoutCollapseFormatter: function(data){
-                // small, clean collapse view
                 const lines = [];
                 if (data.email) lines.push(`📧 ${esc(data.email)}`);
                 if (data.phone) lines.push(`☎️ ${esc(data.phone)}`);
@@ -207,6 +201,7 @@ $referees = $pdo->query("
             },
 
             columns: [
+                { title: "First Name", field: "first_name", visible: false },
                 {
                     title: "Referee",
                     field: "last_name",
@@ -220,13 +215,13 @@ $referees = $pdo->query("
                         const sub = [d.home_club_name, d.home_location_city].filter(Boolean).join(" • ");
                         const id = encodeURIComponent(d.referee_id);
                         return `
-              <div class="name-cell">
-                <div class="avatar">${esc(initials(d.first_name, d.last_name))}</div>
-                <div>
-                  <div class="cell-title"><a href="referee_detail.php?id=${id}">${esc(full)}</a></div>
-                  ${sub ? `<div class="cell-sub">${esc(sub)}</div>` : ``}
-                </div>
-              </div>`;
+            <div class="name-cell">
+              <div class="avatar">${esc(initials(d.first_name, d.last_name))}</div>
+              <div>
+                <div class="cell-title"><a href="referee_detail.php?id=${id}">${esc(full)}</a></div>
+                ${sub ? `<div class="cell-sub">${esc(sub)}</div>` : ``}
+              </div>
+            </div>`;
                     },
                 },
                 {
@@ -255,8 +250,8 @@ $referees = $pdo->query("
                 {
                     title: "Grade",
                     field: "grade",
-                    headerFilter: "select",
-                    headerFilterParams: { values: ["A","B","C","D"] },
+                    headerFilter: "list",
+                    headerFilterParams: { values: ["A","B","C","D"], clearable: true },
                     headerFilterPlaceholder: "All",
                     hozAlign: "center",
                     width: 120,
@@ -265,8 +260,8 @@ $referees = $pdo->query("
                 {
                     title: "AR Grade",
                     field: "ar_grade",
-                    headerFilter: "select",
-                    headerFilterParams: { values: ["A","B","C","D"] },
+                    headerFilter: "list",
+                    headerFilterParams: { values: ["A","B","C","D"], clearable: true },
                     headerFilterPlaceholder: "All",
                     hozAlign: "center",
                     width: 120,
@@ -279,26 +274,21 @@ $referees = $pdo->query("
             ],
         });
 
-        window.refTable = table; // so the later block can find it
+        window.refTable = table;
 
-        function renderStats(filteredCount) {
+        // Stats
+        const renderStats = (filteredCount) => {
             const statsEl = document.getElementById('table-stats');
             if (!statsEl) return;
-
-            // If Tabulator gave us a filtered count, use it. Otherwise compute from current rows.
-            const currentRows = table.getData();            // all rows in current data set
+            const currentRows = table.getData();
             const total = filteredCount ?? currentRows.length;
-
-            // Count by grade
             const counts = currentRows.reduce((m, r) => {
                 const g = (r.grade || '').toUpperCase();
                 m[g] = (m[g] || 0) + 1;
                 return m;
             }, {});
-
             const chip = (label, n) =>
                 `<span style="display:inline-block;margin-right:.4rem;padding:.2rem .5rem;border:1px solid var(--border);border-radius:999px;font-weight:700;font-size:12px;background:var(--card);">${label}: ${n ?? 0}</span>`;
-
             statsEl.innerHTML = [
                 chip('Total', total),
                 chip('A', counts.A),
@@ -306,9 +296,7 @@ $referees = $pdo->query("
                 chip('C', counts.C),
                 chip('D', counts.D),
             ].join(' ');
-        }
-
-// initial render + keep updated on filter changes
+        };
         renderStats();
         table.on("dataFiltered", (filters, rows) => renderStats(rows.length));
 
@@ -321,7 +309,7 @@ $referees = $pdo->query("
             );
         });
 
-        // Quick grade pills
+        // Grade pills
         const pills = document.querySelectorAll('.grade-pills .pill');
         const setPillActive = (grade) => {
             pills.forEach(p => p.classList.toggle('is-active', p.dataset.grade === grade));
@@ -329,9 +317,12 @@ $referees = $pdo->query("
         const applyGradeFilter = (grade) => {
             table.clearFilter(true);
             if (grade) table.addFilter("grade", "=", grade);
-            // re-apply global text if any
             const q = document.getElementById("globalFilter").value.trim().toLowerCase();
-            if (q) table.addFilter((row) => Object.values(row).some(v => (v ?? "").toString().toLowerCase().includes(q)));
+            if (q) {
+                table.addFilter((data) =>
+                    Object.values(data).some(v => (v ?? "").toString().toLowerCase().includes(q))
+                );
+            }
             setPillActive(grade || "");
         };
         pills.forEach(p => p.addEventListener('click', () => applyGradeFilter(p.dataset.grade || "")));
@@ -346,67 +337,97 @@ $referees = $pdo->query("
         document.getElementById("downloadCsv").addEventListener("click", () => {
             table.download("csv", "referees.csv", { bom: true });
         });
-
-        // Stats
-        const countBy = (arr, key) => arr.reduce((m, x) => (m[x[key] || '']=(m[x[key]||'']||0)+1, m), {});
-        const all = table.getData();
-        const counts = countBy(all, "grade");
-        const total = all.length;
-        const chip = (label, n) => `<span style="display:inline-block;margin-right:.4rem;padding:.2rem .5rem;border:1px solid var(--border);border-radius:999px;font-weight:700;font-size:12px;background:var(--card);">${label}: ${n ?? 0}</span>`;
-        renderStats();
-        table.on("dataFiltered", (filters, rows) => renderStats(rows.length));
     });
 
+    /* --------------------- Modal (Bootstrap 5 only) --------------------- */
     document.addEventListener('DOMContentLoaded', () => {
-        // Ensure we can reach the Tabulator instance:
-        const table = window.refTable
-
-        const addBtn = document.getElementById('addRefBtn');
         const modalEl = document.getElementById('addRefModal');
-        const modal = new bootstrap.Modal(modalEl, { backdrop: 'static' });
+        const trigger = document.getElementById('addRefBtn');
 
+        if (!modalEl) return;
+
+        // Move under <body> (best practice to avoid hidden ancestors)
+        if (modalEl.parentElement !== document.body) {
+            document.body.appendChild(modalEl);
+        }
+
+        // Force-HIDE on load in case a previous crash left it open
+        const hardHide = () => {
+            modalEl.classList.remove('show');
+            modalEl.style.display = 'none';
+            modalEl.setAttribute('aria-hidden', 'true');
+            document.querySelectorAll('.modal-backdrop').forEach(b => b.remove());
+            document.body.classList.remove('modal-open');
+            document.body.style.removeProperty('padding-right');
+        };
+        hardHide();
+
+        // Remove data-api attrs to avoid double inits
+        trigger?.removeAttribute('data-bs-toggle');
+        trigger?.removeAttribute('data-bs-target');
+
+        // Create/get instance
+        const bsModal = bootstrap.Modal.getOrCreateInstance(modalEl, {
+            backdrop: 'static',
+            keyboard: true,
+            focus: true
+        });
+
+        // Show from button
+        trigger?.addEventListener('click', (e) => {
+            e.preventDefault();
+            // scrub any hidden/inert on ancestors
+            let cur = modalEl;
+            while (cur && cur !== document.documentElement) {
+                cur.removeAttribute?.('aria-hidden');
+                cur.removeAttribute?.('inert');
+                cur = cur.parentElement;
+            }
+            bsModal.show();
+        });
+
+        // Focus management and cleanup
+        modalEl.addEventListener('shown.bs.modal', () => {
+            document.getElementById('first_name')?.focus();
+        });
+        modalEl.addEventListener('hidden.bs.modal', () => {
+            trigger?.focus();
+            hardHide(); // ensure no stale state
+        });
+
+        // Submit handling (hide on success)
         const form = document.getElementById('addRefForm');
         const alertBox = document.getElementById('addRefAlert');
         const submitBtn = document.getElementById('addRefSubmit');
-        const spinner = submitBtn.querySelector('.spinner-border');
-        const submitText = submitBtn.querySelector('.submit-text');
-
+        const spinner = submitBtn?.querySelector('.spinner-border');
+        const submitText = submitBtn?.querySelector('.submit-text');
         const setBusy = (busy) => {
+            if (!submitBtn) return;
             submitBtn.disabled = busy;
-            spinner.classList.toggle('d-none', !busy);
-            submitText.textContent = busy ? 'Creating…' : 'Create';
+            spinner?.classList.toggle('d-none', !busy);
+            if (submitText) submitText.textContent = busy ? 'Creating…' : 'Create';
         };
 
-        addBtn.addEventListener('click', () => {
-            alertBox.classList.add('d-none');
-            form.reset();
-            modal.show();
-        });
-
-        form.addEventListener('submit', async (e) => {
+        form?.addEventListener('submit', async (e) => {
             e.preventDefault();
-            alertBox.classList.add('d-none');
+            alertBox?.classList.add('d-none');
 
-            // basic front-end validation
-            const first_name = document.getElementById('first_name').value.trim();
-            const last_name = document.getElementById('last_name').value.trim();
-            const email = document.getElementById('email').value.trim();
-            const grade = document.getElementById('grade').value.trim().toUpperCase();
+            const first_name   = document.getElementById('first_name').value.trim();
+            const last_name    = document.getElementById('last_name').value.trim();
+            const email        = document.getElementById('email').value.trim();
+            const grade        = document.getElementById('grade').value.trim().toUpperCase();
             const home_club_id = document.getElementById('home_club_id').value || null;
 
             if (!first_name || !last_name || !email || !grade) {
-                alertBox.textContent = 'Please fill in all required fields.';
-                alertBox.classList.remove('d-none');
+                if (alertBox) { alertBox.textContent = 'Please fill in all required fields.'; alertBox.classList.remove('d-none'); }
                 return;
             }
             if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-                alertBox.textContent = 'Please enter a valid email address.';
-                alertBox.classList.remove('d-none');
+                if (alertBox) { alertBox.textContent = 'Please enter a valid email address.'; alertBox.classList.remove('d-none'); }
                 return;
             }
             if (!['A','B','C','D'].includes(grade)) {
-                alertBox.textContent = 'Grade must be A, B, C, or D.';
-                alertBox.classList.remove('d-none');
+                if (alertBox) { alertBox.textContent = 'Grade must be A, B, C, or D.'; alertBox.classList.remove('d-none'); }
                 return;
             }
 
@@ -417,22 +438,19 @@ $referees = $pdo->query("
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ first_name, last_name, email, grade, home_club_id })
                 });
-
                 const data = await res.json().catch(() => ({}));
                 if (!res.ok) {
-                    // 409 from server for duplicate email, 400 validation, 500 fallback
-                    alertBox.textContent = data.message || 'Failed to create referee.';
-                    alertBox.classList.remove('d-none');
+                    if (alertBox) { alertBox.textContent = data.message || 'Failed to create referee.'; alertBox.classList.remove('d-none'); }
                     return;
                 }
 
-                // success -> add row to table and close
-                if (data && data.referee && table) {
-                    // Insert at top
-                    table.addData([data.referee], true);
+                // Add to table and close modal
+                if (data && data.referee && window.refTable) {
+                    window.refTable.addData([data.referee], true);
                 }
-                modal.hide();
-                // Optional: flash a quick success
+                bsModal.hide(); // will also call hardHide() via 'hidden' handler
+
+                // Quick success flash
                 const stats = document.getElementById('table-stats');
                 if (stats) {
                     const old = stats.innerHTML;
@@ -440,8 +458,7 @@ $referees = $pdo->query("
                     setTimeout(() => (stats.innerHTML = old), 2500);
                 }
             } catch (err) {
-                alertBox.textContent = 'Network error. Please try again.';
-                alertBox.classList.remove('d-none');
+                if (alertBox) { alertBox.textContent = 'Network error. Please try again.'; alertBox.classList.remove('d-none'); }
             } finally {
                 setBusy(false);
             }
@@ -449,4 +466,4 @@ $referees = $pdo->query("
     });
 </script>
 
-<?php include '../includes/footer.php'; ?>
+<?php include '../includes/footer.php'; // </body> likely ends here ?>
