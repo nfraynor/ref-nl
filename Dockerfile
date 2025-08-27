@@ -6,8 +6,6 @@ RUN apt-get update && apt-get install -y \
     git \
     unzip \
     libzip-dev \
-    default-mysql-client \
-    default-mysql-server \
     && rm -rf /var/lib/apt/lists/*
 
 # Install PHP extensions
@@ -29,9 +27,6 @@ COPY 000-default.conf /etc/apache2/sites-available/000-default.conf
 
 # Set working directory to the project root within the container
 WORKDIR /app
-
-# Add VOLUME instruction for MySQL data persistence
-VOLUME /var/lib/mysql
 
 # Expose port 80 for Apache
 EXPOSE 80
