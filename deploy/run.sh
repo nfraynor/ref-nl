@@ -2,10 +2,10 @@
 set -e
 
 echo "🔄 Pulling latest images..."
-docker compose pull -f deploy-stack.yml
+docker compose -f deploy-stack.yml pull
 
 echo "🚀 Rebuilding and starting containers..."
-docker compose up -f deploy-stack.yml -d --build
+docker compose -f deploy-stack.yml up -d --build
 
 echo "🧹 Cleaning up unused images..."
 docker image prune -f
