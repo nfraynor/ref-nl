@@ -1,0 +1,55 @@
+version: "3.9"
+
+services:
+  db:
+    image: nfraynor/ref-app-db:latest
+    container_name: rugbyref-db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: super-strong-root-secret
+      MYSQL_DATABASE: refnl
+      MYSQL_USER: root
+      MYSQL_PASSWORD: super-strong-root-secret
+    volumes:
+      - db_data:/var/lib/mysql
+
+  apache:
+    image: nfraynor/ref-app-apache:latest
+    container_name: rugbyref-apache
+    restart: unless-stopped
+    depends_on:
+      - db
+    environment:
+      DB_HOST: db
+      DB_NAME: rugbyref
+      DB_USER: rugbyref_app
+      DB_PASS: ${DB_APP_PASSWORD}
+    volumes:
+      - ./apache/app:/var/www/html     # only if you still want live code mounts
+    # no ports; only reachable via HAProxy
+
+  haproxy:
+    image: nfraynor/ref-app-haproxy:latest
+    container_name: rugbyref-haproxy
+    restart: unless-stopped
+    depends_on:
+      - apache
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - haproxy_certs:/etc/haproxy/certs
+
+  certbot:
+    image: certbot/certbot:latest
+    container_name: rugbyref-certbot
+    restart: unless-stopped
+    volumes:
+      - letsencrypt:/etc/letsencrypt
+      - ./apache/app/php/public:/var/www/html:rw
+      - haproxy_certs:/etc/haproxy/certs
+
+volumes:
+  db_data:
+  letsencrypt:
+  haproxy_certs:
