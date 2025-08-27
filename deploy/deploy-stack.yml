@@ -8,7 +8,7 @@ services:
     environment:
       MYSQL_ROOT_PASSWORD: super-strong-root-secret
       MYSQL_DATABASE: refnl
-      MYSQL_USER: root
+      MYSQL_USER: referee
       MYSQL_PASSWORD: super-strong-root-secret
     volumes:
       - db_data:/var/lib/mysql
