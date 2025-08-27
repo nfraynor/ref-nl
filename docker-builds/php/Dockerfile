@@ -10,8 +10,7 @@ RUN a2enmod rewrite
 COPY ./docker-builds/php/000-default.conf /etc/apache2/sites-available/000-default.conf
 COPY ./docker-builds/php/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
-
-# now we can copy from repo root because context is "."
+RUN mkdir -p /var/www/html/php/public/.well-known/acme-challenge
 COPY . /app
 
 RUN chown -R www-data:www-data /var/www/html

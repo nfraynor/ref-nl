@@ -21,13 +21,12 @@ services:
       - db
     environment:
       DB_HOST: db
-      DB_NAME: rugbyref
-      DB_USER: rugbyref_app
-      DB_PASS: ${DB_APP_PASSWORD}
-    # Mount ONLY the challenge dir (Apache serves it over HTTP:80)
+      DB_NAME: refnl                  # ← match DB
+      DB_USER: root                # ← match DB
+      DB_PASS: super-strong-root-secret
     volumes:
+      # Share only the ACME dir with certbot (Apache serves it on HTTP:80)
       - acme_challenge:/var/www/html/php/public/.well-known/acme-challenge
-    # no ports; only reachable via HAProxy
 
   haproxy:
     image: nfraynor/ref-app-haproxy:latest
@@ -54,3 +53,4 @@ volumes:
   db_data:
   letsencrypt:
   haproxy_certs:
+  acme_challenge:
