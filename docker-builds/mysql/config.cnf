@@ -1,0 +1,26 @@
+[mysqld]
+# Character set
+character-set-server = utf8mb4
+collation-server     = utf8mb4_0900_ai_ci
+
+# InnoDB
+innodb_buffer_pool_size = 512M
+innodb_log_file_size    = 256M
+innodb_flush_method     = O_DIRECT
+innodb_file_per_table   = 1
+
+# SQL mode (keep strict)
+sql_mode = STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_ZERO_DATE,NO_ZERO_IN_DATE,NO_ENGINE_SUBSTITUTION
+
+# Connections
+max_connections = 200
+
+# Network
+bind-address = 0.0.0.0
+
+# Authentication (default is caching_sha2_password; PHP 8.1+ supports it)
+# To force legacy (not recommended), uncomment:
+# default_authentication_plugin = mysql_native_password
+
+[client]
+default-character-set = utf8mb4
