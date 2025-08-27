@@ -24,8 +24,9 @@ services:
       DB_NAME: rugbyref
       DB_USER: rugbyref_app
       DB_PASS: ${DB_APP_PASSWORD}
+    # Mount ONLY the challenge dir (Apache serves it over HTTP:80)
     volumes:
-      - ./apache/app:/var/www/html     # only if you still want live code mounts
+      - acme_challenge:/var/www/html/php/public/.well-known/acme-challenge
     # no ports; only reachable via HAProxy
 
   haproxy:
@@ -46,7 +47,7 @@ services:
     restart: unless-stopped
     volumes:
       - letsencrypt:/etc/letsencrypt
-      - ./apache/app/php/public:/var/www/html:rw
+      - acme_challenge:/var/www/html/php/public/.well-known/acme-challenge
       - haproxy_certs:/etc/haproxy/certs
 
 volumes:
