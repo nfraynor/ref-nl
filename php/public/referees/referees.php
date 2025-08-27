@@ -205,23 +205,32 @@ $referees = $pdo->query("
                 {
                     title: "Referee",
                     field: "last_name",
-                    widthGrow: 2.4,
+                    visible: false},
+                {
+                    title: "Referee",
+                    field: "full_name",
                     headerFilter: "input",
                     headerFilterPlaceholder: "Filter by name",
-                    accessorDownload: (value, data) => [data.first_name, data.last_name].filter(Boolean).join(" "),
+                    sorter: "string",
+                    mutator: (value, data) => {
+                        return [data.first_name, data.last_name].filter(Boolean).join(" ");
+                    },
+                    accessorDownload: (value, data) => {
+                        return [data.first_name, data.last_name].filter(Boolean).join(" ");
+                    },
                     formatter: (cell) => {
                         const d = cell.getData();
                         const full = [d.first_name, d.last_name].filter(Boolean).join(" ");
                         const sub = [d.home_club_name, d.home_location_city].filter(Boolean).join(" • ");
                         const id = encodeURIComponent(d.referee_id);
                         return `
-            <div class="name-cell">
-              <div class="avatar">${esc(initials(d.first_name, d.last_name))}</div>
-              <div>
-                <div class="cell-title"><a href="referee_detail.php?id=${id}">${esc(full)}</a></div>
-                ${sub ? `<div class="cell-sub">${esc(sub)}</div>` : ``}
-              </div>
-            </div>`;
+                  <div class="name-cell">
+                    <div class="avatar">${esc(initials(d.first_name, d.last_name))}</div>
+                    <div>
+                      <div class="cell-title"><a href="referee_detail.php?id=${id}">${esc(full)}</a></div>
+                      ${sub ? `<div class="cell-sub">${esc(sub)}</div>` : ``}
+                    </div>
+                  </div>`;
                     },
                 },
                 {
