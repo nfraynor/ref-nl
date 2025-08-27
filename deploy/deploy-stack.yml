@@ -21,12 +21,11 @@ services:
       - db
     environment:
       DB_HOST: db
-      DB_NAME: refnl                  # ← match DB
-      DB_USER: root                # ← match DB
+      DB_NAME: refnl
+      DB_USER: referee
       DB_PASS: super-strong-root-secret
     volumes:
-      # Share only the ACME dir with certbot (Apache serves it on HTTP:80)
-      - acme_challenge:/var/www/html/php/public/.well-known/acme-challenge
+      - acme_challenge:/acme   # <-- fixed mount for ACME alias
 
   haproxy:
     image: nfraynor/ref-app-haproxy:latest
@@ -46,7 +45,7 @@ services:
     restart: unless-stopped
     volumes:
       - letsencrypt:/etc/letsencrypt
-      - acme_challenge:/var/www/html/php/public/.well-known/acme-challenge
+      - acme_challenge:/acme         # <-- same path as Apache alias
       - haproxy_certs:/etc/haproxy/certs
 
 volumes:
