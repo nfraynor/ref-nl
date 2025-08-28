@@ -393,7 +393,7 @@ $locationByUuid = [];
 foreach ($location_map as $loc) {
     $locationByUuid[$loc['uuid']] = $loc;
 }
-
+/*
 echo "Seeding Matches...\n";
 $seeded_matches_count = 0;
 $existing_matches_count = 0;
@@ -406,7 +406,7 @@ $stmt_insert_match = $pdo->prepare("
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ");
 
-/* Uniqueness check: date+time+teams+address (NULL-safe) */
+
 $stmt_check_match = $pdo->prepare("
     SELECT uuid
     FROM matches
@@ -454,7 +454,7 @@ foreach ($matches_data as $match) {
     $seeded_matches_count++;
 }
 
-echo "Matches: {$seeded_matches_count} seeded, {$existing_matches_count} already existed.\n";
+echo "Matches: {$seeded_matches_count} seeded, {$existing_matches_count} already existed.\n";*/
 
 // ----- Additional Users -----
 $newUsers = [

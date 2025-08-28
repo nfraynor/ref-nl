@@ -59,7 +59,7 @@
                 $clear_script = __DIR__ . '/../provisioning/clear_schema.php';
                 $provision_script = __DIR__ . '/../provisioning/provision.php';
                 $seed_district = __DIR__ . '/../provisioning/seed-district.php';
-                $seed_script = __DIR__ . '/../provisioning/seed-real.php';
+                //$seed_script = __DIR__ . '/../provisioning/seed-real.php';
                 $ref_seed_script = __DIR__ . '/../provisioning/seed-ref.php';
 
                 // Stage 1: Clear Schema
@@ -138,7 +138,7 @@
                 }
 
                 // Stage 3: Seed Database
-                if (!$error_occured) {
+                /*if (!$error_occured) {
                     $output_log .= "--- Stage 3: Seeding Database ---\n";
                     $output_log .= "Executing: php " . basename($seed_script) . "\n";
                     $current_output = shell_exec("php " . escapeshellarg($seed_script) . " 2>&1");
@@ -163,7 +163,7 @@
                 } else {
                     $output_log .= "--- Stage 3: Seeding Database (SKIPPED due to previous errors) ---\n\n";
                 }
-
+*/
                 // Stage 4: Seed Database
                 if (!$error_occured) {
                     $output_log .= "--- Stage 4: Seeding Referees ---\n";

@@ -103,7 +103,7 @@ foreach ($referee_rows as $row) {
         'home_club_id' => null, // Ignored
         'home_location_city' => null, // Set to null as per fix
         'grade' => $grade,
-        'ar_grade' => $ar_grade,
+        'ar_grade' => $grade,
         'home_lat' => $home_lat,
         'home_lon' => $home_lon,
         'district_id' => $district_id

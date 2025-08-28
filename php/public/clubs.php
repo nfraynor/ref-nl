@@ -25,7 +25,7 @@ $clubs = $pdo->query("
     <div class="content-card">
         <!-- Hero/header (same structure/classes as Referees) -->
         <div class="referees-hero">
-            <div class="referees-hero__bg"></div>
+            <div class="referees-hero__bg" aria-hidden="true"></div>
             <div class="referees-hero__content">
                 <div class="referees-title-div">
                     <h1 class="referees-title">Clubs</h1>
@@ -231,6 +231,13 @@ $clubs = $pdo->query("
                 const modalEl = document.getElementById('addClubModal');
                 if (modalEl) new bootstrap.Modal(modalEl, { backdrop: 'static' }).show();
             });
+        }
+    });
+    document.addEventListener('DOMContentLoaded', () => {
+        const hasVisibleModal = document.querySelector('.modal.show');
+        if (!hasVisibleModal) {
+            document.body.classList.remove('modal-open');
+            document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
         }
     });
 </script>

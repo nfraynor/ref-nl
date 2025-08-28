@@ -9,9 +9,12 @@ RUN apt-get update && apt-get install -y \
 RUN a2enmod rewrite headers
 
 # VHost + entrypoint
-COPY ./docker-builds/php/000-default.conf /etc/apache2/sites-available/000-default.conf
+COPY 000-default.conf /etc/apache2/sites-available/000-default.conf
 COPY ./docker-builds/php/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
+RUN sed -i 's/\r$//' /usr/local/bin/entrypoint.sh && chmod +x /usr/local/bin/entrypoint.sh
+
+RUN echo "== Active vhost in image ==" && sed -n '1,60p' /etc/apache2/sites-available/000-default.conf
 
 # Put the app where your vhost points
 WORKDIR /app
