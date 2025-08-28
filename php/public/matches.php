@@ -175,7 +175,7 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
 </div>
 
 <!-- Add Match Modal -->
-<div id="newMatchModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="newMatchTitle">
+<div id="newMatchModal" class="app-modal hidden" role="dialog" aria-modal="true" aria-labelledby="newMatchTitle">
     <div class="modal__dialog">
         <div class="modal__header">
             <h3 id="newMatchTitle">New Match</h3>
@@ -879,6 +879,27 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
             row.getElement().style.opacity = 1;
         });
     }
+    (function(){
+        const modal   = document.getElementById('newMatchModal');
+        const openBtn = document.getElementById('newMatchBtn');
+        const closeBtn= modal?.querySelector('.modal__close');
+
+        function open(){
+            modal.classList.remove('hidden');
+            modal.classList.add('app-modal-open');
+            (document.getElementById('add_date') || document.getElementById('add_home'))?.focus();
+        }
+        function close(){
+            modal.classList.remove('app-modal-open');
+            modal.classList.add('hidden');
+        }
+
+        openBtn?.addEventListener('click', open);
+        closeBtn?.addEventListener('click', close);
+        modal?.addEventListener('click', (e)=>{ if (e.target === modal) close(); });
+        document.addEventListener('keydown', (e)=>{ if (e.key === 'Escape' && !modal.classList.contains('hidden')) close(); });
+    })();
+
 
 </script>
 
