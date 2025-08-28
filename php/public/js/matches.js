@@ -379,6 +379,29 @@ document.addEventListener('DOMContentLoaded', () => {
     // Prepare Tom Select and run initial sweep
     prepareAssignUI(document);
 });
+function extractJsonObjects(buffer) {
+    const out = [];
+    let depth = 0, inStr = false, esc = false, start = 0;
+    for (let i = 0; i < buffer.length; i++) {
+        const ch = buffer[i];
+        if (inStr) {
+            if (esc) { esc = false; continue; }
+            if (ch === '\\') { esc = true; continue; }
+            if (ch === '"') { inStr = false; }
+            continue;
+        } else {
+            if (ch === '"') { inStr = true; continue; }
+            if (ch === '{') { if (depth === 0) start = i; depth++; continue; }
+            if (ch === '}') {
+                depth--;
+                if (depth === 0) out.push(buffer.slice(start, i + 1));
+                continue;
+            }
+        }
+    }
+    const remainder = depth > 0 ? buffer.slice(start) : '';
+    return { objects: out, remainder };
+}
 
 // Re-scan conflicts whenever a selection changes (Tom Select fires native 'change' on <select>)
 document.addEventListener('change', debounce((e) => {
@@ -442,59 +465,40 @@ document.getElementById('suggestAssignments')?.addEventListener('click', async (
         const response = await fetch(`suggest_weekend_referees.php${queryString ? '?' + queryString : ''}`);
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
 
-        const reader = response.body.getReader();
+        const reader  = response.body.getReader();
         const decoder = new TextDecoder();
-        let buffer = '';
+        let buf = '';
+        let suggestions = {}; // keep latest payload
 
-        const processStream = async () => {
-            while (true) {
-                const { value, done } = await reader.read();
-                if (done) break;
+        for (;;) {
+            const { value, done } = await reader.read();
+            if (done) break;
 
-                buffer += decoder.decode(value, { stream: true });
-                const lines = buffer.split('\n');
-                buffer = lines.pop(); // Keep the last partial line
+            buf += decoder.decode(value, { stream: true });
 
-                for (const line of lines) {
-                    if (line.trim() === '') continue;
-                    try {
-                        const data = JSON.parse(line);
+            // carve out complete JSON objects even if glued together without newlines
+            const { objects, remainder } = extractJsonObjects(buf);
+            buf = remainder;
 
-                        // Update progress bar
-                        progressBar.style.setProperty('--progress-width', `${data.progress}%`);
-                        progressBar.setAttribute('aria-valuenow', data.progress);
-                        progressText.textContent = data.message;
+            for (const jsonStr of objects) {
+                try {
+                    const data = JSON.parse(jsonStr);
 
-                        // Final suggestions payload
-                        if (data.progress === 100 && data.suggestions) {
-                            for (const matchId in data.suggestions) {
-                                if (!suggestedAssignments[matchId]) suggestedAssignments[matchId] = {};
-                                const matchSuggestions = data.suggestions[matchId];
-
-                                for (const role in matchSuggestions) {
-                                    const refId = matchSuggestions[role];
-                                    suggestedAssignments[matchId][role] = refId;
-
-                                    const select = document.querySelector(`select[name="assignments[${matchId}][${role}]"]`);
-                                    if (select) {
-                                        setSelectValue(select, refId ?? "");
-                                    }
-                                }
-                            }
-
-                            if (typeof window.fullRefreshConflicts === 'function') {
-                                window.fullRefreshConflicts();
-                            }
-                            scanAssignmentsAndFlagConflicts(document);
-                        }
-                    } catch (e) {
-                        console.error('Error parsing progress update:', e, 'Line:', line);
+                    // progress UI is optional; guard your elements if needed
+                    if (typeof data.progress === 'number') {
+                        // progressBar.style.setProperty('--progress-width', `${data.progress}%`);
+                        // progressBar.setAttribute('aria-valuenow', data.progress);
+                        // if (data.message) progressText.textContent = data.message;
                     }
+
+                    if (data.suggestions) {
+                        suggestions = data.suggestions; // keep/merge as you prefer
+                    }
+                } catch (e) {
+                    console.warn('Skipping malformed chunk:', e);
                 }
             }
-        };
-
-        await processStream();
+        }
 
     } catch (error) {
         console.error('Error fetching suggestions:', error);

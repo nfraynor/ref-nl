@@ -400,7 +400,6 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
             }
         }
 
-
         function onHomeChanged(){
             const uuid = resolveTeamUUID(homeInput, 'home_list');
             homeUUIDHidden.value = uuid;
@@ -686,6 +685,31 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
         };
     }
 
+    // Brace-depth JSON splitter (handles `}{` and no newlines)
+    function extractJsonObjects(buffer) {
+        const out = [];
+        let depth = 0, inStr = false, esc = false, start = 0;
+        for (let i = 0; i < buffer.length; i++) {
+            const ch = buffer[i];
+            if (inStr) {
+                if (esc) { esc = false; continue; }
+                if (ch === '\\') { esc = true; continue; }
+                if (ch === '"') { inStr = false; }
+                continue;
+            } else {
+                if (ch === '"') { inStr = true; continue; }
+                if (ch === '{') { if (depth === 0) start = i; depth++; continue; }
+                if (ch === '}') {
+                    depth--;
+                    if (depth === 0) out.push(buffer.slice(start, i + 1));
+                    continue;
+                }
+            }
+        }
+        const remainder = depth > 0 ? buffer.slice(start) : '';
+        return { objects: out, remainder };
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
         const statsEl = document.getElementById('table-stats');
         const startEl = document.getElementById('startDate');
@@ -865,12 +889,9 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
         }
     }
 
-
     function confirmAndDeleteMatch(uuid, row){
         if (!confirm('Delete this match? This cannot be undone.')) return;
-
         row.getElement().style.opacity = 0.5;
-
         deleteMatchOnServer(uuid).then(() => {
             row.delete();
             try { applyConflictClasses(table); } catch(e){}
@@ -879,28 +900,147 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
             row.getElement().style.opacity = 1;
         });
     }
-    (function(){
-        const modal   = document.getElementById('newMatchModal');
-        const openBtn = document.getElementById('newMatchBtn');
-        const closeBtn= modal?.querySelector('.modal__close');
 
-        function open(){
-            modal.classList.remove('hidden');
-            modal.classList.add('app-modal-open');
-            (document.getElementById('add_date') || document.getElementById('add_home'))?.focus();
-        }
-        function close(){
-            modal.classList.remove('app-modal-open');
-            modal.classList.add('hidden');
-        }
+    // ---- Suggest button (streaming JSON parser; guard against double-binding) ----
+    document.addEventListener('DOMContentLoaded', () => {
+        const btn = document.getElementById('suggestAssignments');
+        if (!btn) return;
 
-        openBtn?.addEventListener('click', open);
-        closeBtn?.addEventListener('click', close);
-        modal?.addEventListener('click', (e)=>{ if (e.target === modal) close(); });
-        document.addEventListener('keydown', (e)=>{ if (e.key === 'Escape' && !modal.classList.contains('hidden')) close(); });
-    })();
+        if (window.__suggestHandlerBound) return;
+        window.__suggestHandlerBound = true;
 
+        btn.addEventListener('click', async (event) => {
+            const el = event.currentTarget;
+            const original = el.textContent;
+            el.disabled = true; el.textContent = 'Suggesting…';
 
+            // Progress UI (optional)
+            const barC = document.getElementById('suggestionProgressBarContainer');
+            const bar  = document.getElementById('suggestionProgressBar');
+            const txt  = document.getElementById('suggestionProgressText');
+            const hasProgressUI = !!(barC && bar && txt);
+            if (hasProgressUI) {
+                barC.style.display = 'block';
+                txt.style.display = 'block';
+                bar.setAttribute('aria-valuenow', '0');
+                txt.textContent = 'Starting...';
+            }
+
+            // Build query from current page filters
+            const start  = document.getElementById('startDate')?.value || '';
+            const end    = document.getElementById('endDate')?.value || '';
+            const search = document.getElementById('globalFilter')?.value?.trim() || '';
+            const qs = new URLSearchParams();
+            if (start)  qs.set('start_date', start);
+            if (end)    qs.set('end_date', end);
+            if (search) qs.set('search', search);
+
+            const url = '/suggest_weekend_referees.php' + (qs.toString() ? `?${qs}` : '');
+
+            try {
+                const res = await fetch(url);
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+                // Always parse as stream (handles application/json and concatenated objects)
+                let suggestions = {};
+                const reader = res.body && res.body.getReader ? res.body.getReader() : null;
+
+                if (reader) {
+                    const decoder = new TextDecoder();
+                    let buf = '';
+                    for (;;) {
+                        const { value, done } = await reader.read();
+                        if (done) break;
+
+                        buf += decoder.decode(value, { stream: true });
+
+                        const { objects, remainder } = extractJsonObjects(buf);
+                        buf = remainder;
+
+                        for (const jsonStr of objects) {
+                            try {
+                                const obj = JSON.parse(jsonStr);
+                                if (hasProgressUI && typeof obj.progress === 'number') {
+                                    bar.style.setProperty('--progress-width', `${obj.progress}%`);
+                                    bar.setAttribute('aria-valuenow', String(obj.progress));
+                                    if (obj.message) txt.textContent = obj.message;
+                                }
+                                if (obj.suggestions) {
+                                    // accumulate across chunks
+                                    Object.assign(suggestions, obj.suggestions);
+                                }
+                            } catch (e) {
+                                console.warn('Skipping malformed chunk:', e);
+                            }
+                        }
+                    }
+
+                    if (hasProgressUI) {
+                        bar.style.setProperty('--progress-width', '100%');
+                        bar.setAttribute('aria-valuenow', '100');
+                        if (!txt.textContent) txt.textContent = 'Done';
+                    }
+                } else {
+                    // Fallback: non-streaming
+                    const text = await res.text();
+                    const { objects } = extractJsonObjects(text);
+                    if (objects.length) {
+                        for (const s of objects) {
+                            const obj = JSON.parse(s);
+                            if (obj.suggestions) Object.assign(suggestions, obj.suggestions);
+                        }
+                    } else {
+                        const obj = JSON.parse(text);
+                        suggestions = obj.suggestions || {};
+                    }
+                }
+
+                // Apply suggestions into Tabulator
+                // expected shape: { matchUuid: { referee_id, ar1_id, ar2_id, commissioner_id } }
+                const updates = [];
+                for (const [uuid, roles] of Object.entries(suggestions || {})) {
+                    const u = { uuid };
+                    if ('referee_id'      in roles) u.referee_id      = roles.referee_id      || '';
+                    if ('ar1_id'          in roles) u.ar1_id          = roles.ar1_id          || '';
+                    if ('ar2_id'          in roles) u.ar2_id          = roles.ar2_id          || '';
+                    if ('commissioner_id' in roles) u.commissioner_id = roles.commissioner_id || '';
+                    updates.push(u);
+                }
+
+                if (updates.length) {
+                    await table.updateData(updates);
+                    applyConflictClasses(table);
+                    // refresh assignment baseline
+                    updates.forEach(u => {
+                        const base = baselineById.get(u.uuid) || {};
+                        ['referee_id','ar1_id','ar2_id','commissioner_id'].forEach(f => {
+                            if (f in u) base[f] = u[f] || null;
+                        });
+                        baselineById.set(u.uuid, base);
+                    });
+                } else {
+                    alert('No suggestions returned for the current filters.');
+                }
+
+            } catch (err) {
+                console.error('[Suggest] error:', err);
+                alert('Suggest failed: ' + (err.message || 'Unknown error'));
+                if (hasProgressUI) {
+                    txt.textContent = 'An error occurred.';
+                    bar.classList.add('bg-danger');
+                }
+            } finally {
+                el.disabled = false; el.textContent = original;
+                if (hasProgressUI) {
+                    setTimeout(() => {
+                        barC.style.display = 'none';
+                        txt.style.display  = 'none';
+                        bar.classList.remove('bg-danger');
+                    }, 2000);
+                }
+            }
+        });
+    });
 </script>
 
 <?php include 'includes/footer.php'; ?>
