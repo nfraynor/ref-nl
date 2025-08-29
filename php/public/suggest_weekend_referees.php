@@ -24,6 +24,10 @@ $preferredGradeByDivision = [
     '1e Klasse'        => 'B',
     '2e Klasse'        => 'C',
     '3e Klasse'        => 'D',
+    '4e Klasse'        => 'D',
+    '1e Klasse Dames'  => 'C',
+    '2e Klasse Dames'  => 'D',
+    '3e Klasse Dames'  => 'D'
 ];
 
 function ndjson_line(array $obj): void {
@@ -110,22 +114,24 @@ try {
 
     // Matches to assign: treat NULL **or empty string** as unassigned ✅
     $stmtSug = $pdo->prepare("
-        SELECT uuid, division, expected_grade, match_date, kickoff_time
-        FROM matches
-        WHERE match_date BETWEEN ? AND ?
-          AND (referee_id IS NULL OR referee_id = '')
-    ");
+    SELECT uuid, division, expected_grade, match_date, kickoff_time
+    FROM matches
+    WHERE deleted_at IS NULL
+      AND match_date BETWEEN ? AND ?
+      AND (referee_id IS NULL OR referee_id = '')
+");
     $stmtSug->execute([$rangeStart, $rangeEnd]);
     $allMatchesToAssign = $stmtSug->fetchAll(PDO::FETCH_ASSOC);
 
     // Existing assignments for caps: treat NOT NULL **and not empty** as assigned ✅
     $stmtExisting = $pdo->prepare("
-        SELECT referee_id, match_date
-        FROM matches
-        WHERE match_date BETWEEN ? AND ?
-          AND referee_id IS NOT NULL
-          AND referee_id <> ''
-    ");
+    SELECT referee_id, match_date
+    FROM matches
+    WHERE deleted_at IS NULL
+      AND match_date BETWEEN ? AND ?
+      AND referee_id IS NOT NULL
+      AND referee_id <> ''
+");
     $stmtExisting->execute([$rangeStart, $rangeEnd]);
     $allExistingAssigned = $stmtExisting->fetchAll(PDO::FETCH_ASSOC);
 

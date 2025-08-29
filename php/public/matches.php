@@ -995,11 +995,10 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
                     }
                 }
 
-                // Apply suggestions into Tabulator
-                // expected shape: { matchUuid: { referee_id, ar1_id, ar2_id, commissioner_id } }
+                // Apply suggestions into Tabulator (safe-for-current-page version)
                 const updates = [];
                 for (const [uuid, roles] of Object.entries(suggestions || {})) {
-                    const u = { uuid };
+                    const u = { uuid: String(uuid) };
                     if ('referee_id'      in roles) u.referee_id      = roles.referee_id      || '';
                     if ('ar1_id'          in roles) u.ar1_id          = roles.ar1_id          || '';
                     if ('ar2_id'          in roles) u.ar2_id          = roles.ar2_id          || '';
@@ -1007,19 +1006,38 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
                     updates.push(u);
                 }
 
-                if (updates.length) {
-                    await table.updateData(updates);
+// ---- KEY PART: filter to the rows Tabulator has loaded (current page) ----
+                const currentIds = new Set((table.getData() || []).map(r => String(r.uuid)));
+                const inPage     = updates.filter(u => currentIds.has(String(u.uuid)));
+                const outOfPage  = updates.filter(u => !currentIds.has(String(u.uuid)));
+
+                if (outOfPage.length) {
+                    // purely informational; avoids the Tabulator "Find Error" spam
+                    console.debug('[Suggest] skipped (not on this page):', outOfPage.length, outOfPage.slice(0,5).map(x=>x.uuid));
+                }
+
+                if (!inPage.length) {
+                    alert('No suggested matches on this page. Try paging or widen the date filter.');
+                } else {
+                    try {
+                        await table.updateData(inPage);        // single batch
+                    } catch (e) {
+                        console.warn('[Suggest] batch update rejected, falling back per-row:', e?.message || e);
+                        // Per-row fallback so one bad row doesn’t tank the whole batch
+                        for (const u of inPage) {
+                            try { await table.updateData([u]); } catch (e2) { console.warn('Row failed', u.uuid, e2?.message || e2); }
+                        }
+                    }
+
                     applyConflictClasses(table);
-                    // refresh assignment baseline
-                    updates.forEach(u => {
+                    // refresh baseline only for updated rows
+                    inPage.forEach(u => {
                         const base = baselineById.get(u.uuid) || {};
                         ['referee_id','ar1_id','ar2_id','commissioner_id'].forEach(f => {
                             if (f in u) base[f] = u[f] || null;
                         });
                         baselineById.set(u.uuid, base);
                     });
-                } else {
-                    alert('No suggestions returned for the current filters.');
                 }
 
             } catch (err) {

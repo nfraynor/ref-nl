@@ -121,6 +121,12 @@ $divisions = $pdo->query("
                     </a>
 
                 <?php endif; ?>
+                <?php if (($_SESSION['user_role'] ?? null) === 'super_admin'): ?>
+                    <button id="deleteClubBtn" class="btn btn-outline-danger">
+                        <i class="bi bi-trash me-1"></i>Delete Club
+                    </button>
+                <?php endif; ?>
+
             </div>
         </div>
 

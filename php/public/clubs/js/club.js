@@ -34,6 +34,44 @@
         if (!meta) return; // not on club-details page
 
         let clubUuid = meta.dataset.clubUuid || "";
+        // ---------- Delete Club ----------
+        const deleteBtn = qs("#deleteClubBtn");
+        if (deleteBtn) {
+            deleteBtn.addEventListener("click", async () => {
+                const name = (qs("#clubNameHeading")?.textContent || "this club").trim();
+                if (!confirm(`Delete "${name}"?`)) return;
+                if (!confirm(`This cannot be undone. If the club has past matches it will be archived instead.\n\nContinue?`)) return;
+
+                try {
+                    const res = await fetch("delete_club.php", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                        body: new URLSearchParams({ club_uuid: clubUuid })
+                    });
+                    const data = await res.json();
+
+                    if (data.status !== "success") throw new Error(data.message || "Delete failed");
+
+                    if (data.club_deleted) {
+                        alert(`Club deleted.\nFuture matches removed: ${data.future_matches_deleted}\nFuture travel logs removed: ${data.future_travel_logs_deleted}`);
+                        window.location.href = "../clubs.php";
+                    } else if (data.club_archived) {
+                        alert(
+                            `Club archived (historical matches exist).\n` +
+                            `Future matches removed: ${data.future_matches_deleted}\n` +
+                            `Future travel logs removed: ${data.future_travel_logs_deleted}`
+                        );
+                        // Reflect archived state in UI (status chip, etc.)
+                        const statusText = qs("#statusText");
+                        if (statusText) statusText.innerHTML = '<span class="badge bg-secondary">Inactive</span>';
+                    } else {
+                        alert("No changes were made.");
+                    }
+                } catch (e) {
+                    alert(e.message || "Server error.");
+                }
+            });
+        }
         let locationUuid = meta.dataset.locationUuid || "";
 
         // ---------- Address edit / display ----------
