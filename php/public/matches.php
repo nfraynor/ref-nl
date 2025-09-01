@@ -637,6 +637,7 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
             formatter: formatRefCell,
             editor: ASSIGN_MODE ? "list" : false,
             editorParams: editorParamsFactory,
+            accessorDownload: (value) => refereeOptions[value] || "",
             cellEdited: async (cell) => {
                 const row = cell.getRow().getData();
                 const newVal = cell.getValue() || "";
@@ -660,6 +661,7 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
             headerFilter: "input",
             minWidth: 130,
             formatter: (cell) => assignerOptions[cell.getValue()] || "—",
+            accessorDownload: (value) => assignerOptions[value] || "",
         };
         if (!ASSIGN_MODE) return base;
         return {
