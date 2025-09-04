@@ -23,6 +23,8 @@ $referees = $pdo->query("
     ORDER BY r.last_name, r.first_name
 ")->fetchAll();
 ?>
+<link rel="stylesheet" href="../css/referees.css">
+
 <div class="container">
     <div class="content-card">
         <div class="referees-hero">

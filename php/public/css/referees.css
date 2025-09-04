@@ -1,3 +1,25 @@
+/* Ensure messages div has some bottom margin if messages are shown */
+#referee-details-messages .alert {
+    margin-bottom: 1rem;
+}
+
+#referees-table .tabulator-table,
+#clubs-table .tabulator-table{ min-width: 1000px; }
+
+/* Make referee dropdowns wider in assign mode */
+.referee-select-cell .select2-container,
+.referee-select-cell .form-control[disabled] {
+    min-width: 250px; /* Adjust as needed */
+    width: 100% !important;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    background-color: #fff;
+    border: 1px solid #ced4da;
+    border-radius: .25rem;
+    padding: .375rem .75rem;
+}
+
 /* Referee Filter Modal Styles */
 
 /* Apply box-sizing to all elements within the modal and the modal dialog itself */
@@ -73,12 +95,14 @@
     padding-right: 20px;
     flex-grow: 1; /* Allow content to take available space */
 }
+
 #refereeFilterModal > div > .modal-filters {
     padding-top: 15px;
     /* padding-bottom: 15px; -- This is handled by the class rule below or can be consolidated */
     border-bottom: 1px solid #eee; /* Add separator line */
     margin-bottom: 15px; /* Space below the filters section */
 }
+
 #refereeFilterModal > div > .modal-search-container {
     padding-top: 10px; /* Add some space above search if filters are not present or to separate */
     padding-bottom: 20px; /* Space at the bottom of the modal */
@@ -155,6 +179,7 @@
 .modal-filters > div { /* Assuming grades and availability are wrapped in divs */
     margin-bottom: 10px;
 }
+
 .modal-filters > label > strong { /* If "Grade:" is a label itself */
     display: block;
     margin-bottom: 8px;
@@ -184,13 +209,14 @@ html body #refereeFilterModal > span.select2-dropdown {
     /* Other general appearance if not covered above, though the above selector is preferred for consistency */
 }
 
-
 /* Adjust result option styling if necessary to match modal fonts, etc. */
 html body #refereeFilterModal > span.select2-dropdown .select2-results__option {
     font-family: inherit; /* Ensure font consistency with the modal */
     /* Add any other overrides for padding, hover effects if needed */
 }
+
 .modal { z-index: 1055 !important; }
+
 .modal-backdrop { z-index: 1050 !important; }
 
 /* If any global CSS hid modals, force them visible when shown */

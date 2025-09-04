@@ -60,53 +60,7 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
 ?>
 <link href="https://unpkg.com/tabulator-tables@6.2.5/dist/css/tabulator.min.css" rel="stylesheet">
 <script src="https://unpkg.com/tabulator-tables@6.2.5/dist/js/tabulator.min.js"></script>
-
-<style>
-    .table-viewport { margin:0 auto; width:100%; max-width:1200px; }
-    #matches-table { width:100%; min-width:1024px; }
-    #matches-table .tabulator-header { position: sticky; top: 0; z-index: 2; }
-
-    .fw-700{ font-weight:700; }
-    .badge{ display:inline-block; padding:.25rem .5rem; border-radius:999px; border:1px solid rgba(0,0,0,.06); font-size:12.5px; line-height:1; }
-    .bg-success-subtle{ background: rgba(22,163,74,.10); color:#15803d; border-color: rgba(22,163,74,.25); }
-    .bg-secondary-subtle{ background: rgba(100,116,139,.12); color:#475569; border-color: rgba(100,116,139,.28); }
-    .chip-A{ background: rgba(37,99,235,.10); color:#1d4ed8; border-color: rgba(37,99,235,.25); }
-    .chip-B{ background: rgba(22,163,74,.10); color:#15803d; border-color: rgba(22,163,74,.25); }
-    .chip-C{ background: rgba(202,138,4,.12); color:#a16207; border-color: rgba(202,138,4,.30); }
-    .chip-D{ background: rgba(220,38,38,.12); color:#b91c1c; border-color: rgba(220,38,38,.30); }
-    .chip-E{ background: rgba(100,116,139,.12); color:#475569; border-color: rgba(100,116,139,.28); }
-    .actions .btn{ border-radius: 12px; height: 44px; }
-
-    /* Modal (popover) */
-    .modal.hidden{ display:none; }
-    .modal{
-        position: fixed; inset: 0; background: rgba(15,23,42,.45);
-        display: grid; place-items: center; z-index: 1000;
-        padding: 24px;
-    }
-    .modal__dialog{
-        background:#fff; border-radius:16px; width:100%;
-        box-shadow: 0 20px 50px rgba(0,0,0,.25);
-        overflow: hidden;
-        border: 1px solid rgba(0,0,0,.06);
-    }
-    .modal__header{
-        display:flex; align-items:center; justify-content:space-between;
-        padding:12px 16px; border-bottom:1px solid var(--border, #e5e7eb);
-    }
-    .modal__body{ padding: 14px 16px 18px; }
-    .modal__close{
-        background:transparent;border:0;font-size:22px;line-height:1;padding:6px 10px;cursor:pointer;border-radius:8px;
-    }
-    .modal__close:hover{ background:#f3f4f6; }
-
-    .card-like{background:#fff;border:1px solid var(--border);border-radius:14px;padding:12px 12px;margin:8px 0 12px;box-shadow:var(--shadow,none)}
-    .add-row__grid{display:grid;grid-template-columns:repeat(8, minmax(120px,1fr));gap:10px;align-items:end}
-    .add-row__grid label{display:flex;flex-direction:column;gap:6px;font-size:.9rem}
-    .add-row__actions{display:flex;gap:8px;justify-content:flex-end;margin-top:8px}
-    .form-error{color:#b91c1c;margin-top:6px}
-    @media (max-width:1200px){ .add-row__grid{grid-template-columns:repeat(4,1fr);} }
-</style>
+<link rel="stylesheet" href="/css/matches.css">
 
 <div class="container matches-container">
     <div class="content-card">
@@ -827,7 +781,7 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
             ajaxURL: "/ajax/matches_list.php",
             ajaxConfig: "GET",
             pagination: true,
-            paginationMode: "remote",
+            paginationMode: "local",
             paginationSize: 50,
             paginationSizeSelector: [50, 100, 200],
             paginationDataReceived: { last_page: "last_page", data: "data" },
@@ -852,8 +806,8 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
 
             ajaxRequestFunc: (url, config, params) => {
                 const q = new URLSearchParams();
-                q.set("page", String(params.page || 1));
-                q.set("size", String(params.size || 50));
+                q.set("all", "1");
+
                 if (Array.isArray(params.sort) && params.sort.length) {
                     q.set("sort_col", params.sort[0].field);
                     q.set("sort_dir", params.sort[0].dir);
@@ -872,13 +826,13 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
             },
 
             ajaxResponse: (url, params, resp) => {
-                if (typeof resp === "string") try { resp = JSON.parse(resp); } catch(e){ return {data:[], last_page:1, total:0}; }
-                if (Array.isArray(resp)) return { data: resp, last_page:1, total:resp.length };
-                const rows = Array.isArray(resp?.data) ? resp.data : [];
-                const total = Number(resp?.total ?? rows.length) || rows.length;
-                const last_page = Number(resp?.last_page ?? 1) || 1;
+                if (typeof resp === "string") { try { resp = JSON.parse(resp); } catch { return []; } }
+                const rows = Array.isArray(resp) ? resp : (Array.isArray(resp?.data) ? resp.data : []);
+                // optional stats:
+                const total = Array.isArray(resp) ? resp.length : (Number(resp?.total) || rows.length);
+                const statsEl = document.getElementById('table-stats');
                 if (statsEl) statsEl.textContent = `Showing ${rows.length} of ${total} matches`;
-                return { data: rows, last_page, total };
+                return rows;
             },
 
             columns: [
@@ -918,7 +872,8 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
             ],
         });
 
-        table.on("dataLoaded", ()=>{ applyConflictClasses(table); captureBaseline(table); });
+        table.on("dataLoaded", () => { applyConflictClasses(table); captureBaseline(table); });
+        table.on("dataFiltered", () => { if (statsEl) statsEl.textContent = `Showing ${table.getDataCount("active")} of ${table.getDataCount()} matches`; });
         table.on("dataProcessed", ()=> applyConflictClasses(table));
         table.on("renderComplete",()=> applyConflictClasses(table));
         table.on("pageLoaded",     ()=>{ applyConflictClasses(table); captureBaseline(table); });
