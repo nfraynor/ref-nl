@@ -4,8 +4,119 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../../utils/session_auth.php';
 require_once __DIR__ . '/../../utils/db.php';
+require_once __DIR__ . '/../../utils/grade_policy.php';
+
 
 header('Content-Type: application/json');
+function normalize_grade(?string $g): int {
+    static $map = ['A'=>4,'B'=>3,'C'=>2,'D'=>1];
+    $g = strtoupper(trim((string)$g));
+    return $map[$g] ?? 0; // unknown -> 0
+}
+
+/**
+ * Example: infer expected min grade from a match row.
+ * You can refine this mapping per division/district/poule later or store on the match.
+ */
+function expected_grade_for_match(array $m): int {
+    $div = strtoupper(trim((string)($m['division'] ?? '')));
+    // Very rough defaults; tweak freely:
+    if (str_contains($div, 'ERE') || str_contains($div, 'PREM') || str_contains($div, 'TOP')) return normalize_grade('A');
+    if (str_contains($div, '1E')) return normalize_grade('B');
+    if (str_contains($div, '2E')) return normalize_grade('C');
+    if (str_contains($div, '3E') || str_contains($div, 'DEV')) return normalize_grade('D');
+    return normalize_grade('C'); // safe default
+}
+
+function get_ref_grade(PDO $pdo, ?string $uuid): ?string {
+    if (!$uuid) return null;
+    static $cache = [];
+    if (array_key_exists($uuid, $cache)) return $cache[$uuid];
+    $stmt = $pdo->prepare("SELECT grade FROM referees WHERE uuid = ?");
+    $stmt->execute([$uuid]);
+    $cache[$uuid] = $stmt->fetchColumn() ?: null;
+    return $cache[$uuid];
+}
+
+function add_fit_fields(PDO $pdo, array $matchRow, array &$rowOut, string $roleField) {
+    $refUuid = $rowOut[$roleField] ?? '';
+    if (!$refUuid) return; // only add for assigned roles (keeps payload small)
+    $refGrade = get_ref_grade($pdo, $refUuid);
+    $fit = compute_match_fit($pdo, $matchRow, $refUuid, $refGrade);
+    // e.g. referee_fit_score, referee_fit_flags
+    $prefix = match ($roleField) {
+        'referee_id'      => 'referee',
+        'ar1_id'          => 'ar1',
+        'ar2_id'          => 'ar2',
+        'commissioner_id' => 'commissioner',
+        default           => $roleField,
+    };
+    $rowOut[$prefix . '_fit_score'] = $fit['score'];
+    $rowOut[$prefix . '_fit_flags'] = $fit['flags'];
+}
+/**
+ * Did this referee have either team within the last N days before match_date?
+ */
+function ref_had_team_recently(PDO $pdo, string $refUuid, string $homeUuid, string $awayUuid, string $matchDate, int $days = 14): bool {
+    // Adjust table/column names to your schema if needed.
+    $sql = "
+        SELECT 1
+        FROM matches m
+        WHERE m.match_date >= DATE_SUB(?, INTERVAL ? DAY)
+          AND m.match_date < ?
+          AND (
+              m.home_team_uuid IN (?, ?)
+              OR m.away_team_uuid IN (?, ?)
+          )
+          AND (
+              m.referee_id = ?
+              OR m.ar1_id = ?
+              OR m.ar2_id = ?
+              OR m.commissioner_id = ?
+          )
+        LIMIT 1
+    ";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute([$matchDate, $days, $matchDate,
+        $homeUuid, $awayUuid, $homeUuid, $awayUuid,
+        $refUuid, $refUuid, $refUuid, $refUuid
+    ]);
+    return (bool)$stmt->fetchColumn();
+}
+
+/**
+ * Compute 0..100 fit score + flags for a (ref, match).
+ * Currently: penalties only (simple + transparent). We’ll expand later.
+ */
+function compute_match_fit(PDO $pdo, array $matchRow, string $refUuid, ?string $refGrade): array {
+    $score = 100;
+    $flags = [];
+
+    // --- Below expected grade?
+    $refG  = normalize_grade($refGrade);
+    $needG = expected_grade_for_match($matchRow);
+    if ($refG > 0 && $needG > 0 && $refG < $needG) {
+        $score -= 40;
+        $flags[] = 'below_grade';
+    }
+
+    // --- Recent same team(s) in last 14 days?
+    $homeUuid = $matchRow['home_team_uuid'] ?? '';
+    $awayUuid = $matchRow['away_team_uuid'] ?? '';
+    $matchDate= $matchRow['match_date'] ?? '';
+    if ($refUuid && $homeUuid && $awayUuid && $matchDate) {
+        if (ref_had_team_recently($pdo, $refUuid, $homeUuid, $awayUuid, $matchDate, 14)) {
+            $score -= 20;
+            $flags[] = 'recent_team';
+        }
+    }
+
+    // --- Clamp
+    $score = max(0, min(100, $score));
+    return ['score'=>$score, 'flags'=>$flags];
+}
+
+
 
 try {
     $pdo = Database::getConnection();
