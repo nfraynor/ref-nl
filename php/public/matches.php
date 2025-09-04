@@ -154,6 +154,7 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
                             <button type="button" id="newMatchBtn" class="btn btn-accent">New Match</button>
                         <?php endif; ?>
                         <button type="button" id="exportCsv" class="btn btn-outline">Export CSV</button>
+                        <button type="button" id="importMatchesBtn" class="btn btn-outline">Import</button>
                         <a href="assign_assigner.php" class="btn btn-neutral">Assign Assigner</a>
                     </div>
                 </div>
@@ -170,6 +171,29 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
         <div id="table-stats" class="table-stats"></div>
         <div class="table-viewport">
             <div id="matches-table" data-density="cozy"></div>
+        </div>
+    </div>
+</div>
+<!-- Import Matches Modal -->
+<div id="importMatchesModal" class="app-modal hidden" role="dialog" aria-modal="true" aria-labelledby="importMatchesTitle">
+    <div class="modal__dialog">
+        <div class="modal__header">
+            <h3 id="importMatchesTitle">Import Matches</h3>
+            <button type="button" class="modal__close" aria-label="Close">×</button>
+        </div>
+        <div class="modal__body">
+            <form id="importMatchesForm">
+                <p class="text-muted">
+                    Upload a .csv / .xlsx with headers: <strong>Date</strong>, <strong>Time KO</strong>, <strong>Home Team</strong>, <strong>Away Team</strong>.
+                    Teams must already exist. Duplicates are <em>Date + Home Team</em>.
+                </p>
+                <input type="file" name="file" id="importFile" accept=".csv,.xlsx,.xls" required>
+                <div class="add-row__actions" style="margin-top:12px">
+                    <button type="button" class="btn btn-neutral" id="importCancelBtn">Cancel</button>
+                    <button type="submit" class="btn btn-accent" id="importSubmitBtn">Import</button>
+                </div>
+            </form>
+            <div id="importResult" class="card-like" style="display:none"></div>
         </div>
     </div>
 </div>
@@ -245,6 +269,14 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
         },
         <?php endforeach; ?>
     };
+    function openModal(modal){
+        modal.classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+    }
+    function closeModal(modal){
+        modal.classList.add('hidden');
+        document.body.style.overflow = '';
+    }
 
     const locationOptions = (() => {
         const map = {};
@@ -526,6 +558,74 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
             clearErr();
         });
     })();
+    // ===== Import Matches (modal + upload) =====
+    (function(){
+        const modal = document.getElementById('importMatchesModal');
+        const openBtn = document.getElementById('importMatchesBtn');
+        const closeBtn = modal?.querySelector('.modal__close');
+        const cancelBtn = document.getElementById('importCancelBtn');
+        const form = document.getElementById('importMatchesForm');
+        const fileInput = document.getElementById('importFile');
+        const resultBox = document.getElementById('importResult');
+        const submitBtn = document.getElementById('importSubmitBtn');
+
+        function open(){
+            resultBox.style.display = 'none';
+            resultBox.innerHTML = '';
+            fileInput.value = '';
+            modal.classList.remove('hidden');
+        }
+        function close(){ modal.classList.add('hidden'); }
+
+        openBtn?.addEventListener('click', open);
+        closeBtn?.addEventListener('click', close);
+        cancelBtn?.addEventListener('click', close);
+        modal?.addEventListener('click', (e)=>{ if (e.target === modal) close(); });
+        document.addEventListener('keydown', (e)=>{ if (e.key === 'Escape' && !modal.classList.contains('hidden')) close(); });
+
+        form?.addEventListener('submit', async (e)=>{
+            e.preventDefault();
+            if (!fileInput.files?.length) return;
+
+            submitBtn.disabled = true;
+            const old = submitBtn.textContent;
+            submitBtn.textContent = 'Importing…';
+
+            try {
+                const fd = new FormData();
+                fd.append('file', fileInput.files[0]);
+                const resp = await fetch('/ajax/import_matches.php', { method:'POST', body: fd });
+                const data = await resp.json();
+
+                // Show summary
+                resultBox.style.display = 'block';
+                if (!data?.success) {
+                    resultBox.innerHTML = `<div class="form-error">${(data?.message || 'Import failed')}</div>`;
+                    return;
+                }
+                const errs = Array.isArray(data.errors) ? data.errors : [];
+                const dup = Number(data.skipped_duplicates || 0);
+                const ins = Number(data.inserted || 0);
+                resultBox.innerHTML = `
+        <div>
+          <p><strong>Imported:</strong> ${ins}</p>
+          <p><strong>Duplicates skipped:</strong> ${dup}</p>
+          ${errs.length ? `<details><summary>${errs.length} error(s)</summary><ul>${errs.map(e=>`<li>${e.replace(/[<>&]/g, s => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[s]))}</li>`).join('')}</ul></details>` : ''}
+        </div>`;
+
+                // Refresh the table (keeps current filters/pagination logic)
+                try { table.setData(); } catch(e){ console.warn('Table refresh failed', e); }
+
+            } catch (err) {
+                resultBox.style.display = 'block';
+                resultBox.innerHTML = `<div class="form-error">${(err?.message || 'Import failed')}</div>`;
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = old;
+            }
+        });
+    })();
+
 
     /* ===== Conflicts + Tabulator (unchanged logic, plus optional Location column) ===== */
 

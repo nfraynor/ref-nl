@@ -69,15 +69,11 @@ $districts = $pdo->query("SELECT id, name FROM districts ORDER BY name ASC")->fe
 
 // Build divisions from both matches and teams to be comprehensive
 $divisions = $pdo->query("
-    SELECT division FROM (
-        SELECT DISTINCT division FROM matches WHERE division IS NOT NULL AND division <> ''
-        UNION
-        SELECT DISTINCT division FROM teams   WHERE division IS NOT NULL AND division <> ''
-    ) AS d
-    ORDER BY division ASC
+    SELECT name FROM divisions ORDER BY name
 ")->fetchAll(PDO::FETCH_COLUMN);
 
 ?>
+
 <style>
     .kv-label { min-width: 140px; color: #6c757d; }
     .kv-pair { display:flex; gap:0.75rem; padding:0.25rem 0; align-items:center; }
@@ -494,6 +490,7 @@ $divisions = $pdo->query("
                     <div class="mb-3">
                         <label for="divisionSelect" class="form-label">Division <span class="text-danger">*</span></label>
                         <select id="divisionSelect" class="form-select">
+
                             <option value="">Select division…</option>
                             <?php foreach ($divisions as $div): ?>
                                 <option value="<?= safe($div) ?>"><?= safe($div) ?></option>

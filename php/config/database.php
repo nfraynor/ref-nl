@@ -5,7 +5,7 @@ return [
     'dbname' => getenv('DB_DATABASE') ?: 'refnl',
     'username' => getenv('DB_USERNAME') ?: 'root',
 
-    'password' => getenv('DB_PASSWORD') ?: 'super-strong-root-secret',
+    'password' => getenv('DB_PASSWORD') ?: '',
 
     'charset' => 'utf8mb4'
 ];

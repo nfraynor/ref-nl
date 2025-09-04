@@ -1,15 +1,18 @@
 <?php
+// php/public/match_detail.php
+
 require_once __DIR__ . '/../utils/session_auth.php';
 require_once __DIR__ . '/../utils/db.php';
-include __DIR__ . '/includes/header.php';
-include __DIR__ . '/includes/nav.php';
 
 $pdo = Database::getConnection();
-$matchUuid = $_GET['uuid'] ?? null;
 
-if (!$matchUuid) {
-    echo "<div class='container mt-4'><p class='alert alert-warning'>Match ID is missing.</p></div>";
-    include __DIR__ . '/includes/footer.php';
+/* ---------- Helpers ---------- */
+function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
+
+function redirect_with_flash(string $url, ?string $ok = null, ?string $err = null): void {
+    if ($ok !== null)  $_SESSION['success_message'] = $ok;
+    if ($err !== null) $_SESSION['error_message']   = $err;
+    header("Location: $url");
     exit;
 }
 
@@ -26,7 +29,13 @@ function columnExists(PDO $pdo, string $table, string $column): bool {
     return (bool)$stmt->fetchColumn();
 }
 
-/** Detect which location reference column (if any) exists */
+/* ---------- Input ---------- */
+$matchUuid = $_GET['uuid'] ?? null;
+if (!$matchUuid) {
+    redirect_with_flash('matches.php', null, 'Match ID is missing.');
+}
+
+/* ---------- Detect optional location column ---------- */
 $locationColumn = null;
 if (columnExists($pdo, 'matches', 'location_uuid')) {
     $locationColumn = 'location_uuid';
@@ -34,22 +43,7 @@ if (columnExists($pdo, 'matches', 'location_uuid')) {
     $locationColumn = 'location_id';
 }
 
-/** Fetch options for selects */
-$teamsStmt = $pdo->query("
-    SELECT t.uuid, t.team_name, c.club_name
-    FROM teams t
-    LEFT JOIN clubs c ON t.club_id = c.uuid
-    ORDER BY c.club_name IS NULL, c.club_name ASC, t.team_name ASC
-");
-$allTeams = $teamsStmt->fetchAll(PDO::FETCH_ASSOC);
-
-$locationsStmt = $pdo->query("SELECT uuid, name, address_text FROM locations ORDER BY name ASC");
-$allLocations = $locationsStmt->fetchAll(PDO::FETCH_ASSOC);
-
-$usersStmt = $pdo->query("SELECT uuid, username FROM users ORDER BY username ASC");
-$allUsers   = $usersStmt->fetchAll(PDO::FETCH_ASSOC);
-
-/** Handle POST for core match edits (date, time, location, home/away) */
+/* ---------- POST: core match edits ---------- */
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_match_core'])) {
     $errors = [];
 
@@ -83,61 +77,53 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_match_core'])) {
     }
 
     // If a location column exists, validate location uuid (can be empty for NULL)
-    if ($locationColumn) {
-        if ($newLoc !== '') {
-            $chkLoc = $pdo->prepare("SELECT COUNT(*) FROM locations WHERE uuid = ?");
-            $chkLoc->execute([$newLoc]);
-            if (!$chkLoc->fetchColumn()) $errors[] = "Selected Location is invalid.";
-        }
+    if ($locationColumn && $newLoc !== '') {
+        $chkLoc = $pdo->prepare("SELECT COUNT(*) FROM locations WHERE uuid = ?");
+        $chkLoc->execute([$newLoc]);
+        if (!$chkLoc->fetchColumn()) $errors[] = "Selected Location is invalid.";
     }
 
-    if (empty($errors)) {
-        try {
-            $pdo->beginTransaction();
+    if (!empty($errors)) {
+        redirect_with_flash('match_detail.php?uuid=' . urlencode($matchUuid), null, implode("<br>", array_map('h', $errors)));
+    }
 
-            // Build SET clause dynamically to support optional location column
-            $sets = [
-                "match_date = ?",
-                "kickoff_time = ?",
-                "home_team_id = ?",
-                "away_team_id = ?",
-            ];
-            $params = [$newDate, $newTime, $newHome, $newAway];
+    try {
+        $pdo->beginTransaction();
 
-            if ($locationColumn) {
-                if ($newLoc === '') {
-                    $sets[] = "{$locationColumn} = NULL";
-                } else {
-                    $sets[] = "{$locationColumn} = ?";
-                    $params[] = $newLoc;
-                }
+        // Build SET clause dynamically to support optional location column
+        $sets = [
+            "match_date = ?",
+            "kickoff_time = ?",
+            "home_team_id = ?",
+            "away_team_id = ?",
+        ];
+        $params = [$newDate, $newTime, $newHome, $newAway];
+
+        if ($locationColumn) {
+            if ($newLoc === '') {
+                $sets[] = "{$locationColumn} = NULL";
+            } else {
+                $sets[] = "{$locationColumn} = ?";
+                $params[] = $newLoc;
             }
-
-            $params[] = $matchUuid;
-
-            $sql = "UPDATE matches SET " . implode(", ", $sets) . " WHERE uuid = ?";
-            $upd = $pdo->prepare($sql);
-            $upd->execute($params);
-
-            $pdo->commit();
-
-            $_SESSION['success_message'] = "Match details updated successfully.";
-            header("Location: match_detail.php?uuid=" . urlencode($matchUuid));
-            exit;
-        } catch (Throwable $e) {
-            if ($pdo->inTransaction()) $pdo->rollBack();
-            $_SESSION['error_message'] = "Update failed: " . htmlspecialchars($e->getMessage());
-            header("Location: match_detail.php?uuid=" . urlencode($matchUuid));
-            exit;
         }
-    } else {
-        $_SESSION['error_message'] = implode("<br>", array_map('htmlspecialchars', $errors));
-        header("Location: match_detail.php?uuid=" . urlencode($matchUuid));
-        exit;
+
+        $params[] = $matchUuid;
+
+        $sql = "UPDATE matches SET " . implode(", ", $sets) . " WHERE uuid = ?";
+        $upd = $pdo->prepare($sql);
+        $upd->execute($params);
+
+        $pdo->commit();
+
+        redirect_with_flash('match_detail.php?uuid=' . urlencode($matchUuid), 'Match details updated successfully.');
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        redirect_with_flash('match_detail.php?uuid=' . urlencode($matchUuid), null, 'Update failed: ' . h($e->getMessage()));
     }
 }
 
-/** Backwards-compatible POST for referee assigner (unchanged) */
+/* ---------- POST: referee assigner (unchanged behavior) ---------- */
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_referee_assigner'])) {
     $newAssignerUuid = $_POST['referee_assigner_uuid'] ?? '';
     if ($newAssignerUuid === '') {
@@ -157,7 +143,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_referee_assign
     exit;
 }
 
-/** Fetch the match (with optional location join) */
+/* ---------- Fetch options for selects (no output yet) ---------- */
+$teamsStmt = $pdo->query("
+    SELECT t.uuid, t.team_name, c.club_name
+    FROM teams t
+    LEFT JOIN clubs c ON t.club_id = c.uuid
+    ORDER BY c.club_name IS NULL, c.club_name ASC, t.team_name ASC
+");
+$allTeams = $teamsStmt->fetchAll(PDO::FETCH_ASSOC);
+
+$locationsStmt = $pdo->query("SELECT uuid, name, address_text FROM locations ORDER BY name ASC");
+$allLocations = $locationsStmt->fetchAll(PDO::FETCH_ASSOC);
+
+$usersStmt = $pdo->query("SELECT uuid, username FROM users ORDER BY username ASC");
+$allUsers   = $usersStmt->fetchAll(PDO::FETCH_ASSOC);
+
+/* ---------- Fetch the match (with optional location join) ---------- */
 $joinLocations = $locationColumn ? "LEFT JOIN locations l ON m.{$locationColumn} = l.uuid" : "";
 
 $locationFields = $locationColumn
@@ -216,24 +217,22 @@ $stmt->execute([$matchUuid]);
 $match = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$match) {
-    echo "<div class='container mt-4'><p class='alert alert-danger'>Match not found.</p></div>";
-    include __DIR__ . '/includes/footer.php';
-    exit;
+    redirect_with_flash('matches.php', null, 'Match not found.');
 }
 
-/** Flash messages */
-if (isset($_SESSION['error_message'])) {
-    echo "<div class='container mt-4'><p class='alert alert-danger'>".$_SESSION['error_message']."</p></div>";
-    unset($_SESSION['error_message']);
-}
-if (isset($_SESSION['success_message'])) {
-    echo "<div class='container mt-4'><p class='alert alert-success'>".$_SESSION['success_message']."</p></div>";
-    unset($_SESSION['success_message']);
-}
-
-function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
+/* ---------- From here on we can safely output HTML ---------- */
+include __DIR__ . '/includes/header.php';
+include __DIR__ . '/includes/nav.php';
 ?>
+
 <div class="container mt-4">
+    <?php if (isset($_SESSION['error_message'])): ?>
+        <div class="alert alert-danger"><?= $_SESSION['error_message']; unset($_SESSION['error_message']); ?></div>
+    <?php endif; ?>
+    <?php if (isset($_SESSION['success_message'])): ?>
+        <div class="alert alert-success"><?= $_SESSION['success_message']; unset($_SESSION['success_message']); ?></div>
+    <?php endif; ?>
+
     <section class="mb-4">
         <div class="card">
             <div class="card-header">
