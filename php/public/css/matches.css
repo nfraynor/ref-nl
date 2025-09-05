@@ -416,3 +416,66 @@ body #newMatchModal.modal-open{ display:grid !important; pointer-events:auto !im
 }
 
 body #newMatchModal.modal-open{ display:grid !important; pointer-events:auto !important; }
+
+/* Conflict highlighting on Tabulator cells */
+#matches-table .tabulator-cell.sev-red {
+    background-color: #ffe0e0 !important;   /* soft red */
+}
+
+#matches-table .tabulator-cell.sev-orange {
+    background-color: #ffefd6 !important;   /* soft orange */
+}
+
+#matches-table .tabulator-cell.sev-yellow {
+    background-color: #fff9cc !important;   /* soft yellow */
+}
+
+#matches-table .tabulator-cell.sev-unavail {
+    background-color: #e9ecef !important;   /* muted gray */
+    color: #495057;
+}
+
+/* Optional: keep selection/hover readable on colored cells */
+#matches-table .tabulator-row.tabulator-selected .tabulator-cell.sev-red,
+#matches-table .tabulator-row.tabulator-selected .tabulator-cell.sev-orange,
+#matches-table .tabulator-row.tabulator-selected .tabulator-cell.sev-yellow,
+#matches-table .tabulator-row.tabulator-selected .tabulator-cell.sev-unavail {
+    filter: brightness(0.96);
+}
+/* ==== Score fill on cells ==== */
+#matches-table .tabulator-cell.score-cell {
+    position: relative;
+    transition: background-color 160ms ease, color 160ms ease, filter 160ms ease;
+}
+
+/* readable text on dark backgrounds */
+#matches-table .tabulator-cell.score-dark {
+    color: #fff;
+}
+
+/* ==== Flag dots container (bottom-right) ==== */
+.flag-dots {
+    position: absolute;
+    right: 6px;
+    bottom: 6px;
+    display: inline-flex;
+    gap: 4px;
+    align-items: center;
+}
+
+/* One dot */
+.flag-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    border: 1px solid rgba(0,0,0,.15);
+}
+
+/* Types */
+.flag-dot.conf-red    { background: #e03131; }
+.flag-dot.conf-orange { background: #f08c00; }
+.flag-dot.conf-yellow { background: #ffd43b; border-color: rgba(0,0,0,.25); }
+.flag-dot.unavail     { background: #adb5bd; }
+
+.flag-dot.below-grade { background: #845ef7; }     /* purple */
+.flag-dot.recent-team { background: #22b8cf; }     /* cyan  */

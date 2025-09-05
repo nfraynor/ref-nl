@@ -6,6 +6,7 @@ include 'includes/nav.php';
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
+
 $pdo = Database::getConnection();
 $assignMode = isset($_GET['assign_mode']) && $_GET['assign_mode'] == '1';
 
@@ -102,7 +103,7 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
                         <?php if ($assignMode): ?>
                             <a href="matches.php" class="btn btn-neutral">Disable Assign</a>
                             <button type="button" id="suggestAssignments" class="btn btn-accent">Suggest</button>
-                            <button type="button" id="clearAllAssignments" class="btn btn-outline">Clear</button>
+                            <button type="button" id="clearAllAssignments" class="btn btn-outline" disabled>Clear</button>
                         <?php else: ?>
                             <a href="matches.php?assign_mode=1" class="btn btn-accent">Enable Assign</a>
                             <button type="button" id="newMatchBtn" class="btn btn-accent">New Match</button>
@@ -112,6 +113,12 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
                         <a href="assign_assigner.php" class="btn btn-neutral">Assign Assigner</a>
                     </div>
                 </div>
+
+                <!-- Streaming Suggest progress (lightweight UI so IDs exist) -->
+                <div id="suggestionProgressBarContainer" class="progress-container" style="display:none">
+                    <div id="suggestionProgressBar" class="progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100"></div>
+                </div>
+                <div id="suggestionProgressText" class="progress-text" style="display:none"></div>
             </div>
 
             <div class="conflict-legend" aria-label="Conflict legend">
@@ -128,6 +135,7 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
         </div>
     </div>
 </div>
+
 <!-- Import Matches Modal -->
 <div id="importMatchesModal" class="app-modal hidden" role="dialog" aria-modal="true" aria-labelledby="importMatchesTitle">
     <div class="modal__dialog">
@@ -203,6 +211,66 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
 </div>
 
 <script>
+    /* === Score → background color (0=red, 100=green) === */
+    function scoreToColor(score) {
+        const s = Math.max(0, Math.min(100, Number(score) || 0));
+        const lerp = (a,b,t)=> a + (b-a)*t;
+
+        let r,g,b;
+        if (s <= 50) {
+            const t = s/50;
+            r = Math.round(lerp(239,245,t));
+            g = Math.round(lerp( 68,158,t));
+            b = Math.round(lerp( 68, 11,t));
+        } else {
+            const t = (s-50)/50;
+            r = Math.round(lerp(245, 34,t));
+            g = Math.round(lerp(158,197,t));
+            b = Math.round(lerp( 11, 94,t));
+        }
+        return `rgba(${r}, ${g}, ${b}, 0.25)`;
+    }
+
+    /* === Build dots based on flags (conflicts + fit flags) === */
+    function renderFlagDots({conflict, unavail, fitFlags=[]}) {
+        const wrap = document.createElement('div');
+        wrap.className = 'flag-dots';
+
+        if (unavail) {
+            const d = document.createElement('span');
+            d.className = 'flag-dot unavail'; d.title = 'Unavailable';
+            wrap.appendChild(d);
+        }
+        if (conflict === 'red') {
+            const d = document.createElement('span');
+            d.className = 'flag-dot conf-red'; d.title = 'Conflict: overlap or different venue same day';
+            wrap.appendChild(d);
+        } else if (conflict === 'orange') {
+            const d = document.createElement('span');
+            d.className = 'flag-dot conf-orange'; d.title = 'Conflict: same venue, same day (no overlap)';
+            wrap.appendChild(d);
+        } else if (conflict === 'yellow') {
+            const d = document.createElement('span');
+            d.className = 'flag-dot conf-yellow'; d.title = 'Conflict proximity (±2 days)';
+            wrap.appendChild(d);
+        }
+
+        (fitFlags || []).forEach(f => {
+            const dot = document.createElement('span');
+            if (f === 'below_grade') {
+                dot.className = 'flag-dot below-grade'; dot.title = 'Below expected grade';
+            } else if (f === 'recent_team') {
+                dot.className = 'flag-dot recent-team'; dot.title = 'Had same team in last 14 days';
+            } else {
+                return;
+            }
+            wrap.appendChild(dot);
+        });
+
+        if (!wrap.childElementCount) return null;
+        return wrap;
+    }
+
     /* ===== Preloaded option maps ===== */
     const teamOptions = (() => {
         const map = {};
@@ -223,6 +291,7 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
         },
         <?php endforeach; ?>
     };
+
     function openModal(modal){
         modal.classList.remove('hidden');
         document.body.style.overflow = 'hidden';
@@ -295,11 +364,9 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
         const list = document.getElementById(listElId);
         const val = inputEl.value.trim().toLowerCase();
         if (!list) return '';
-        // exact
         for (const opt of list.options) {
             if (opt.value.toLowerCase() === val) return opt.dataset.uuid || '';
         }
-        // prefix (2+ chars)
         if (val.length >= 2) {
             for (const opt of list.options) {
                 if (opt.value.toLowerCase().startsWith(val)) return opt.dataset.uuid || '';
@@ -312,7 +379,7 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
         const locInput = document.getElementById('add_loc');
         const locUUID  = document.getElementById('add_location_uuid');
         function onChange(){
-            const id = resolveFromDatalist(locInput, 'location_list'); // '' if none
+            const id = resolveFromDatalist(locInput, 'location_list');
             locUUID.value = id;
         }
         ['input','change','blur'].forEach(ev => locInput.addEventListener(ev, onChange));
@@ -358,28 +425,20 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
             const meta = teamMeta[uuid];
             if (!meta) return;
 
-            // Copy division/district if empty
             if (!divEl.value)  divEl.value  = meta.division || '';
             if (!distEl.value) distEl.value = meta.district || '';
 
-            // ---- Location autofill (prefer exact UUID if the club has one) ----
             if (!locUUID.value) {
                 if (meta.defaultLocationUuid) {
-                    // We have a real location id from the club -> fill both
                     locUUID.value = meta.defaultLocationUuid;
-                    // Use label from options if known, otherwise the PHP-provided label
-                    locInput.value = locationOptions[meta.defaultLocationUuid]
-                        || meta.defaultLocationLabel
-                        || '';
+                    locInput.value = locationOptions[meta.defaultLocationUuid] || meta.defaultLocationLabel || '';
                 } else if (meta.defaultLocationLabel) {
-                    // No UUID, only a human label -> try resolving via datalist
                     const fakeInput = { value: meta.defaultLocationLabel };
-                    const resolved = resolveFromDatalist(fakeInput, 'location_list'); // '' if not found
+                    const resolved = resolveFromDatalist(fakeInput, 'location_list');
                     if (resolved) {
                         locUUID.value = resolved;
                         locInput.value = locationOptions[resolved] || meta.defaultLocationLabel;
                     } else {
-                        // Keep the text so user can tweak; uuid stays empty
                         locInput.value = meta.defaultLocationLabel;
                     }
                 }
@@ -396,7 +455,7 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
         homeInput.addEventListener('blur',   onHomeChanged);
     })();
 
-    /* Optional: capture Away UUID (future use) */
+    /* Optional: capture Away UUID */
     (function wireAwayResolver(){
         const awayInput = document.getElementById('add_away');
         const awayUUIDHidden = document.getElementById('add_away_uuid');
@@ -456,7 +515,6 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
             if (!awayUuid){
                 showErr('Please select a valid Away team from the list.'); return;
             }
-            // Note: locUuid can be empty if unknown; server can allow NULL
 
             btn.disabled = true; const old = btn.textContent; btn.textContent = 'Adding…';
             try{
@@ -466,20 +524,13 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
                     body: new URLSearchParams({
                         match_date: date,
                         kickoff_time: ko,
-
-                        // send uuids you resolved (preferred)
                         home_team_uuid: homeUuid,
                         away_team_uuid: awayUuid,
-
-                        // if your endpoint still wants display names too, send the text versions:
                         home_team: homeTxt,
                         away_team: awayTxt,
-
                         division: div,
                         district: dist,
                         poule: pou,
-
-                        // location: send uuid + label (uuid may be '')
                         location_uuid: locUuid,
                         location_label: document.getElementById('add_loc').value.trim()
                     })
@@ -488,14 +539,12 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
                 if (!j?.success) throw new Error(j?.message || 'Create failed');
 
                 await table.addData([j.row], true);
-                applyConflictClasses(table);
+                applyIndicators(table);
                 captureBaseline(table);
 
-                // keep Date/KO for quick entry; clear the rest
                 ['add_home','add_home_uuid','add_away','add_away_uuid','add_div','add_dist','add_poule','add_loc','add_location_uuid']
                     .forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
 
-                // Close modal
                 document.getElementById('newMatchModal')?.classList.add('hidden');
             }catch(e){
                 showErr(e.message || 'Create failed');
@@ -512,6 +561,7 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
             clearErr();
         });
     })();
+
     // ===== Import Matches (modal + upload) =====
     (function(){
         const modal = document.getElementById('importMatchesModal');
@@ -567,7 +617,7 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
           ${errs.length ? `<details><summary>${errs.length} error(s)</summary><ul>${errs.map(e=>`<li>${e.replace(/[<>&]/g, s => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[s]))}</li>`).join('')}</ul></details>` : ''}
         </div>`;
 
-                // Refresh the table (keeps current filters/pagination logic)
+                // Refresh the table
                 try { table.setData(); } catch(e){ console.warn('Table refresh failed', e); }
 
             } catch (err) {
@@ -580,15 +630,8 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
         });
     })();
 
-
-    /* ===== Conflicts + Tabulator (unchanged logic, plus optional Location column) ===== */
-
+    /* ===== Conflicts + Tabulator ===== */
     const SEV = { NONE:0, YELLOW:1, ORANGE:2, RED:3, UNAVAILABLE:4 };
-    const sevClass = (s) =>
-        s===SEV.UNAVAILABLE ? "sev-unavail" :
-            s===SEV.RED        ? "sev-red"     :
-                s===SEV.ORANGE     ? "sev-orange"  :
-                    s===SEV.YELLOW     ? "sev-yellow"  : "";
 
     const parseDT  = (d,t)=>{ const hhmm=(t||"00:00").slice(0,5); return new Date(`${d}T${hhmm}:00`); };
     const dayDiff  = (a,b)=> Math.round((new Date(b+"T00:00:00") - new Date(a+"T00:00:00"))/86400000);
@@ -606,7 +649,7 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
                     matchId: d.uuid, role, refId,
                     dateStr: d.match_date,
                     start, end: new Date(start.getTime()+90*60*1000),
-                    loc: normAddr(d.location_label || d.location_address || "") // location_label expected from API
+                    loc: normAddr(d.location_label || d.location_address || "")
                 });
             });
         });
@@ -639,22 +682,34 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
         return sev;
     }
 
-    function applyConflictClasses(tbl){
+    function applyIndicators(tbl){
+        if (!tbl) return;
         const rows = tbl.getRows(true);
+        if (!rows.length) return;
+
         const sevMap = computeConflicts(rows);
-        rows.forEach(r=>{
+
+        rows.forEach(r => {
             const d = r.getData();
-            ["referee_id","ar1_id","ar2_id","commissioner_id"].forEach(role=>{
-                const cell = r.getCell(role); if(!cell) return;
-                const el = cell.getElement();
-                el.classList.remove("sev-unavail","sev-red","sev-orange","sev-yellow");
-                const cls = sevClass(sevMap.get(`${d.uuid}:${role}`) ?? SEV.NONE);
-                if (cls) el.classList.add(cls);
+            if (!d.__conflicts) d.__conflicts = {};
+            if (!d.__scoreOverride) d.__scoreOverride = {};
+
+            ["referee_id","ar1_id","ar2_id","commissioner_id"].forEach(role => {
+                const sev = sevMap.get(`${d.uuid}:${role}`) ?? SEV.NONE;
+                const sevText = (sev === SEV.RED ? 'red' : sev === SEV.ORANGE ? 'orange' : sev === SEV.YELLOW ? 'yellow' : null);
+                d.__conflicts[role] = sevText;
+
+                let override = null;
+                if (sev === SEV.RED) override = 0;
+                else if (sev === SEV.ORANGE) override = 70;
+                else if (sev === SEV.YELLOW) override = 85;
+                d.__scoreOverride[role] = override;
             });
+
+            r.reformat();
         });
     }
 
-    /* ===== Tabulator init ===== */
     const ASSIGN_MODE = <?= $assignMode ? 'true' : 'false' ?>;
 
     function saveAssignment(matchUuid, field, value) {
@@ -671,24 +726,159 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
             body: `match_uuid=${encodeURIComponent(matchUuid)}&field_type=referee_assigner&new_value=${encodeURIComponent(assignerUuid || '')}`
         }).then(r => r.json()).catch(() => ({success:false}));
     }
+
     function formatRefCell(cell){
-        const id = cell.getValue();
+        const id    = cell.getValue();
         const label = id ? (refereeOptions[id] || "—") : "—";
-        const g = (refereeMeta[id]?.grade || "").toUpperCase();
+        const g     = id ? (refereeMeta[id]?.grade || "").toUpperCase() : "";
         const klass = ["A","B","C","D"].includes(g) ? `chip-${g}` : "chip-E";
         const grade = g ? ` <span class="badge ${klass}">${g}</span>` : "";
-        const clearBtn = ASSIGN_MODE ? `<button class="assign-clear-btn" type="button" title="Unassign" aria-label="Unassign">×</button>` : "";
+        const clearBtn = (ASSIGN_MODE && id) ? `<button class="assign-clear-btn" type="button" title="Unassign" aria-label="Unassign">×</button>` : "";
         return `<span class="assign-text">${label}${grade}</span>${clearBtn}`;
     }
+    function paintRefCell(cell, field, fitPrefix){
+        // run on next frame to ensure formatter HTML is in place
+        requestAnimationFrame(() => {
+            const el = cell.getElement?.();
+            const rowData = cell.getRow?.().getData?.();
+            if (!el || !rowData) return;
+
+            // base class
+            if (el.classList) el.classList.add('score-cell');
+
+            // background from (score ⟂ conflict override)
+            if (fitPrefix) {
+                const score = displayScoreForCell(rowData, field, fitPrefix);
+                el.style.backgroundColor = (typeof score === 'number') ? scoreToColor(score) : '';
+            } else {
+                el.style.backgroundColor = '';
+            }
+
+            // remove ONLY old dots, keep grade badges intact
+            const oldDots = el.querySelector('.flag-dots');
+            if (oldDots) oldDots.remove();
+
+            const conflictLevel = (rowData.__conflicts && rowData.__conflicts[field]) || null;
+            const unavail       = (rowData.__unavail   && rowData.__unavail  [field]) || false;
+            const fitFlags      = fitPrefix ? (rowData[`${fitPrefix}_fit_flags`] || []) : [];
+
+            if (cell.getValue()) {
+                const dots = renderFlagDots({ conflict: conflictLevel, unavail, fitFlags });
+                if (dots) el.appendChild(dots);
+
+                const scoreVal = fitPrefix ? displayScoreForCell(rowData, field, fitPrefix) : null;
+                el.title = buildTooltipText({
+                    score: (typeof scoreVal === 'number') ? scoreVal : null,
+                    fitFlags, conflictLevel, unavail
+                });
+            } else {
+                el.title = 'Unassigned';
+            }
+        });
+    }
+
     function editorParamsFactory(){
         const values = { "": "— Unassigned —" };
         Object.entries(refereeOptions).forEach(([v,l])=> values[v]=l);
         return { values, autocomplete: true, listOnEmpty: true };
     }
+
+    const FLAG_TEXT = {
+        hard_conflict:      'Hard conflict: overlap or different venue same day',
+        soft_conflict:      'Soft conflict: same venue & day, no time overlap',
+        proximity_conflict: 'Proximity conflict: assignment within ±2 days',
+        below_grade:        'Below expected grade',
+        recent_team:        'Had one of these teams in the last 14 days',
+        unavailable:        'Unavailable',
+    };
+
+    function conflictColorToFlagKey(color) {
+        if (color === 'red')    return 'hard_conflict';
+        if (color === 'orange') return 'soft_conflict';
+        if (color === 'yellow') return 'proximity_conflict';
+        return null;
+    }
+
+    function buildTooltipText({ score, fitFlags = [], conflictLevel = null, unavail = false }) {
+        const lines = [];
+        if (typeof score === 'number') lines.push(`Score: ${score}`);
+        const merged = new Set(fitFlags);
+        const conflictFlag = conflictColorToFlagKey(conflictLevel);
+        if (conflictFlag) merged.add(conflictFlag);
+        if (unavail) merged.add('unavailable');
+
+        const ORDER = ['hard_conflict','soft_conflict','proximity_conflict','below_grade','recent_team','unavailable'];
+        ORDER.forEach(k => { if (merged.has(k) && FLAG_TEXT[k]) lines.push('• ' + FLAG_TEXT[k]); });
+        if (lines.length === 1 && typeof score === 'number') lines.push('• No issues detected');
+        return lines.join('\n');
+    }
+
+    function displayScoreForCell(row, field, fitPrefix){
+        const base = row?.[`${fitPrefix}_fit_score`];
+        const o    = row?.__scoreOverride?.[field];
+        if (typeof base === 'number' && typeof o === 'number') return Math.min(base, o);
+        return (typeof o === 'number') ? o : (typeof base === 'number' ? base : null);
+    }
+
     function makeRefereeCol(title, field, minWidth = 200){
+        const fitPrefix = field === 'referee_id' ? 'referee'
+            : field === 'ar1_id' ? 'ar1'
+                : field === 'ar2_id' ? 'ar2'
+                    : field === 'commissioner_id' ? 'commissioner' : null;
+
         return {
             title, field, minWidth,
-            formatter: formatRefCell,
+            formatter: (cell) => {
+                const el = document.createElement('div');
+                el.className = 'score-cell';
+                el.innerHTML = formatRefCell(cell);
+
+                const row   = cell.getRow()?.getData?.() || {};
+                const field = cell.getField();
+                const cellEl = cell.getElement?.();
+                const valuePresent = !!cell.getValue();
+
+                // Compute score (same as before)
+                const fitPrefix =
+                    field === 'referee_id'      ? 'referee' :
+                        field === 'ar1_id'          ? 'ar1' :
+                            field === 'ar2_id'          ? 'ar2' :
+                                field === 'commissioner_id' ? 'commissioner' : null;
+
+                // 🔶 Apply background to the *cell element* so it fills the whole cell, padding included
+                if (cellEl) {
+                    if (fitPrefix) {
+                        const score = displayScoreForCell(row, field, fitPrefix);
+                        cellEl.style.backgroundColor = (typeof score === 'number') ? scoreToColor(score) : '';
+                    } else {
+                        cellEl.style.backgroundColor = '';
+                    }
+                    cellEl.title = valuePresent
+                        ? (() => {
+                            const conflictLevel = row.__conflicts?.[field] ?? null;
+                            const unavail       = row.__unavail?.[field]   ?? false;
+                            const fitFlags      = row[`${fitPrefix}_fit_flags`] || [];
+                            const scoreVal      = fitPrefix ? displayScoreForCell(row, field, fitPrefix) : null;
+                            return buildTooltipText({
+                                score: (typeof scoreVal === 'number') ? scoreVal : null,
+                                fitFlags, conflictLevel, unavail
+                            });
+                        })()
+                        : 'Unassigned';
+                }
+
+                // Dots (unchanged)
+                if (valuePresent) {
+                    const conflictLevel = row.__conflicts?.[field] ?? null;
+                    const unavail       = row.__unavail?.[field]   ?? false;
+                    const fitFlags      = row[`${fitPrefix}_fit_flags`] || [];
+                    const dots = renderFlagDots({ conflict: conflictLevel, unavail, fitFlags });
+                    if (dots) el.appendChild(dots);
+                }
+
+                return el;
+            },
+
             editor: ASSIGN_MODE ? "list" : false,
             editorParams: editorParamsFactory,
             accessorDownload: (value) => refereeOptions[value] || "",
@@ -701,6 +891,7 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
                     const base = baselineById.get(row.uuid) || {};
                     base[field] = newVal || null;
                     baselineById.set(row.uuid, base);
+                    applyIndicators(table); // will trigger re-render; formatter will repaint
                 } catch (err) {
                     cell.setValue(cell.getOldValue(), true);
                     alert("Saving assignment failed.");
@@ -708,6 +899,8 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
             },
         };
     }
+
+
     function makeAssignerCol(){
         const base = {
             title: "Assigner",
@@ -741,7 +934,6 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
         };
     }
 
-    // Brace-depth JSON splitter (handles `}{` and no newlines)
     function extractJsonObjects(buffer) {
         const out = [];
         let depth = 0, inStr = false, esc = false, start = 0;
@@ -764,6 +956,18 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
         }
         const remainder = depth > 0 ? buffer.slice(start) : '';
         return { objects: out, remainder };
+    }
+
+    function refreshRefCell(row, field){
+        row?.reformat();
+        const cell = row?.getCell(field);
+        const el   = cell?.getElement();
+        if (!el) return;
+        el.style.backgroundColor = '';
+        el.title = 'Unassigned';
+        el.classList.remove('score-dark');
+        el.querySelector('.flag-dots')?.remove();
+        el.querySelectorAll('.badge').forEach(b => b.remove());
     }
 
     document.addEventListener('DOMContentLoaded', () => {
@@ -828,9 +1032,8 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
             ajaxResponse: (url, params, resp) => {
                 if (typeof resp === "string") { try { resp = JSON.parse(resp); } catch { return []; } }
                 const rows = Array.isArray(resp) ? resp : (Array.isArray(resp?.data) ? resp.data : []);
-                // optional stats:
+                setTimeout(() => { try { applyIndicators(table); } catch(e) { console.warn(e); } }, 0);
                 const total = Array.isArray(resp) ? resp.length : (Number(resp?.total) || rows.length);
-                const statsEl = document.getElementById('table-stats');
                 if (statsEl) statsEl.textContent = `Showing ${rows.length} of ${total} matches`;
                 return rows;
             },
@@ -863,7 +1066,7 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
                 { title: "Division", field: "division", headerFilter: "input", width: 140 },
                 { title: "District", field: "district", headerFilter: "input", width: 130 },
                 { title: "Poule", field: "poule", headerFilter: "input", width: 110 },
-                { title: "Location", field: "location_label", headerFilter: "input", minWidth: 200, visible: false}, // expects from API
+                { title: "Location", field: "location_label", headerFilter: "input", minWidth: 200, visible: false},
                 makeAssignerCol(),
                 makeRefereeCol("Referee",      "referee_id"),
                 makeRefereeCol("AR1",          "ar1_id"),
@@ -872,36 +1075,65 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
             ],
         });
 
-        table.on("dataLoaded", () => { applyConflictClasses(table); captureBaseline(table); });
         table.on("dataFiltered", () => { if (statsEl) statsEl.textContent = `Showing ${table.getDataCount("active")} of ${table.getDataCount()} matches`; });
-        table.on("dataProcessed", ()=> applyConflictClasses(table));
-        table.on("renderComplete",()=> applyConflictClasses(table));
-        table.on("pageLoaded",     ()=>{ applyConflictClasses(table); captureBaseline(table); });
-        table.on("cellEdited",     ()=> applyConflictClasses(table));
+        table.on("dataLoaded", () => { applyIndicators(table); captureBaseline(table); });
+        table.on("dataProcessed", ()=> applyIndicators(table));
+        table.on("renderComplete",()=> applyIndicators(table));
+        table.on("pageLoaded",     ()=>{ applyIndicators(table); captureBaseline(table); });
+        table.on("cellEdited",     ()=> applyIndicators(table));
 
-        table.on("cellClick", (e, cell) => {
+        table.on("cellClick", async (e, cell) => {
             const btn = e.target.closest(".assign-clear-btn");
             if (!btn) return;
-            const field = cell.getField();
-            if (!["referee_id","ar1_id","ar2_id","commissioner_id"].includes(field)) return;
+
+            e.preventDefault();
             e.stopPropagation();
-            const row = cell.getRow().getData();
-            const oldVal = cell.getValue();
-            table.updateData([{ uuid: row.uuid, [field]: "" }]);
-            saveAssignment(row.uuid, field, "").then(res => {
-                if (!res?.success) table.updateData([{ uuid: row.uuid, [field]: oldVal }]);
-            }).catch(() => {
-                table.updateData([{ uuid: row.uuid, [field]: oldVal }]);
-            });
+
+            const field   = cell.getField();
+            if (!["referee_id","ar1_id","ar2_id","commissioner_id"].includes(field)) return;
+
+            const row     = cell.getRow();
+            const rowData = row.getData();
+            const oldVal  = cell.getValue();
+
+            const prefix =
+                field === 'referee_id'      ? 'referee' :
+                    field === 'ar1_id'          ? 'ar1' :
+                        field === 'ar2_id'          ? 'ar2' :
+                            field === 'commissioner_id' ? 'commissioner' : null;
+
+            await cell.setValue("", true);
+            if (prefix) {
+                await row.update({
+                    [`${prefix}_fit_score`]: null,
+                    [`${prefix}_fit_flags`]: []
+                });
+            }
+            applyIndicators(table);
+
+            const base = baselineById.get(rowData.uuid) || {};
+            base[field] = null;
+            baselineById.set(rowData.uuid, base);
+
+            try {
+                const res = await saveAssignment(rowData.uuid, field, "");
+                if (!res?.success) throw new Error(res?.message || "Save failed");
+            } catch (err) {
+                await cell.setValue(oldVal, true);
+                row.update({});
+                applyIndicators(table);
+                const b = baselineById.get(rowData.uuid) || {};
+                b[field] = oldVal || null;
+                baselineById.set(rowData.uuid, b);
+                alert("Saving assignment failed.");
+            }
         });
 
-        // Filters -> refresh
         const triggerRefresh = () => table.setData();
         document.getElementById('globalFilter')?.addEventListener('input', triggerRefresh);
         document.getElementById('startDate')?.addEventListener('change', triggerRefresh);
         document.getElementById('endDate')?.addEventListener('change', triggerRefresh);
 
-        // Quick ranges
         function yyyy_mm_dd(dt){ return dt.toISOString().slice(0,10); }
         function setRange(start, end){
             const sEl = document.getElementById('startDate');
@@ -923,7 +1155,6 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
             })[b.dataset.range]?.());
         });
 
-        // CSV
         document.getElementById('exportCsv')?.addEventListener('click', ()=>{
             if (typeof table?.download === "function") {
                 const ts = new Date().toISOString().replace(/[:T]/g,'-').slice(0,16);
@@ -951,18 +1182,24 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
         row.getElement().style.opacity = 0.5;
         deleteMatchOnServer(uuid).then(() => {
             row.delete();
-            try { applyConflictClasses(table); } catch(e){}
+            try { applyIndicators(table); } catch(e){}
         }).catch(err => {
             alert(err.message || 'Delete failed');
             row.getElement().style.opacity = 1;
         });
     }
 
+    document.addEventListener('pointerdown', (e) => {
+        if (e.target.closest('.assign-clear-btn')) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+    }, { capture: true });
+
     // ---- Suggest button (streaming JSON parser; guard against double-binding) ----
     document.addEventListener('DOMContentLoaded', () => {
         const btn = document.getElementById('suggestAssignments');
         if (!btn) return;
-
         if (window.__suggestHandlerBound) return;
         window.__suggestHandlerBound = true;
 
@@ -971,7 +1208,6 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
             const original = el.textContent;
             el.disabled = true; el.textContent = 'Suggesting…';
 
-            // Progress UI (optional)
             const barC = document.getElementById('suggestionProgressBarContainer');
             const bar  = document.getElementById('suggestionProgressBar');
             const txt  = document.getElementById('suggestionProgressText');
@@ -979,11 +1215,11 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
             if (hasProgressUI) {
                 barC.style.display = 'block';
                 txt.style.display = 'block';
+                bar.style.setProperty('--progress-width', '0%');
                 bar.setAttribute('aria-valuenow', '0');
                 txt.textContent = 'Starting...';
             }
 
-            // Build query from current page filters
             const start  = document.getElementById('startDate')?.value || '';
             const end    = document.getElementById('endDate')?.value || '';
             const search = document.getElementById('globalFilter')?.value?.trim() || '';
@@ -998,7 +1234,6 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
                 const res = await fetch(url);
                 if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
-                // Always parse as stream (handles application/json and concatenated objects)
                 let suggestions = {};
                 const reader = res.body && res.body.getReader ? res.body.getReader() : null;
 
@@ -1023,7 +1258,6 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
                                     if (obj.message) txt.textContent = obj.message;
                                 }
                                 if (obj.suggestions) {
-                                    // accumulate across chunks
                                     Object.assign(suggestions, obj.suggestions);
                                 }
                             } catch (e) {
@@ -1038,7 +1272,6 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
                         if (!txt.textContent) txt.textContent = 'Done';
                     }
                 } else {
-                    // Fallback: non-streaming
                     const text = await res.text();
                     const { objects } = extractJsonObjects(text);
                     if (objects.length) {
@@ -1052,7 +1285,6 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
                     }
                 }
 
-                // Apply suggestions into Tabulator (safe-for-current-page version)
                 const updates = [];
                 for (const [uuid, roles] of Object.entries(suggestions || {})) {
                     const u = { uuid: String(uuid) };
@@ -1063,13 +1295,11 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
                     updates.push(u);
                 }
 
-// ---- KEY PART: filter to the rows Tabulator has loaded (current page) ----
                 const currentIds = new Set((table.getData() || []).map(r => String(r.uuid)));
                 const inPage     = updates.filter(u => currentIds.has(String(u.uuid)));
                 const outOfPage  = updates.filter(u => !currentIds.has(String(u.uuid)));
 
                 if (outOfPage.length) {
-                    // purely informational; avoids the Tabulator "Find Error" spam
                     console.debug('[Suggest] skipped (not on this page):', outOfPage.length, outOfPage.slice(0,5).map(x=>x.uuid));
                 }
 
@@ -1077,17 +1307,14 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
                     alert('No suggested matches on this page. Try paging or widen the date filter.');
                 } else {
                     try {
-                        await table.updateData(inPage);        // single batch
+                        await table.updateData(inPage);
                     } catch (e) {
                         console.warn('[Suggest] batch update rejected, falling back per-row:', e?.message || e);
-                        // Per-row fallback so one bad row doesn’t tank the whole batch
                         for (const u of inPage) {
                             try { await table.updateData([u]); } catch (e2) { console.warn('Row failed', u.uuid, e2?.message || e2); }
                         }
                     }
-
-                    applyConflictClasses(table);
-                    // refresh baseline only for updated rows
+                    applyIndicators(table);
                     inPage.forEach(u => {
                         const base = baselineById.get(u.uuid) || {};
                         ['referee_id','ar1_id','ar2_id','commissioner_id'].forEach(f => {
@@ -1100,17 +1327,16 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
             } catch (err) {
                 console.error('[Suggest] error:', err);
                 alert('Suggest failed: ' + (err.message || 'Unknown error'));
-                if (hasProgressUI) {
-                    txt.textContent = 'An error occurred.';
-                    bar.classList.add('bg-danger');
-                }
+                const txt = document.getElementById('suggestionProgressText');
+                if (txt) txt.textContent = 'An error occurred.';
             } finally {
                 el.disabled = false; el.textContent = original;
-                if (hasProgressUI) {
+                const barC = document.getElementById('suggestionProgressBarContainer');
+                const txt  = document.getElementById('suggestionProgressText');
+                if (barC && txt) {
                     setTimeout(() => {
                         barC.style.display = 'none';
                         txt.style.display  = 'none';
-                        bar.classList.remove('bg-danger');
                     }, 2000);
                 }
             }
