@@ -631,54 +631,87 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
     })();
 
     /* ===== Conflicts + Tabulator ===== */
-    const SEV = { NONE:0, YELLOW:1, ORANGE:2, RED:3, UNAVAILABLE:4 };
 
     const parseDT  = (d,t)=>{ const hhmm=(t||"00:00").slice(0,5); return new Date(`${d}T${hhmm}:00`); };
     const dayDiff  = (a,b)=> Math.round((new Date(b+"T00:00:00") - new Date(a+"T00:00:00"))/86400000);
-    const normAddr = (s)=> (s||"").toLowerCase().replace(/[.,;:()\-]/g," ").replace(/\s+/g," ").trim();
+
+    const SEV = { NONE:0, YELLOW:1, ORANGE:2, RED:3, UNAVAILABLE:4 };
 
     function computeConflicts(rows){
         const recs = [];
         rows.forEach(r=>{
             const d = r.getData();
             ["referee_id","ar1_id","ar2_id","commissioner_id"].forEach(role=>{
-                const refId=d[role]; if(!refId) return;
+                const refId = d[role];
+                if (!refId) return;
+
                 const start = parseDT(d.match_date, d.kickoff_time);
                 recs.push({
                     key: `${d.uuid}:${role}`,
-                    matchId: d.uuid, role, refId,
+                    matchId: d.uuid,
+                    role,
+                    refId,
                     dateStr: d.match_date,
-                    start, end: new Date(start.getTime()+90*60*1000),
-                    loc: normAddr(d.location_label || d.location_address || "")
+                    start,
+                    end: new Date(start.getTime() + 90*60*1000), // 90 minutes window
+                    locUuid: d.location_uuid || null             // ✅ UUID only
                 });
             });
         });
 
         const sev = new Map();
-        const bump=(k,s)=>{ const cur=sev.get(k) ?? SEV.NONE; if(s>cur) sev.set(k,s); };
+        const bump = (k, s) => { const cur = sev.get(k) ?? SEV.NONE; if (s > cur) sev.set(k, s); };
 
+        // Group by referee
         const byRef = {};
         recs.forEach(r => (byRef[r.refId] ||= []).push(r));
+
         Object.values(byRef).forEach(list=>{
+            // Sort by time to keep checks simple
             list.sort((a,b)=> a.start - b.start);
+
+            // Same match multi-role -> RED (hard conflict)
             const byMatch = {};
             list.forEach(r => (byMatch[r.matchId] ||= []).push(r));
-            Object.values(byMatch).forEach(arr=>{ if (arr.length>1) arr.forEach(r=> bump(r.key, SEV.RED)); });
+            Object.values(byMatch).forEach(arr => { if (arr.length > 1) arr.forEach(r => bump(r.key, SEV.RED)); });
 
-            for (let i=0;i<list.length;i++){
-                for (let j=i+1;j<list.length;j++){
-                    const A=list[i], B=list[j];
+            // Pairwise comparisons
+            for (let i = 0; i < list.length; i++){
+                for (let j = i + 1; j < list.length; j++){
+                    const A = list[i], B = list[j];
+
+                    // If dates are different, handle proximity only
                     const dd = dayDiff(A.dateStr, B.dateStr);
-                    if (dd === 0){
-                        if (A.start < B.end && B.start < A.end){ bump(A.key,SEV.RED); bump(B.key,SEV.RED); continue; }
-                        if (A.loc && B.loc && A.loc !== B.loc){ bump(A.key,SEV.RED); bump(B.key,SEV.RED); continue; }
-                        bump(A.key,SEV.ORANGE); bump(B.key,SEV.ORANGE);
-                    } else if (Math.abs(dd) <= 2){
-                        bump(A.key,SEV.YELLOW); bump(B.key,SEV.YELLOW);
+                    if (dd !== 0) {
+                        if (Math.abs(dd) <= 2) { bump(A.key, SEV.YELLOW); bump(B.key, SEV.YELLOW); }
+                        continue;
+                    }
+
+                    // Same day…
+                    const overlap = (A.start < B.end) && (B.start < A.end);
+                    if (overlap) {
+                        bump(A.key, SEV.RED); bump(B.key, SEV.RED);
+                        continue;
+                    }
+
+                    // Venue logic: only consider when BOTH UUIDs exist
+                    const aU = A.locUuid, bU = B.locUuid;
+                    if (aU && bU) {
+                        if (aU !== bU) {
+                            // Different known venue -> HARD
+                            bump(A.key, SEV.RED); bump(B.key, SEV.RED);
+                        } else {
+                            // Same known venue, no overlap -> SOFT
+                            bump(A.key, SEV.ORANGE); bump(B.key, SEV.ORANGE);
+                        }
+                    } else {
+                        // At least one venue unknown -> no venue-based conflict
+                        // (Do not mark ORANGE anymore)
                     }
                 }
             }
         });
+
         return sev;
     }
 

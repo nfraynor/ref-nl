@@ -127,11 +127,21 @@ try {
     }
 
     // Location: prefer location_uuid; else fall back to location_address if present
+    // Location: prefer location_uuid; also store a label into location_address if the column exists (for UI)
     if ($has_location_uuid) {
         $cols[]='location_uuid';    $vals[]=':location_uuid';    $bind[':location_uuid']    = $location_uuid ?: null;
+
+        if ($has_location_addr) {
+            $cols[]='location_address';
+            $vals[]=':location_address';
+            // Pick a nice user-facing label (name – address if possible)
+            $bind[':location_address'] = $resolved_location_label ?: $resolved_location_addr ?: null;
+        }
     } elseif ($has_location_addr) {
-        $cols[]='location_address'; $vals[]=':location_address'; $bind[':location_address'] = $resolved_location_addr ?: $resolved_location_label ?: null;
+        $cols[]='location_address'; $vals[]=':location_address';
+        $bind[':location_address'] = $resolved_location_addr ?: $resolved_location_label ?: null;
     }
+
     foreach ($cols as $c) {
         if ($c === '' || $c === null) {
             throw new RuntimeException('Empty column name detected in INSERT.');
