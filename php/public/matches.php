@@ -922,15 +922,25 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
                 try {
                     const res = await saveAssignment(row.uuid, field, newVal);
                     if (!res?.success) throw new Error(res?.message || "Save failed");
+
+                    // Keep baseline in sync
                     const base = baselineById.get(row.uuid) || {};
                     base[field] = newVal || null;
                     baselineById.set(row.uuid, base);
-                    applyIndicators(table); // will trigger re-render; formatter will repaint
+
+                    // 🔹 NEW: apply server-computed fit patch (scores + flags)
+                    if (res.patch && res.patch.uuid === row.uuid) {
+                        await table.updateData([res.patch]);
+                    }
+
+                    // Recompute & repaint conflicts + fits
+                    applyIndicators(table); // uses updated *_fit_* fields for backgrounds and dots
                 } catch (err) {
                     cell.setValue(cell.getOldValue(), true);
                     alert("Saving assignment failed.");
                 }
             },
+
         };
     }
 
