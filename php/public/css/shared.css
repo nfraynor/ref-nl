@@ -664,7 +664,7 @@ html { scrollbar-gutter: stable both-edges; }
 .modal{
     position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
     background:rgba(15,23,42,.45); /* dim backdrop */
-    z-index: 1000; /* above sticky header */
+    z-index: 1060; /* above sticky header */
 }
 
 /* Dialog */
