@@ -1,72 +1,36 @@
+/* =========================
+   HERO / LAYOUT
+   ========================= */
+.referees-hero{ position:relative; border-radius:20px; overflow:clip; margin:18px 0 14px; box-shadow:var(--shadow);
+    background:linear-gradient(180deg, rgba(255,255,255,.12), rgba(255,255,255,.04)); backdrop-filter:blur(8px);
+    border:1px solid rgba(255,255,255,.18); }
+.referees-hero__bg{ position:absolute; inset:0; z-index:0; pointer-events:none; }
+.referees-hero__content{ position:relative; z-index:1; }
+.referees-hero__bg{ inset:-20%; background:
+        radial-gradient(1200px 480px at 5% -10%, color-mix(in oklab, var(--grad-1) 64%, transparent), transparent 60%),
+        radial-gradient(1000px 420px at 120% 0%, color-mix(in oklab, var(--grad-2) 64%, transparent), transparent 65%);
+    opacity:.35; }
+.referees-hero__content{ padding:22px; display:grid; grid-template-columns:1fr; gap:12px; }
+@media (min-width:860px){ .referees-hero__content{ grid-template-columns:1fr auto; align-items:start; } }
 
-.referees-hero { position: relative; }
-
-.referees-hero__bg {
-    position: absolute;
-    inset: 0;
-    z-index: 0;
-    pointer-events: none;
-}
-
-.referees-hero__content { position: relative; z-index: 1; }
-
-/* Hard-override ONLY this modal instance */
-#newMatchModal.modal-open{
-    display: grid !important;
-    pointer-events: auto !important;
-    position: fixed; inset: 0;
-    background: rgba(15,23,42,.45);
-    place-items: center;
-    z-index: 3000;           /* above navbar/dropdowns */
-    padding: 24px;
-}
-
-body #newMatchModal.modal-open{ display:grid !important; pointer-events:auto !important; }
+.referees-hero, .tab-toolbar, .table-stats{ max-width:1200px; margin-left:auto; margin-right:auto; }
+.matches-container .referees-hero,
+.matches-container .tab-toolbar,
+.matches-container .table-stats{ max-width:100%; }
 
 /* =========================
-   GLASSY HERO
+   TABLES / DENSITY
    ========================= */
-.referees-hero{
-    position: relative;
-    border-radius: 20px;
-    overflow: clip;
-    margin: 18px 0 14px;
-    box-shadow: var(--shadow);
-    background: linear-gradient(180deg, rgba(255,255,255,.12), rgba(255,255,255,.04));
-    backdrop-filter: blur(8px);
-    border: 1px solid rgba(255,255,255,.18);
-}
-
-.referees-hero__bg{
-    position:absolute; inset:-20%;
-    background:
-            radial-gradient(1200px 480px at 5% -10%, color-mix(in oklab, var(--grad-1) 64%, transparent), transparent 60%),
-            radial-gradient(1000px 420px at 120% 0%, color-mix(in oklab, var(--grad-2) 64%, transparent), transparent 65%);
-    opacity:.35; pointer-events:none;
-}
-
-.referees-hero__content{
-    position:relative; z-index:1; padding:22px;
-    display:grid; grid-template-columns:1fr; gap:12px;
-}
-
-@media (min-width:860px){
-    .referees-hero__content{ grid-template-columns:1fr auto; align-items:start; }
-}
-
-/* Sticky header for all main tables */
 #referees-table .tabulator-header,
 #clubs-table .tabulator-header,
-#matches-table .tabulator-header{ position: sticky; top: 0; z-index: 2; }
+#matches-table .tabulator-header{ position:sticky; top:0; z-index:2; }
 
-/* Density presets (apply on the container div with data-density="…") */
 #referees-table[data-density="compact"],
 #clubs-table[data-density="compact"],
 #matches-table[data-density="compact"]{
     --fs:14px; --lh:1.35; --cell-py:8px; --cell-px:10px; --row-min:36px;
     --header-fs:12.5px; --chip-fs:12px; --chip-py:2px; --chip-px:8px;
 }
-
 #referees-table[data-density="roomy"],
 #clubs-table[data-density="roomy"],
 #matches-table[data-density="roomy"]{
@@ -75,659 +39,267 @@ body #newMatchModal.modal-open{ display:grid !important; pointer-events:auto !im
 }
 
 #referees-table, #clubs-table, #matches-table{ width:100%; }
-
-/* Prevent over-squash; tweak per table */
-#matches-table .tabulator-table{ min-width: 1200px; }
-
-/* Keep tables scrollable when wider than viewport */
+#matches-table .tabulator-table{ min-width:1200px; }
 #referees-table .tabulator-tableholder,
 #clubs-table .tabulator-tableholder,
-#matches-table .tabulator-tableholder{
-    overflow-x: auto !important;
-    overflow-y: auto;
-}
+#matches-table .tabulator-tableholder{ overflow-x:auto !important; overflow-y:auto; }
 
-/* If you also want hero/toolbar to follow viewport width */
-.referees-hero, .tab-toolbar, .table-stats{
-    max-width: 1200px; margin-left:auto; margin-right:auto;
-}
-
-.matches-container .referees-hero,
-.matches-container .tab-toolbar,
-.matches-container .table-stats{
-    max-width: 100%;
-}
-
-/* Floating legend */
+/* =========================
+   LEGEND / FILTERS
+   ========================= */
 .conflict-legend{
-    position: sticky; top: 10px; margin-left:auto; margin-right:auto; max-width:1200px;
+    position:sticky; top:10px; margin-left:auto; margin-right:auto; max-width:1200px;
     display:flex; gap:16px; align-items:center; justify-content:flex-end;
     font-size:12.5px; color:var(--muted);
 }
-
 .conflict-legend .dot{ display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:6px; vertical-align:middle; }
 
-/* Dates + quick ranges */
 .date-pair{ display:flex; gap:.5rem; align-items:end; }
-
-.date-col .form-control{ width: 170px; height: 42px; border-radius:10px; }
-
+.date-col .form-control{ width:170px; height:42px; border-radius:10px; }
 .quick-ranges{ display:flex; gap:.4rem; align-items:center; }
 
-.assign-clear-btn{
-    margin-left: 8px;
-    border: 0;
-    background: transparent;
-    cursor: pointer;
-    font-size: 16px;
-    line-height: 1;
-    opacity: .55;
-    visibility: hidden;
-}
+/* =========================
+   MODALS (generic + specific)
+   ========================= */
+.modal.hidden{ display:none !important; }
+.modal.modal-open{ display:grid !important; position:fixed; inset:0; background:rgba(15,23,42,.45); place-items:center; z-index:1000; padding:24px; }
 
-.tabulator-cell:hover .assign-clear-btn{ visibility: visible; }
-
-.assign-clear-btn:hover{ opacity: .9; }
-
-/* Modal width */
-#newMatchModal .modal__dialog{
-
-    width: 92vw;
-}
-
-/* Compact card padding inside modal */
-#newMatchModal .card-like{ padding: 16px; }
-
-/* Base dropdown menu enhancements */
-.dropdown-menu {
-    min-width: 250px;
-    padding: 1rem;
-    border-radius: 0.375rem;
-    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
-    left: 0 !important;
-    margin-top: 0.25rem !important;
-    transform: none !important;
-    z-index: 1050;
-}
-
-/* Ensure dropdown container is positioned correctly in table headers */
-.table th .dropdown {
-    position: relative;
-    display: inline-block;
-    overflow: visible;
-}
-
-/* Scrollable menu */
-.dropdown-menu.scrollable {
-    max-height: 250px;
-    overflow-y: auto;
-    scrollbar-width: thin;
-    scrollbar-color: #dee2e6 #f8f9fa;
-}
-
-/* Webkit scrollbar styling for Chrome/Safari */
-.dropdown-menu.scrollable::-webkit-scrollbar {
-    width: 6px;
-}
-
-.dropdown-menu.scrollable::-webkit-scrollbar-track {
-    background: #f8f9fa;
-}
-
-.dropdown-menu.scrollable::-webkit-scrollbar-thumb {
-    background: #dee2e6;
-    border-radius: 3px;
-}
-
-/* Checkbox items inside the menu */
-.dropdown-menu .form-check {
-    padding: 0.5rem 1rem;
-    margin: 0;
-}
-
-.dropdown-menu .form-check:hover {
-    background-color: #f8f9fa;
-    cursor: pointer;
-}
-
-.dropdown-menu .form-check-input {
-    margin-right: 0.5rem;
-}
-
-.dropdown-menu .form-check-label {
-    cursor: pointer;
-}
-
-/* Checked state styling */
-.dropdown-menu .form-check-input:checked {
-    background-color: #0d6efd;
-}
-
-.dropdown-menu .form-check-input:checked + .form-check-label {
-    font-weight: 500;
-    color: #0d6efd;
-}
-
-/* Clear and Apply buttons at the bottom */
-.dropdown-menu .btn-light,
-.dropdown-menu .btn-primary {
-    margin: 0.5rem;
-    font-size: 0.875rem;
-}
-
-/* Active filter indicator on toggle button */
-.btn-outline-secondary.filter-active {
-    border-color: #0d6efd;
-    color: #0d6efd;
-    font-weight: bold;
-}
-
-.btn-outline-secondary.filter-active .bi-filter {
-    color: #0d6efd;
-}
-
-/* Optional: Style as switches */
-.dropdown-menu .form-switch .form-check-input {
-    width: 2em;
-    margin-left: 0.5rem;
-}
-
-/* Additional styles for the matches page */
-.table-responsive-custom {
-    max-height: 60vh;
-    overflow-y: auto;
-    position: relative;
-}
-
-.select2-container .select2-selection.conflict-red    { background:#fdecea; border-color:#f5c2c7; }
-
-.select2-container .select2-selection.conflict-orange { background:#fff4e5; border-color:#ffd59e; }
-
-.select2-container .select2-selection.conflict-yellow { background:#fffbe6; border-color:#ffe58f; }
-
-.select2-container .select2-selection.unavailable     { background:#f1f1f1; border-color:#e0e0e0; color:#888; }
-
-.select2-container .select2-selection { transition: background .15s ease, border-color .15s ease; }
-
-.s2-badge{display:inline-block;font-size:.75rem;line-height:1;padding:.15rem .35rem;border-radius:.35rem;margin-left:.35rem}
-
-.s2-unavailable{background:#e0e0e0;color:#555}
-
-.s2-red{background:#f8d7da;color:#842029}
-
-.s2-orange{background:#ffe8cc;color:#8a4b08}
-
-.s2-yellow{background:#fff3cd;color:#664d03}
-
-.sticky-assign-button {
-    position: sticky;
-    top: 0;
-    z-index: 1000;
-}
-
-.content-card {
-    background: #fff;
-    border: 1px solid #ddd;
-    border-radius: 8px;
-    padding: 1rem;
-}
-
-/* Editable cell styles */
-.edit-icon {
-    visibility: hidden;
-    cursor: pointer;
-    margin-left: 5px;
-}
-
-.editable-cell:hover .edit-icon {
-    visibility: visible;
-}
-
-/* Improved table styles */
-.table {
-    border-spacing: 0 10px;
-    border-collapse: separate;
-}
-
-.table th,
-.table td {
-    padding: 15px;
-    vertical-align: middle;
-}
-
-.table .location-cell {
-    font-size: 0.9em;
-}
-
-.table thead th {
-    border-bottom: 2px solid #dee2e6;
-    /* position: sticky;*/
-    top: 0;
-    background-color: #fff;
-    z-index: 1020;
-}
-
-.table tbody tr {
-    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-    border-radius: 8px;
-}
-
-/* Tom Select: compact, modern look */
-.ts-wrapper .ts-control {
-    min-height: 2.25rem;
-    padding: .25rem .5rem;
-    border-radius: .5rem;
-}
-
-.ts-wrapper .ts-control:hover {
-    border-color: #adb5bd;
-}
-
-.ts-wrapper.focus .ts-control {
-    box-shadow: 0 0 0 .15rem rgba(13,110,253,.15);
-    border-color: #86b7fe;
-}
-
-.ts-dropdown {
-    border-radius: .5rem;
-    overflow: hidden;
-}
-
-/* Option row layout */
-.ref-option {
-    display: flex; align-items: center; gap: .5rem;
-    padding: .35rem .5rem;
-}
-
-.ref-option .label {
-    flex: 1 1 auto;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    font-size: .95rem;
-}
-
-/* Grade badge */
-.grade-badge {
-    display: inline-flex; align-items: center; justify-content: center;
-    width: 1.35rem; height: 1.35rem; border-radius: .375rem;
-    font-size: .8rem; font-weight: 600;
-    background: #f1f3f5; color: #212529; border: 1px solid #e9ecef;
-}
-
-/* Availability dot */
-.avail-dot {
-    width: .5rem; height: .5rem; border-radius: 999px;
-    border: 1px solid rgba(0,0,0,.1);
-}
-
-.avail-dot.available { background: #198754; }
-
-/* green */
-.avail-dot.unavailable { background: #6c757d; }
-
-/* gray */
-
-/* Selected item pill */
-.ref-item {
-    display: inline-flex; align-items: center; gap: .4rem;
-    padding: .15rem .4rem; border-radius: .5rem; border: 1px solid #e9ecef;
-    background: #f8f9fa;
-}
-
-/* Conflict emphasis on control (already set by your logic) */
-.ts-control.unavailable {
-    border-color:#6c757d;
-    background: repeating-linear-gradient(45deg, rgba(108,117,125,.1), rgba(108,117,125,.1) 10px, rgba(108,117,125,.2) 10px, rgba(108,117,125,.2) 20px);
-}
-
-.ts-control.conflict-red { border-color:#dc3545 !important; box-shadow: 0 0 0 .15rem rgba(220,53,69,.2); }
-
-.ts-control.conflict-orange { border-color:#fd7e14 !important; box-shadow: 0 0 0 .15rem rgba(253,126,20,.2); }
-
-.ts-control.conflict-yellow { border-color:#ffc107 !important; box-shadow: 0 0 0 .15rem rgba(255,193,7,.25); }
-
-/* keep hidden state explicit */
-.modal.hidden { display: none !important; }
-
-/* when *not* hidden, force it visible */
-.modal.modal-open {
-    display: grid !important;       /* beats Bootstrap's display:none */
-    position: fixed; inset: 0;
-    background: rgba(15,23,42,.45);
-    place-items: center; z-index: 1000;
-    padding: 24px;
-}
+#newMatchModal .modal__dialog{ width:92vw; }     /* width override for this modal */
+#newMatchModal .card-like{ padding:16px; }
 
 .modal__dialog{
-    background:#fff; border-radius:16px; width:100%;
-    box-shadow: 0 20px 50px rgba(0,0,0,.25);
-    overflow: hidden;
-    border: 1px solid rgba(0,0,0,.06);
+    background:#fff; border-radius:16px; width:100%; box-shadow:0 20px 50px rgba(0,0,0,.25);
+    overflow:hidden; border:1px solid rgba(0,0,0,.06);
 }
 
-/* Hard-override ONLY this modal instance */
-#newMatchModal.modal-open{
-    display: grid !important;
-    pointer-events: auto !important;
-    position: fixed; inset: 0;
-    background: rgba(15,23,42,.45);
-    place-items: center;
-    z-index: 3000;           /* above navbar/dropdowns */
-    padding: 24px;
+/* Hard-override ONLY this modal instance (combine duplicates) */
+#newMatchModal.modal-open,
+body #newMatchModal.modal-open{
+    display:grid !important; pointer-events:auto !important; position:fixed; inset:0; background:rgba(15,23,42,.45);
+    place-items:center; z-index:3000; padding:24px;
 }
 
-body #newMatchModal.modal-open{ display:grid !important; pointer-events:auto !important; }
-
-/* Conflict highlighting on Tabulator cells */
-#matches-table .tabulator-cell.sev-red {
-    background-color: #ffe0e0 !important;   /* soft red */
+/* =========================
+   DROPDOWNS
+   ========================= */
+.dropdown-menu{
+    min-width:250px; padding:1rem; border-radius:.375rem; box-shadow:0 .5rem 1rem rgba(0,0,0,.15);
+    left:0 !important; margin-top:.25rem !important; transform:none !important; z-index:1050;
 }
+.table th .dropdown{ position:relative; display:inline-block; overflow:visible; }
+.dropdown-menu.scrollable{ max-height:250px; overflow-y:auto; scrollbar-width:thin; scrollbar-color:#dee2e6 #f8f9fa; }
+.dropdown-menu.scrollable::-webkit-scrollbar{ width:6px; }
+.dropdown-menu.scrollable::-webkit-scrollbar-track{ background:#f8f9fa; }
+.dropdown-menu.scrollable::-webkit-scrollbar-thumb{ background:#dee2e6; border-radius:3px; }
+.dropdown-menu .form-check{ padding:.5rem 1rem; margin:0; }
+.dropdown-menu .form-check:hover{ background-color:#f8f9fa; cursor:pointer; }
+.dropdown-menu .form-check-input{ margin-right:.5rem; }
+.dropdown-menu .form-check-label{ cursor:pointer; }
+.dropdown-menu .form-check-input:checked{ background-color:#0d6efd; }
+.dropdown-menu .form-check-input:checked + .form-check-label{ font-weight:500; color:#0d6efd; }
+.dropdown-menu .btn-light, .dropdown-menu .btn-primary{ margin:.5rem; font-size:.875rem; }
+.dropdown-menu .form-switch .form-check-input{ width:2em; margin-left:.5rem; }
 
-#matches-table .tabulator-cell.sev-orange {
-    background-color: #ffefd6 !important;   /* soft orange */
+.btn-outline-secondary.filter-active{ border-color:#0d6efd; color:#0d6efd; font-weight:bold; }
+.btn-outline-secondary.filter-active .bi-filter{ color:#0d6efd; }
+
+/* =========================
+   STICKY / CARDS
+   ========================= */
+.sticky-assign-button{ position:sticky; top:0; z-index:1000; }
+.content-card{ background:#fff; border:1px solid #ddd; border-radius:8px; padding:1rem; }
+
+/* =========================
+   GENERIC TABLE STYLES
+   ========================= */
+.table{ border-spacing:0 10px; border-collapse:separate; }
+.table th, .table td{ padding:15px; vertical-align:middle; }
+.table .location-cell{ font-size:.9em; }
+.table thead th{ border-bottom:2px solid #dee2e6; top:0; background-color:#fff; z-index:1020; }
+.table tbody tr{ box-shadow:0 2px 4px rgba(0,0,0,.05); border-radius:8px; }
+
+/* =========================
+   TOM-SELECT / SELECT2
+   ========================= */
+.ts-wrapper .ts-control{ min-height:2.25rem; padding:.25rem .5rem; border-radius:.5rem; }
+.ts-wrapper .ts-control:hover{ border-color:#adb5bd; }
+.ts-wrapper.focus .ts-control{ box-shadow:0 0 0 .15rem rgba(13,110,253,.15); border-color:#86b7fe; }
+.ts-dropdown{ border-radius:.5rem; overflow:hidden; }
+
+.ref-option{ display:flex; align-items:center; gap:.5rem; padding:.35rem .5rem; }
+.ref-option .label{ flex:1 1 auto; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:.95rem; }
+
+.grade-badge{
+    display:inline-flex; align-items:center; justify-content:center; width:1.35rem; height:1.35rem; border-radius:.375rem;
+    font-size:.8rem; font-weight:600; background:#f1f3f5; color:#212529; border:1px solid #e9ecef;
 }
+.avail-dot{ width:.5rem; height:.5rem; border-radius:999px; border:1px solid rgba(0,0,0,.1); }
+.avail-dot.available{ background:#198754; }   /* green */
+.avail-dot.unavailable{ background:#6c757d; } /* gray */
 
-#matches-table .tabulator-cell.sev-yellow {
-    background-color: #fff9cc !important;   /* soft yellow */
-}
+.ref-item{ display:inline-flex; align-items:center; gap:.4rem; padding:.15rem .4rem; border-radius:.5rem; border:1px solid #e9ecef; background:#f8f9fa; }
 
-#matches-table .tabulator-cell.sev-unavail {
-    background-color: #e9ecef !important;   /* muted gray */
-    color: #495057;
-}
+.select2-container .select2-selection{ transition:background .15s ease, border-color .15s ease; }
+.select2-container .select2-selection.conflict-red{ background:#fdecea; border-color:#f5c2c7; }
+.select2-container .select2-selection.conflict-orange{ background:#fff4e5; border-color:#ffd59e; }
+.select2-container .select2-selection.conflict-yellow{ background:#fffbe6; border-color:#ffe58f; }
+.select2-container .select2-selection.unavailable{ background:#f1f1f1; border-color:#e0e0e0; color:#888; }
 
-/* Optional: keep selection/hover readable on colored cells */
+.s2-badge{ display:inline-block; font-size:.75rem; line-height:1; padding:.15rem .35rem; border-radius:.35rem; margin-left:.35rem; }
+.s2-unavailable{ background:#e0e0e0; color:#555; }
+.s2-red{ background:#f8d7da; color:#842029; }
+.s2-orange{ background:#ffe8cc; color:#8a4b08; }
+.s2-yellow{ background:#fff3cd; color:#664d03; }
+
+/* =========================
+   INLINE EDITING
+   ========================= */
+.edit-icon{ visibility:hidden; cursor:pointer; margin-left:5px; }
+.editable-cell:hover .edit-icon{ visibility:visible; }
+
+/* =========================
+   MATCHES TABLE: STATE COLORS
+   ========================= */
+#matches-table .tabulator-cell.sev-red{ background-color:#ffe0e0 !important; }
+#matches-table .tabulator-cell.sev-orange{ background-color:#ffefd6 !important; }
+#matches-table .tabulator-cell.sev-yellow{ background-color:#fff9cc !important; }
+#matches-table .tabulator-cell.sev-unavail{ background-color:#e9ecef !important; color:#495057; }
+
 #matches-table .tabulator-row.tabulator-selected .tabulator-cell.sev-red,
 #matches-table .tabulator-row.tabulator-selected .tabulator-cell.sev-orange,
 #matches-table .tabulator-row.tabulator-selected .tabulator-cell.sev-yellow,
-#matches-table .tabulator-row.tabulator-selected .tabulator-cell.sev-unavail {
-    filter: brightness(0.96);
+#matches-table .tabulator-row.tabulator-selected .tabulator-cell.sev-unavail{ filter:brightness(.96); }
+
+/* =========================
+   MATCHES TABLE: SCORE FILL + DOTS
+   ========================= */
+#matches-table .tabulator-cell.score-cell{ position:relative; transition:background-color 160ms ease, color 160ms ease, filter 160ms ease; }
+#matches-table .tabulator-cell.score-dark{ color:#fff; }
+
+/* (shared) dots + variants */
+.flag-dots{ position:absolute; right:6px; bottom:6px; display:inline-flex; gap:4px; align-items:center; }
+.flag-dot{ width:9px; height:9px; border-radius:50%; border:1px solid rgba(0,0,0,.15); }
+.flag-dot.conf-red{ background:#e03131; }
+.flag-dot.conf-orange{ background:#f08c00; }
+.flag-dot.conf-yellow{ background:#ffd43b; border-color:rgba(0,0,0,.25); }
+.flag-dot.unavail{ background:#adb5bd; }
+.flag-dot.below-grade{ background:#845ef7; }   /* purple */
+.flag-dot.recent-team{ background:#22b8cf; }   /* cyan */
+
+#matches-table [data-density="cozy"] .tabulator-cell{ padding-top:8px; padding-bottom:8px; }
+
+/* =========================
+   ASSIGN CELL (base layout + button)
+   ========================= */
+.tabulator-cell .score-cell{ position:relative; }  /* anchor for overlays */
+
+.assign-wrap{ display:flex; align-items:center; gap:8px; min-height:34px; padding-right:44px; }
+.assign-wrap .assign-text{ display:inline-flex; align-items:center; gap:6px; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+/* clear button (base) */
+.assign-clear-btn{
+    margin-left:8px; border:0; background:transparent; cursor:pointer; font-size:16px; line-height:1; opacity:.55; visibility:hidden;
 }
-/* ==== Score fill on cells ==== */
-#matches-table .tabulator-cell.score-cell {
-    position: relative;
-    transition: background-color 160ms ease, color 160ms ease, filter 160ms ease;
+/* show on hover in generic contexts */
+.tabulator-cell:hover .assign-clear-btn{ visibility:visible; }
+.assign-clear-btn:hover{ opacity:.9; }
+
+/* overlayed button used inside score cells */
+.assign-clear-btn{
+    position:absolute; right:6px; top:50%; transform:translateY(-50%); width:36px; height:36px;
+    border:0; border-radius:9999px; background:rgba(0,0,0,.06); cursor:pointer; font-size:20px; line-height:1;
+    display:inline-flex; align-items:center; justify-content:center; color:#333;
 }
+.assign-clear-btn:hover{ background:rgba(0,0,0,.12); }
+.assign-clear-btn:active{ background:rgba(0,0,0,.18); }
+.assign-clear-btn:focus{ outline:2px solid #5b9aff; outline-offset:2px; }
+.assign-clear-btn::after{ content:""; position:absolute; inset:-6px; } /* enlarge hit area */
 
-/* readable text on dark backgrounds */
-#matches-table .tabulator-cell.score-dark {
-    color: #fff;
+/* default dots spacing when button exists */
+.flag-dots{ margin-left:6px; margin-right:44px; }
+
+/* =========================
+   FINAL OVERRIDES (scoped to #matches-table)
+   - No reserved padding
+   - Button overlay hidden until hover/focus
+   - Left-aligned dots in vertical layout
+   ========================= */
+#matches-table .tabulator-cell .score-cell{ position:relative !important; }
+
+#matches-table .assign-wrap{
+    display:inline-flex !important; align-items:center !important; gap:6px !important; width:100% !important; position:relative !important;
+    padding-right:0 !important; grid-template-columns:unset !important;
 }
-
-/* ==== Flag dots container (bottom-right) ==== */
-.flag-dots {
-    position: absolute;
-    right: 6px;
-    bottom: 6px;
-    display: inline-flex;
-    gap: 4px;
-    align-items: center;
-}
-
-/* One dot */
-.flag-dot {
-    width: 9px;
-    height: 9px;
-    border-radius: 50%;
-    border: 1px solid rgba(0,0,0,.15);
-}
-
-/* Types */
-.flag-dot.conf-red    { background: #e03131; }
-.flag-dot.conf-orange { background: #f08c00; }
-.flag-dot.conf-yellow { background: #ffd43b; border-color: rgba(0,0,0,.25); }
-.flag-dot.unavail     { background: #adb5bd; }
-
-.flag-dot.below-grade { background: #845ef7; }     /* purple */
-.flag-dot.recent-team { background: #22b8cf; }     /* cyan  */
-
-
-/* Ensure the cell can position children */
-.tabulator-cell .score-cell { position: relative; }
-
-/* Layout wrapper for text + clear button */
-.assign-wrap {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    min-height: 34px;          /* comfortable tap target row height */
-    padding-right: 44px;       /* reserve room for the clear button on the right */
-}
-
-/* Make the name/badge truncate nicely if needed */
-.assign-wrap .assign-text {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-/* Bigger, easier clear button */
-.assign-clear-btn {
-    position: absolute;
-    right: 6px;                /* sits inside the cell, right edge */
-    top: 50%;
-    transform: translateY(-50%);
-    width: 36px;
-    height: 36px;
-    border: 0;
-    border-radius: 9999px;
-    background: rgba(0,0,0,0.06);
-    cursor: pointer;
-    font-size: 20px;           /* bigger “×” */
-    line-height: 1;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    color: #333;
+#matches-table .assign-text{
+    flex:1 1 auto !important; min-width:0 !important; overflow:hidden !important; text-overflow:ellipsis !important; white-space:nowrap !important;
 }
 
-.assign-clear-btn:hover {
-    background: rgba(0,0,0,0.12);
+/* small overlay button, hidden by default */
+#matches-table .assign-clear-btn{
+    position:absolute !important; right:4px !important; top:50% !important; transform:translateY(-50%) !important;
+    width:28px !important; height:28px !important; border:0 !important; border-radius:50% !important; background:rgba(0,0,0,.06) !important;
+    color:#333 !important; font-size:18px !important; line-height:1 !important; display:inline-flex !important; align-items:center !important; justify-content:center !important;
+    opacity:0 !important; visibility:hidden !important; pointer-events:none !important; z-index:3 !important; transition:opacity .15s ease !important;
 }
-
-.assign-clear-btn:active {
-    background: rgba(0,0,0,0.18);
-}
-
-/* Visible focus ring for keyboard users */
-.assign-clear-btn:focus {
-    outline: 2px solid #5b9aff;
-    outline-offset: 2px;
-}
-
-/* Enlarge the *tap* target invisibly for touch (extends beyond the circle) */
-.assign-clear-btn::after {
-    content: "";
-    position: absolute;
-    inset: -6px;               /* increases hit area to ~48px without changing visuals */
-}
-
-/* Keep flag dots from colliding with the button: push them left a bit */
-.flag-dots {
-    margin-left: 6px;
-    margin-right: 44px;        /* keep clear of the button at right */
-}
-
-/* Optional: make the whole cell a bit roomier in dense tables */
-#matches-table [data-density="cozy"] .tabulator-cell {
-    padding-top: 8px;
-    padding-bottom: 8px;
-}
-
-/* Cell scaffold */
-.tabulator-cell .score-cell { position: relative; }
-
-/* Grid layout: text | dots | button */
-.assign-wrap {
-    display: grid;
-    grid-template-columns: 1fr auto auto; /* text grows, dots fit, button fixed */
-    align-items: center;
-    gap: 8px;
-    min-height: 36px;
-}
-
-/* Text truncates cleanly */
-.assign-text {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-}
-
-/* Put the dots in their own slot so they never sit under the button */
-.assign-dots-slot .flag-dots { margin: 0; }
-
-/* Bigger, easy button without covering content */
-.assign-clear-btn {
-    width: 36px;
-    height: 36px;
-    border: 0;
-    border-radius: 9999px;
-    background: rgba(0,0,0,0.06);
-    cursor: pointer;
-    font-size: 20px;
-    line-height: 1;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    color: #333;
-    opacity: 0.7;             /* lighter by default */
-}
-
-.assign-clear-btn:hover,
-.assign-clear-btn:focus {
-    opacity: 1;
-    background: rgba(0,0,0,0.12);
-}
-
-.assign-clear-btn:active {
-    background: rgba(0,0,0,0.18);
-}
-
-/* Visible keyboard focus */
-.assign-clear-btn:focus {
-    outline: 2px solid #5b9aff;
-    outline-offset: 2px;
-}
-
-/* Expand the hit area without changing visuals */
-.assign-clear-btn::after {
-    content: "";
-    position: absolute;
-    inset: -6px;              /* ~48px effective target */
-}
-
-/* Keep legacy .flag-dots styles working too */
-.flag-dots {
-    display: inline-flex;
-    gap: 4px;
-    vertical-align: middle;
-}
-
-/* Optional: slightly taller cozy rows */
-#matches-table [data-density="cozy"] .tabulator-cell {
-    padding-top: 8px;
-    padding-bottom: 8px;
-}
-
-/* ================== FINAL OVERRIDES: Unassign overlay, no space reserved ================== */
-
-/* Anchor */
-#matches-table .tabulator-cell .score-cell {
-    position: relative !important;
-}
-
-/* 1) Wrapper: inline flow, NO reserved padding, NO grid */
-#matches-table .assign-wrap {
-    display: inline-flex !important;
-    align-items: center !important;
-    gap: 6px !important;
-    width: 100% !important;
-    position: relative !important;
-    padding-right: 0 !important;             /* kill earlier 44px reservation */
-    grid-template-columns: unset !important;  /* kill earlier grid */
-}
-
-/* Truncation for text */
-#matches-table .assign-text {
-    flex: 1 1 auto !important;
-    min-width: 0 !important;
-    overflow: hidden !important;
-    text-overflow: ellipsis !important;
-    white-space: nowrap !important;
-}
-
-/* 2) Button: absolute overlay, hidden by default, not blocking when hidden */
-#matches-table .assign-clear-btn {
-    position: absolute !important;
-    right: 4px !important;
-    top: 50% !important;
-    transform: translateY(-50%) !important;
-
-    width: 28px !important;
-    height: 28px !important;
-    border: 0 !important;
-    border-radius: 50% !important;
-    background: rgba(0,0,0,0.06) !important;
-    color: #333 !important;
-    font-size: 18px !important;
-    line-height: 1 !important;
-
-    display: inline-flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-
-    opacity: 0 !important;           /* invisible */
-    visibility: hidden !important;   /* belt & braces against older rules */
-    pointer-events: none !important; /* cannot block content when hidden */
-    z-index: 3 !important;
-    transition: opacity .15s ease !important;
-}
-
-/* Show only on hover/focus */
 #matches-table .score-cell:hover .assign-clear-btn,
-#matches-table .assign-clear-btn:focus {
-    opacity: 1 !important;
-    visibility: visible !important;
-    pointer-events: auto !important;
-}
+#matches-table .assign-clear-btn:focus{ opacity:1 !important; visibility:visible !important; pointer-events:auto !important; }
+#matches-table .assign-clear-btn:hover{ background:rgba(0,0,0,.12) !important; }
+#matches-table .assign-clear-btn:active{ background:rgba(0,0,0,.18) !important; }
+#matches-table .assign-clear-btn:focus{ outline:2px solid #5b9aff !important; outline-offset:2px !important; }
 
-/* Optional hover/active/focus visuals */
-#matches-table .assign-clear-btn:hover { background: rgba(0,0,0,0.12) !important; }
-#matches-table .assign-clear-btn:active { background: rgba(0,0,0,0.18) !important; }
-#matches-table .assign-clear-btn:focus { outline: 2px solid #5b9aff !important; outline-offset: 2px !important; }
-
-/* 3) While visible, add just-enough right padding to text so glyphs aren't under the button */
+/* avoid text under button when visible */
 #matches-table .score-cell:hover .assign-text,
-#matches-table .assign-clear-btn:focus ~ .assign-text {
-    padding-right: 40px !important; /* 28px btn + small gap */
+#matches-table .assign-clear-btn:focus ~ .assign-text{ padding-right:40px !important; }
+
+/* move dots back to bottom-right in standard layout */
+#matches-table .flag-dots{
+    position:absolute !important; right:6px !important; bottom:6px !important; margin:0 !important; display:inline-flex !important; gap:4px !important; z-index:2 !important;
 }
 
-/* 4) Flag dots: remove any reserved margin; keep them bottom-right under the button */
-#matches-table .flag-dots {
-    position: absolute !important;
-    right: 6px !important;
-    bottom: 6px !important;
-    margin: 0 !important;            /* kill earlier margin-right:44px */
-    display: inline-flex !important;
-    gap: 4px !important;
-    z-index: 2 !important;           /* below the button */
+/* dot primitive (shared size) inside matches table */
+#matches-table .flag-dot{ width:9px; height:9px; border-radius:50%; border:1px solid rgba(0,0,0,.15); }
+
+/* =========================
+   VERTICAL VARIANT (name+badge top, dots bottom L→R)
+   ========================= */
+#matches-table .assign-wrap.assign-vertical{
+    display:flex !important; flex-direction:column !important; align-items:stretch !important; gap:6px !important; width:100% !important;
+}
+#matches-table .assign-top{ position:relative !important; min-height:28px; }
+#matches-table .assign-bottom{ display:block !important; }
+#matches-table .assign-bottom .flag-dots{
+    position:static !important; margin:0 !important; display:inline-flex !important; gap:4px !important; vertical-align:middle !important; z-index:auto !important;
+}
+/* avoid text under button in vertical too */
+#matches-table .score-cell:hover .assign-text,
+#matches-table .assign-clear-btn:focus ~ .assign-text{ padding-right:36px !important; }
+
+/* small helpers for refcell wrapper */
+#matches-table .refcell.score-cell{ position:relative; }
+#matches-table .refcell-top{ position:relative; min-height:28px; }
+#matches-table .refcell-bottom{ margin-top:4px; }
+
+/* =========================
+   RESPONSIVE TABLE PADDING (cozy)
+   ========================= */
+#matches-table [data-density="cozy"] .tabulator-cell{ padding-top:8px; padding-bottom:8px; }
+
+
+
+/* ==== To clean up ==== */
+/* --- Vertical stack fix: dots under the name, left->right --- */
+#matches-table .refcell-bottom {
+    display:block !important;
+    margin-top:4px;
 }
 
-/* Dot size/appearance (kept minimal here) */
-#matches-table .flag-dot {
-    width: 9px; height: 9px; border-radius: 50%;
-    border: 1px solid rgba(0,0,0,.15);
+#matches-table .refcell-bottom .flag-dots{
+    position:static !important;      /* defeat the absolute rule */
+    right:auto !important;
+    bottom:auto !important;
+    margin:0 !important;
+    display:inline-flex !important;
+    gap:4px !important;
+    vertical-align:middle !important;
+    z-index:auto !important;
 }
-
-.flag-dot.conf-red    { background: #e03131; }
-.flag-dot.conf-orange { background: #f08c00; }
-.flag-dot.conf-yellow { background: #ffd43b; border-color: rgba(0,0,0,.25); }
-.flag-dot.unavail     { background: #adb5bd; }
-.flag-dot.below-grade { background: #845ef7; }
-.flag-dot.recent-team { background: #22b8cf; }

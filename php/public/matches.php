@@ -858,93 +858,126 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
         return (typeof o === 'number') ? o : (typeof base === 'number' ? base : null);
     }
 
-    function makeRefereeCol(title, field, minWidth = 200){
-        const fitPrefix = field === 'referee_id' ? 'referee'
-            : field === 'ar1_id' ? 'ar1'
-                : field === 'ar2_id' ? 'ar2'
-                    : field === 'commissioner_id' ? 'commissioner' : null;
+    function makeRefereeCol(title, field, minWidth = 240) {
+        const fitPrefix =
+            field === "referee_id"      ? "referee" :
+                field === "ar1_id"          ? "ar1"     :
+                    field === "ar2_id"          ? "ar2"     :
+                        field === "commissioner_id" ? "commissioner" : null;
 
         return {
-            title, field, minWidth,
+            title,
+            field,
+            minWidth,
+            widthGrow: 2, // give ref columns more room
+
             formatter: (cell) => {
-                const el = document.createElement('div');
-                el.className = 'score-cell';
-                el.innerHTML = formatRefCell(cell);
+                const row    = cell.getRow()?.getData?.() || {};
+                const val    = cell.getValue();
+                const hasVal = !!val;
 
-                const row   = cell.getRow()?.getData?.() || {};
-                const field = cell.getField();
+                // --- label + grade
+                const name = hasVal ? (refereeOptions[val] || "—") : "—";
+                const gRaw = hasVal ? (refereeMeta[val]?.grade || "") : "";
+                const g    = gRaw.toString().trim().toUpperCase().slice(0, 1);
+                const chip = ["A","B","C","D"].includes(g) ? `chip-${g}` : "chip-E";
+                const gradeHtml = g ? ` <span class="badge ${chip}">${g}</span>` : "";
+
+                // --- scaffold: vertical stack
+                const wrap   = document.createElement("div");
+                wrap.className = "refcell score-cell assign-vertical";
+
+                const top    = document.createElement("div");
+                top.className = "refcell-top";
+
+                const text   = document.createElement("span");
+                text.className = "assign-text";
+                text.innerHTML = `${htmlesc(name)}${gradeHtml}`;
+                top.appendChild(text);
+
+                if (ASSIGN_MODE && hasVal) {
+                    const btn = document.createElement("button");
+                    btn.className = "assign-clear-btn";
+                    btn.type = "button";
+                    btn.title = "Unassign";
+                    btn.setAttribute("aria-label","Unassign");
+                    btn.innerHTML = '<span aria-hidden="true">X</span>';
+                    top.appendChild(btn);
+                }
+
+                const bottom = document.createElement("div");
+                bottom.className = "refcell-bottom";
+
+                // dots go in the bottom row (left -> right)
+                if (hasVal) {
+                    const conflictLevel = row.__conflicts?.[field] ?? null;
+                    const unavail       = row.__unavail?.[field]   ?? false;
+                    const fitFlags      = fitPrefix ? (row[`${fitPrefix}_fit_flags`] || []) : [];
+                    const dots = renderFlagDots({ conflict: conflictLevel, unavail, fitFlags });
+                    if (dots) {
+                        dots.classList.add("refcell-dots");
+                        // ensure they’re not absolutely positioned:
+                        // CSS rule: `#matches-table .refcell-bottom .flag-dots { position: static !important; }`
+                        bottom.appendChild(dots);
+                    }
+                }
+
+                wrap.appendChild(top);
+                wrap.appendChild(bottom);
+
+                // background & tooltip on the actual cell element (so it fills the whole cell)
                 const cellEl = cell.getElement?.();
-                const valuePresent = !!cell.getValue();
-
-                // Compute score (same as before)
-                const fitPrefix =
-                    field === 'referee_id'      ? 'referee' :
-                        field === 'ar1_id'          ? 'ar1' :
-                            field === 'ar2_id'          ? 'ar2' :
-                                field === 'commissioner_id' ? 'commissioner' : null;
-
-                // 🔶 Apply background to the *cell element* so it fills the whole cell, padding included
                 if (cellEl) {
                     if (fitPrefix) {
                         const score = displayScoreForCell(row, field, fitPrefix);
-                        cellEl.style.backgroundColor = (typeof score === 'number') ? scoreToColor(score) : '';
+                        cellEl.style.backgroundColor = (typeof score === "number") ? scoreToColor(score) : "";
                     } else {
-                        cellEl.style.backgroundColor = '';
+                        cellEl.style.backgroundColor = "";
                     }
-                    cellEl.title = valuePresent
+                    cellEl.title = hasVal
                         ? (() => {
                             const conflictLevel = row.__conflicts?.[field] ?? null;
                             const unavail       = row.__unavail?.[field]   ?? false;
                             const fitFlags      = row[`${fitPrefix}_fit_flags`] || [];
                             const scoreVal      = fitPrefix ? displayScoreForCell(row, field, fitPrefix) : null;
                             return buildTooltipText({
-                                score: (typeof scoreVal === 'number') ? scoreVal : null,
+                                score: (typeof scoreVal === "number") ? scoreVal : null,
                                 fitFlags, conflictLevel, unavail
                             });
                         })()
-                        : 'Unassigned';
+                        : "Unassigned";
                 }
 
-                // Dots (unchanged)
-                if (valuePresent) {
-                    const conflictLevel = row.__conflicts?.[field] ?? null;
-                    const unavail       = row.__unavail?.[field]   ?? false;
-                    const fitFlags      = row[`${fitPrefix}_fit_flags`] || [];
-                    const dots = renderFlagDots({ conflict: conflictLevel, unavail, fitFlags });
-                    if (dots) el.appendChild(dots);
-                }
-
-                return el;
+                return wrap;
             },
 
             editor: ASSIGN_MODE ? "list" : false,
             editorParams: editorParamsFactory,
             accessorDownload: (value) => refereeOptions[value] || "",
+
             cellEdited: async (cell) => {
-                const row = cell.getRow().getData();
+                const row    = cell.getRow().getData();
                 const newVal = cell.getValue() || "";
                 try {
                     const res = await saveAssignment(row.uuid, field, newVal);
                     if (!res?.success) throw new Error(res?.message || "Save failed");
 
-                    // Keep baseline in sync
+                    // keep baseline in sync
                     const base = baselineById.get(row.uuid) || {};
                     base[field] = newVal || null;
                     baselineById.set(row.uuid, base);
 
-                    // 🔹 NEW: apply server-computed fit patch (scores + flags)
+                    // server may return updated *_fit_* patch
                     if (res.patch && res.patch.uuid === row.uuid) {
                         await table.updateData([res.patch]);
                     }
 
-                    // Recompute & repaint conflicts + fits
-                    applyIndicators(table); // uses updated *_fit_* fields for backgrounds and dots
+                    applyIndicators(table); // recompute conflicts + repaint
                 } catch (err) {
                     cell.setValue(cell.getOldValue(), true);
                     alert("Saving assignment failed.");
                 }
             },
-
         };
     }
 
