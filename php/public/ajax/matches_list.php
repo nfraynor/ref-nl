@@ -137,6 +137,7 @@ $FIT_PENALTIES = [
     'below_grade'        => 40,  // ref below expected grade
     'recent_team'        => 20,  // had home/away in the last N days
     'unavailable'        => 100, // if you wire availability
+    'own_club'           => 20,  // same club as one of the teams
 ];
 
 /** Lightweight time helpers */
@@ -153,42 +154,55 @@ function match_end_dt(array $m): ?DateTimeImmutable {
 }
 
 /**
- * Return a normalized view of a match venue:
- * - id: the location_uuid (if present), else ''
- * - addr: normalized address (trim/lower/single-spaces) from:
- *         - locations table if uuid present (preferred), else match's location_address
- * - has_real: true if uuid present OR addr is non-empty and not 'n/a'
+ * Fetch a referee's club UUID (if the referees table has club_id or club_uuid).
+ * Returns '' if unknown/not set.
  */
-function get_normalized_venue(PDO $pdo, ?string $uuid, ?string $addr): array {
-    static $locCache = []; // uuid => address_text
+/**
+ * Return the referee's club UUID.
+ * - referees.home_club_id may store either clubs.uuid (string) or clubs.id (int).
+ * - We normalize to clubs.uuid. '' if unknown.
+ */
+function get_ref_club_uuid(PDO $pdo, ?string $refUuid): string {
+    if (!$refUuid) return '';
+    static $cache = [];
+    if (array_key_exists($refUuid, $cache)) return $cache[$refUuid];
 
-    $uuid = trim((string)$uuid);
-    $addr = trim((string)$addr);
-
-    $dbAddr = '';
-    if ($uuid !== '') {
-        if (!array_key_exists($uuid, $locCache)) {
-            $stmt = $pdo->prepare("SELECT address_text FROM locations WHERE uuid = ? LIMIT 1");
-            $stmt->execute([$uuid]);
-            $locCache[$uuid] = (string)($stmt->fetchColumn() ?: '');
-        }
-        $dbAddr = $locCache[$uuid];
+    // Ensure the column exists
+    if (!column_exists($pdo, 'referees', 'home_club_id')) {
+        return $cache[$refUuid] = '';
     }
 
-    $canonAddr = $dbAddr !== '' ? $dbAddr : $addr;
+    // 1) Read the raw value from referees
+    $stmt = $pdo->prepare("SELECT home_club_id FROM referees WHERE uuid = ? LIMIT 1");
+    $stmt->execute([$refUuid]);
+    $raw = trim((string)($stmt->fetchColumn() ?: ''));
+    if ($raw === '') {
+        return $cache[$refUuid] = '';
+    }
 
-    $norm = mb_strtolower($canonAddr);
-    $norm = preg_replace('/\s+/u', ' ', $norm ?? '');
-    $norm = trim($norm);
+    // 2a) First try: treat it as a clubs.uuid
+    $q1 = $pdo->prepare("SELECT uuid FROM clubs WHERE uuid = ? LIMIT 1");
+    $q1->execute([$raw]);
+    $uuid = (string)($q1->fetchColumn() ?: '');
+    if ($uuid !== '') {
+        return $cache[$refUuid] = $uuid;
+    }
 
-    $isNA = ($norm === '' || $norm === 'n/a');
+    // 2b) Second try: if it's numeric, resolve via clubs.id → uuid
+    if (ctype_digit($raw)) {
+        $q2 = $pdo->prepare("SELECT uuid FROM clubs WHERE id = ? LIMIT 1");
+        $q2->execute([(int)$raw]);
+        $uuid = (string)($q2->fetchColumn() ?: '');
+        if ($uuid !== '') {
+            return $cache[$refUuid] = $uuid;
+        }
+    }
 
-    return [
-        'id'       => $uuid,
-        'addr'     => $norm,
-        'has_real' => ($uuid !== '') || !$isNA,
-    ];
+    // Not resolvable
+    return $cache[$refUuid] = '';
 }
+
+
 
 
 /** Same venue if either UUIDs match (when both set) OR normalized addresses match (when both set). */
@@ -398,56 +412,69 @@ function compute_match_fit(PDO $pdo, array $matchRow, string $refUuid, ?string $
 
     $Dhard = [];
     if (has_hard_conflict($pdo, $matchRow, $refUuid, $Dhard)) {
-        $score -= $FIT_PENALTIES['hard_conflict']; $flags[]='hard_conflict';
-        if (debug_enabled()) $DEBUG['hard'] = $Dhard;
-        return ['score'=>max(0,$score), 'flags'=>$flags];
+        $score -= $FIT_PENALTIES['hard_conflict'];
+        $flags[] = 'hard_conflict';
     }
     if (debug_enabled()) $DEBUG['hard'] = $Dhard;
 
     $Dsoft = [];
     if (has_soft_conflict($pdo, $matchRow, $refUuid, $Dsoft)) {
-        $score -= $FIT_PENALTIES['soft_conflict']; $flags[]='soft_conflict';
+        $score -= $FIT_PENALTIES['soft_conflict'];
+        $flags[]='soft_conflict';
     }
     if (debug_enabled()) $DEBUG['soft'] = $Dsoft;
 
     $Dprox = [];
     if (has_proximity_conflict($pdo, $matchRow, $refUuid, 2, $Dprox)) {
-        $score -= $FIT_PENALTIES['proximity_conflict']; $flags[]='proximity_conflict';
+        $score -= $FIT_PENALTIES['proximity_conflict'];
+        $flags[]='proximity_conflict';
     }
     if (debug_enabled()) $DEBUG['prox'] = $Dprox;
 
-    // Use shared policy (handles "B2", "c+" etc. and division fallback)
+    // grade policy
     $refG  = function_exists('grade_to_rank') ? grade_to_rank($refGrade) : 0;
-    $needL = function_exists('expected_grade_for_match_letter')
-        ? expected_grade_for_match_letter($matchRow)
-        : (($matchRow['expected_grade'] ?? 'D')); // safe fallback
     $needG = expected_grade_rank($matchRow);
-
     if ($refG > 0 && $needG > 0 && $refG < $needG) {
         $score -= $FIT_PENALTIES['below_grade'];
         $flags[] = 'below_grade';
     }
-
     if (debug_enabled()) {
         $DEBUG['grade'] = [
             'ref_raw' => $refGrade,
             'refG'    => $refG,
-            'needL'   => $needL,
             'needG'   => $needG,
         ];
     }
 
-    $homeUuid  = (string)($matchRow['home_team_uuid'] ?? '');
-    $awayUuid  = (string)($matchRow['away_team_uuid'] ?? '');
-    $matchDate = (string)($matchRow['match_date'] ?? '');
-    if ($refUuid && $homeUuid && $awayUuid && $matchDate) {
-        $recent = ref_had_team_recently($pdo, $refUuid, $homeUuid, $awayUuid, $matchDate, 14);
-        if ($recent) { $score -= $FIT_PENALTIES['recent_team']; $flags[]='recent_team'; }
-        if (debug_enabled()) $DEBUG['recent_team'] = ['recent'=>$recent, 'home'=>$homeUuid, 'away'=>$awayUuid, 'date'=>$matchDate];
+    // --- Own club (compare UUIDs) ---
+    $homeClubUuid = (string)($matchRow['home_club_uuid'] ?? '');
+    $awayClubUuid = (string)($matchRow['away_club_uuid'] ?? '');
+    if ($refUuid && ($homeClubUuid || $awayClubUuid)) {
+        $refClubUuid = get_ref_club_uuid($pdo, $refUuid);
+        if ($refClubUuid !== '' && ($refClubUuid === $homeClubUuid || $refClubUuid === $awayClubUuid)) {
+            $score -= $FIT_PENALTIES['own_club'];
+            $flags[] = 'own_club';
+            if (debug_enabled()) {
+                $DEBUG['own_club'] = [
+                    'ref_club'  => $refClubUuid,
+                    'home_club' => $homeClubUuid,
+                    'away_club' => $awayClubUuid,
+                    'applied'   => true,
+                ];
+            }
+        } elseif (debug_enabled()) {
+            $DEBUG['own_club'] = [
+                'ref_club'  => $refClubUuid,
+                'home_club' => $homeClubUuid,
+                'away_club' => $awayClubUuid,
+                'applied'   => false,
+            ];
+        }
     }
 
-    return ['score'=>max(0, min(100,$score)), 'flags'=>$flags];
+    return ['score' => max(0, min(100, $score)), 'flags' => $flags];
 }
+
 
 
 function add_fit_fields(PDO $pdo, array $matchRow, array &$rowOut, string $roleField): void {
@@ -554,32 +581,35 @@ try {
 
     // team UUIDs + user-friendly location label (address fallback)
     $select = "
-        m.uuid,
-        m.match_date,
-        m.kickoff_time,
-        m.division,
-        m.district,
-        m.poule,
-        m.expected_grade,
+    m.uuid,
+    m.match_date,
+    m.kickoff_time,
+    m.division,
+    m.district,
+    m.poule,
+    m.expected_grade,
 
-        m.referee_id, m.ar1_id, m.ar2_id, m.commissioner_id,
+    m.referee_id, m.ar1_id, m.ar2_id, m.commissioner_id,
 
-        th.team_name AS home_team,
-        ta.team_name AS away_team,
+    th.team_name AS home_team,
+    ta.team_name AS away_team,
 
-        m.home_team_id AS home_team_uuid,
-        m.away_team_id AS away_team_uuid,
+    m.home_team_id AS home_team_uuid,
+    m.away_team_id AS away_team_uuid,
 
-        ch.club_name AS home_club,
-        ca.club_name AS away_club,
+    ch.club_name AS home_club,
+    ca.club_name AS away_club,
+    ch.uuid      AS home_club_uuid,  -- NEW
+    ca.uuid      AS away_club_uuid,  -- NEW
 
-        m.location_uuid,
-        m.location_address AS location_label,
-        m.location_address,
+    m.location_uuid,
+    m.location_address AS location_label,
+    m.location_address,
 
-        u.username AS referee_assigner_username,
-        m.referee_assigner_uuid
-    ";
+    u.username AS referee_assigner_username,
+    m.referee_assigner_uuid
+";
+
 
     // ---- Sorting ----
     $sortCol = (string)($_GET['sort_col'] ?? 'm.match_date');

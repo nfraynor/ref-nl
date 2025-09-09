@@ -230,7 +230,6 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
         }
         return `rgba(${r}, ${g}, ${b}, 0.25)`;
     }
-
     /* === Build dots based on flags (conflicts + fit flags) === */
     function renderFlagDots({conflict, unavail, fitFlags=[]}) {
         const wrap = document.createElement('div');
@@ -270,6 +269,52 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
         if (!wrap.childElementCount) return null;
         return wrap;
     }
+
+    /* === Build dots based on flags (conflicts + fit flags) === */
+    (function renderFlagDotsPatch(){
+        const _orig = renderFlagDots;
+        renderFlagDots = function({conflict, unavail, fitFlags=[]}){
+            const wrap = document.createElement('div');
+            wrap.className = 'flag-dots';
+
+            if (unavail) {
+                const d = document.createElement('span');
+                d.className = 'flag-dot unavail'; d.title = 'Unavailable';
+                wrap.appendChild(d);
+            }
+            if (conflict === 'red') {
+                const d = document.createElement('span');
+                d.className = 'flag-dot conf-red'; d.title = 'Conflict: overlap or different venue same day';
+                wrap.appendChild(d);
+            } else if (conflict === 'orange') {
+                const d = document.createElement('span');
+                d.className = 'flag-dot conf-orange'; d.title = 'Conflict: same venue, same day (no overlap)';
+                wrap.appendChild(d);
+            } else if (conflict === 'yellow') {
+                const d = document.createElement('span');
+                d.className = 'flag-dot conf-yellow'; d.title = 'Conflict proximity (±2 days)';
+                wrap.appendChild(d);
+            }
+
+            (fitFlags || []).forEach(f => {
+                const dot = document.createElement('span');
+                if (f === 'below_grade') {
+                    dot.className = 'flag-dot below-grade'; dot.title = 'Below expected grade';
+                } else if (f === 'recent_team') {
+                    dot.className = 'flag-dot recent-team'; dot.title = 'Had same team in last 14 days';
+                } else if (f === 'own_club') {
+                    dot.className = 'flag-dot own-club';    // NEW class
+                    dot.title = 'Own club (potential conflict of interest)';
+                } else {
+                    return;
+                }
+                wrap.appendChild(dot);
+            });
+
+            if (!wrap.childElementCount) return null;
+            return wrap;
+        };
+    })();
 
     /* ===== Preloaded option maps ===== */
     const teamOptions = (() => {
@@ -828,6 +873,7 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
         below_grade:        'Below expected grade',
         recent_team:        'Had one of these teams in the last 14 days',
         unavailable:        'Unavailable',
+        own_club:           'Own club (potential conflict of interest)',
     };
 
     function conflictColorToFlagKey(color) {
@@ -845,7 +891,7 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
         if (conflictFlag) merged.add(conflictFlag);
         if (unavail) merged.add('unavailable');
 
-        const ORDER = ['hard_conflict','soft_conflict','proximity_conflict','below_grade','recent_team','unavailable'];
+        const ORDER = ['hard_conflict','soft_conflict','proximity_conflict','below_grade','recent_team', 'own_club', 'unavailable'];
         ORDER.forEach(k => { if (merged.has(k) && FLAG_TEXT[k]) lines.push('• ' + FLAG_TEXT[k]); });
         if (lines.length === 1 && typeof score === 'number') lines.push('• No issues detected');
         return lines.join('\n');

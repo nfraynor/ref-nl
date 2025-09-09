@@ -185,6 +185,7 @@ body #newMatchModal.modal-open{
 .flag-dot.unavail{ background:#adb5bd; }
 .flag-dot.below-grade{ background:#845ef7; }   /* purple */
 .flag-dot.recent-team{ background:#22b8cf; }   /* cyan */
+.flag-dot.own-club { background: #ffffff; border-color:rgba(0,0,0,.25); }
 
 #matches-table [data-density="cozy"] .tabulator-cell{ padding-top:8px; padding-bottom:8px; }
 
