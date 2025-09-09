@@ -767,8 +767,12 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
         const g     = raw.toString().trim().toUpperCase().slice(0,1); // only first letter
         const klass = ["A","B","C","D"].includes(g) ? `chip-${g}` : "chip-E";
         const grade = g ? ` <span class="badge ${klass}">${g}</span>` : "";
-        const clearBtn = (ASSIGN_MODE && id) ? `<button class="assign-clear-btn" type="button" title="Unassign" aria-label="Unassign">×</button>` : "";
-        return `<span class="assign-text">${label}${grade}</span>${clearBtn}`;
+        const clearBtn = (ASSIGN_MODE && id)
+            ? `<button class="assign-clear-btn" type="button" title="Unassign" aria-label="Unassign"><span aria-hidden="true">X</span></button>`
+            : "";
+
+        return `<span class="assign-wrap"><span class="assign-text">${label}${grade}</span>${clearBtn}</span>`;
+
     }
     function paintRefCell(cell, field, fitPrefix){
         // run on next frame to ensure formatter HTML is in place

@@ -479,3 +479,255 @@ body #newMatchModal.modal-open{ display:grid !important; pointer-events:auto !im
 
 .flag-dot.below-grade { background: #845ef7; }     /* purple */
 .flag-dot.recent-team { background: #22b8cf; }     /* cyan  */
+
+
+/* Ensure the cell can position children */
+.tabulator-cell .score-cell { position: relative; }
+
+/* Layout wrapper for text + clear button */
+.assign-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 34px;          /* comfortable tap target row height */
+    padding-right: 44px;       /* reserve room for the clear button on the right */
+}
+
+/* Make the name/badge truncate nicely if needed */
+.assign-wrap .assign-text {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Bigger, easier clear button */
+.assign-clear-btn {
+    position: absolute;
+    right: 6px;                /* sits inside the cell, right edge */
+    top: 50%;
+    transform: translateY(-50%);
+    width: 36px;
+    height: 36px;
+    border: 0;
+    border-radius: 9999px;
+    background: rgba(0,0,0,0.06);
+    cursor: pointer;
+    font-size: 20px;           /* bigger “×” */
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #333;
+}
+
+.assign-clear-btn:hover {
+    background: rgba(0,0,0,0.12);
+}
+
+.assign-clear-btn:active {
+    background: rgba(0,0,0,0.18);
+}
+
+/* Visible focus ring for keyboard users */
+.assign-clear-btn:focus {
+    outline: 2px solid #5b9aff;
+    outline-offset: 2px;
+}
+
+/* Enlarge the *tap* target invisibly for touch (extends beyond the circle) */
+.assign-clear-btn::after {
+    content: "";
+    position: absolute;
+    inset: -6px;               /* increases hit area to ~48px without changing visuals */
+}
+
+/* Keep flag dots from colliding with the button: push them left a bit */
+.flag-dots {
+    margin-left: 6px;
+    margin-right: 44px;        /* keep clear of the button at right */
+}
+
+/* Optional: make the whole cell a bit roomier in dense tables */
+#matches-table [data-density="cozy"] .tabulator-cell {
+    padding-top: 8px;
+    padding-bottom: 8px;
+}
+
+/* Cell scaffold */
+.tabulator-cell .score-cell { position: relative; }
+
+/* Grid layout: text | dots | button */
+.assign-wrap {
+    display: grid;
+    grid-template-columns: 1fr auto auto; /* text grows, dots fit, button fixed */
+    align-items: center;
+    gap: 8px;
+    min-height: 36px;
+}
+
+/* Text truncates cleanly */
+.assign-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* Put the dots in their own slot so they never sit under the button */
+.assign-dots-slot .flag-dots { margin: 0; }
+
+/* Bigger, easy button without covering content */
+.assign-clear-btn {
+    width: 36px;
+    height: 36px;
+    border: 0;
+    border-radius: 9999px;
+    background: rgba(0,0,0,0.06);
+    cursor: pointer;
+    font-size: 20px;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #333;
+    opacity: 0.7;             /* lighter by default */
+}
+
+.assign-clear-btn:hover,
+.assign-clear-btn:focus {
+    opacity: 1;
+    background: rgba(0,0,0,0.12);
+}
+
+.assign-clear-btn:active {
+    background: rgba(0,0,0,0.18);
+}
+
+/* Visible keyboard focus */
+.assign-clear-btn:focus {
+    outline: 2px solid #5b9aff;
+    outline-offset: 2px;
+}
+
+/* Expand the hit area without changing visuals */
+.assign-clear-btn::after {
+    content: "";
+    position: absolute;
+    inset: -6px;              /* ~48px effective target */
+}
+
+/* Keep legacy .flag-dots styles working too */
+.flag-dots {
+    display: inline-flex;
+    gap: 4px;
+    vertical-align: middle;
+}
+
+/* Optional: slightly taller cozy rows */
+#matches-table [data-density="cozy"] .tabulator-cell {
+    padding-top: 8px;
+    padding-bottom: 8px;
+}
+
+/* ================== FINAL OVERRIDES: Unassign overlay, no space reserved ================== */
+
+/* Anchor */
+#matches-table .tabulator-cell .score-cell {
+    position: relative !important;
+}
+
+/* 1) Wrapper: inline flow, NO reserved padding, NO grid */
+#matches-table .assign-wrap {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    width: 100% !important;
+    position: relative !important;
+    padding-right: 0 !important;             /* kill earlier 44px reservation */
+    grid-template-columns: unset !important;  /* kill earlier grid */
+}
+
+/* Truncation for text */
+#matches-table .assign-text {
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+}
+
+/* 2) Button: absolute overlay, hidden by default, not blocking when hidden */
+#matches-table .assign-clear-btn {
+    position: absolute !important;
+    right: 4px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+
+    width: 28px !important;
+    height: 28px !important;
+    border: 0 !important;
+    border-radius: 50% !important;
+    background: rgba(0,0,0,0.06) !important;
+    color: #333 !important;
+    font-size: 18px !important;
+    line-height: 1 !important;
+
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+
+    opacity: 0 !important;           /* invisible */
+    visibility: hidden !important;   /* belt & braces against older rules */
+    pointer-events: none !important; /* cannot block content when hidden */
+    z-index: 3 !important;
+    transition: opacity .15s ease !important;
+}
+
+/* Show only on hover/focus */
+#matches-table .score-cell:hover .assign-clear-btn,
+#matches-table .assign-clear-btn:focus {
+    opacity: 1 !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+}
+
+/* Optional hover/active/focus visuals */
+#matches-table .assign-clear-btn:hover { background: rgba(0,0,0,0.12) !important; }
+#matches-table .assign-clear-btn:active { background: rgba(0,0,0,0.18) !important; }
+#matches-table .assign-clear-btn:focus { outline: 2px solid #5b9aff !important; outline-offset: 2px !important; }
+
+/* 3) While visible, add just-enough right padding to text so glyphs aren't under the button */
+#matches-table .score-cell:hover .assign-text,
+#matches-table .assign-clear-btn:focus ~ .assign-text {
+    padding-right: 40px !important; /* 28px btn + small gap */
+}
+
+/* 4) Flag dots: remove any reserved margin; keep them bottom-right under the button */
+#matches-table .flag-dots {
+    position: absolute !important;
+    right: 6px !important;
+    bottom: 6px !important;
+    margin: 0 !important;            /* kill earlier margin-right:44px */
+    display: inline-flex !important;
+    gap: 4px !important;
+    z-index: 2 !important;           /* below the button */
+}
+
+/* Dot size/appearance (kept minimal here) */
+#matches-table .flag-dot {
+    width: 9px; height: 9px; border-radius: 50%;
+    border: 1px solid rgba(0,0,0,.15);
+}
+
+.flag-dot.conf-red    { background: #e03131; }
+.flag-dot.conf-orange { background: #f08c00; }
+.flag-dot.conf-yellow { background: #ffd43b; border-color: rgba(0,0,0,.25); }
+.flag-dot.unavail     { background: #adb5bd; }
+.flag-dot.below-grade { background: #845ef7; }
+.flag-dot.recent-team { background: #22b8cf; }
