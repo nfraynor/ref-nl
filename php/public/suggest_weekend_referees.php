@@ -30,6 +30,32 @@ $preferredGradeByDivision = [
     '3e Klasse Dames'  => 'D'
 ];
 
+// ----- Availability helper (must be defined before use) -----
+function is_available_for(string $rid, string $date, ?string $ko, array $adhocByRef, array $weeklyByRef): bool {
+    // Ad-hoc date windows (full-day blocks)
+    if (!empty($adhocByRef[$rid])) {
+        foreach ($adhocByRef[$rid] as $u) {
+            if ($date >= $u['start_date'] && $date <= $u['end_date']) {
+                return false;
+            }
+        }
+    }
+
+    // Weekly time-of-day availability (fallback to true if no record)
+    $w = (int)(new DateTimeImmutable($date))->format('w'); // 0..6 (Sun..Sat)
+    if (!isset($weeklyByRef[$rid][$w])) return true;
+
+    // Derive hour from KO; default to 13:00 if empty (HH:MM or HH:MM:SS supported)
+    $hhmm = $ko && strlen($ko) >= 4 ? $ko : '13:00';
+    $hour = (int)substr($hhmm, 0, 2);
+
+    $slot = ($hour < 12) ? 'morning_available'
+        : (($hour < 17) ? 'afternoon_available' : 'evening_available');
+
+    return (bool)$weeklyByRef[$rid][$w][$slot];
+}
+
+
 function ndjson_line(array $obj): void {
     echo json_encode($obj), "\n";
     @ob_flush(); @flush();
@@ -69,16 +95,7 @@ function required_grade_for(array $m, array $map): string {
     if (!empty($m['expected_grade'])) return strtoupper($m['expected_grade']);
     return $map[$m['division']] ?? DEFAULT_MIN_GRADE;
 }
-function is_available_for(string $rid, string $date, string $time, array $adhoc, array $weekly): bool {
-    if (!empty($adhoc[$rid])) {
-        foreach ($adhoc[$rid] as $u) if ($date >= $u['start_date'] && $date <= $u['end_date']) return false;
-    }
-    $w = (int)(new DateTimeImmutable($date))->format('w'); // 0..6
-    $hour = (int)explode(':', (string)$time)[0];
-    $slot = ($hour < 12) ? 'morning_available' : (($hour < 17) ? 'afternoon_available' : 'evening_available');
-    if (isset($weekly[$rid][$w])) return (bool)$weekly[$rid][$w][$slot];
-    return true;
-}
+
 function choose_best(array $c): ?array {
     if (!$c) return null;
     usort($c, function($a,$b){

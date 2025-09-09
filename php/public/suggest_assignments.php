@@ -1,8 +1,10 @@
 <?php
+// public/suggest_assignments.php
 declare(strict_types=1);
 date_default_timezone_set('Europe/Amsterdam');
 
 require_once __DIR__ . '/../utils/db.php';
+require_once __DIR__ . '/../utils/grade_policy.php';
 
 header('Content-Type: application/json');
 header('X-Content-Type-Options: nosniff');
@@ -13,28 +15,53 @@ if (ob_get_level() === 0) ob_start();
 @ini_set('implicit_flush', '1');
 ob_implicit_flush(true);
 
-const GRADES = ['A'=>4,'B'=>3,'C'=>2,'D'=>1];
-const DEFAULT_MIN_GRADE = 'D';
-
-$preferredGradeByDivision = [
-    'Ereklasse'        => 'A',
-    'Futureklasse'     => 'B',
-    'Ereklasse Dames'  => 'B',
-    'Colts Cup'        => 'B',
-    '1e Klasse'        => 'B',
-    '2e Klasse'        => 'C',
-    '3e Klasse'        => 'D',
-    '4e Klasse'        => 'D',
-    '1e Klasse Dames'  => 'C',
-    '2e Klasse Dames'  => 'D',
-    '3e Klasse Dames'  => 'D'
-];
-
-function ndjson_line(array $obj): void {
-    echo json_encode($obj), "\n";
+function emit(array $o): void {
+    echo json_encode($o, JSON_UNESCAPED_UNICODE), "\n";
     @ob_flush(); @flush();
 }
-function grade_weight(?string $g): int { return GRADES[strtoupper((string)$g)] ?? 0; }
+// ----- Availability helper (must be defined before use) -----
+function is_available_for(string $rid, string $date, ?string $ko, array $adhocByRef, array $weeklyByRef): bool {
+    // Ad-hoc date windows (full-day blocks)
+    if (!empty($adhocByRef[$rid])) {
+        foreach ($adhocByRef[$rid] as $u) {
+            if ($date >= $u['start_date'] && $date <= $u['end_date']) {
+                return false;
+            }
+        }
+    }
+
+    // Weekly time-of-day availability (fallback to true if no record)
+    $w = (int)(new DateTimeImmutable($date))->format('w'); // 0..6 (Sun..Sat)
+    if (!isset($weeklyByRef[$rid][$w])) return true;
+
+    // Derive hour from KO; default to 13:00 if empty (HH:MM or HH:MM:SS supported)
+    $hhmm = $ko && strlen($ko) >= 4 ? $ko : '13:00';
+    $hour = (int)substr($hhmm, 0, 2);
+
+    $slot = ($hour < 12) ? 'morning_available'
+        : (($hour < 17) ? 'afternoon_available' : 'evening_available');
+
+    return (bool)$weeklyByRef[$rid][$w][$slot];
+}
+
+
+
+/* -------- Helpers -------- */
+function parse_dt(string $date, ?string $ko): ?array {
+    $hhmm = substr($ko && strlen($ko) >= 4 ? $ko : '13:00', 0, 5); // default KO 13:00
+    $start = DateTimeImmutable::createFromFormat('Y-m-d H:i', "$date $hhmm");
+    if (!$start) return null;
+    $end = $start->modify('+90 minutes');
+    return [$start, $end];
+}
+function overlaps(array $A, array $B): bool {
+    return ($A[0] < $B[1]) && ($B[0] < $A[1]);
+}
+// Turn PHP warnings/notices into exceptions so we can see where it broke
+set_error_handler(function($severity, $message, $file, $line){
+    if (!(error_reporting() & $severity)) return false;
+    throw new ErrorException($message, 0, $severity, $file, $line);
+});
 
 function normalize_range_or_default(?string $start, ?string $end): array {
     if (!$start && !$end) {
@@ -45,7 +72,7 @@ function normalize_range_or_default(?string $start, ?string $end): array {
             $sun = new DateTimeImmutable($fri->format('Y-m-d') . ' Sunday this week');
             $weekends[] = [$fri->format('Y-m-d'), $sun->format('Y-m-d')];
         }
-        return [$weekends[0][0], $weekends[count($weekends)-1][1], $weekends];
+        return [$weekends[0][0], end($weekends)[1], $weekends];
     }
     $s = $start ? new DateTimeImmutable($start) : new DateTimeImmutable('today');
     $e = $end   ? new DateTimeImmutable($end)   : $s;
@@ -58,41 +85,19 @@ function normalize_range_or_default(?string $start, ?string $end): array {
         $sun = (new DateTimeImmutable($fri . ' Sunday this week'))->format('Y-m-d');
         if (!($sun < $rangeStart || $fri > $rangeEnd)) $weekends[] = [$fri,$sun];
     }
+    if (!$weekends) $weekends[] = [$rangeStart, $rangeEnd];
     return [$rangeStart,$rangeEnd,$weekends];
 }
-function friday_sunday_for(string $ymd): array {
+function fri_sun_for(string $ymd): array {
     $fri = new DateTimeImmutable($ymd . ' Friday this week');
     $sun = new DateTimeImmutable($ymd . ' Sunday this week');
     return [$fri->format('Y-m-d'), $sun->format('Y-m-d')];
 }
-function required_grade_for(array $m, array $map): string {
-    if (!empty($m['expected_grade'])) return strtoupper($m['expected_grade']);
-    return $map[$m['division']] ?? DEFAULT_MIN_GRADE;
-}
-function is_available_for(string $rid, string $date, string $time, array $adhoc, array $weekly): bool {
-    if (!empty($adhoc[$rid])) {
-        foreach ($adhoc[$rid] as $u) if ($date >= $u['start_date'] && $date <= $u['end_date']) return false;
-    }
-    $w = (int)(new DateTimeImmutable($date))->format('w'); // 0..6
-    $hour = (int)explode(':', (string)$time)[0];
-    $slot = ($hour < 12) ? 'morning_available' : (($hour < 17) ? 'afternoon_available' : 'evening_available');
-    if (isset($weekly[$rid][$w])) return (bool)$weekly[$rid][$w][$slot];
-    return true;
-}
-function choose_best(array $c): ?array {
-    if (!$c) return null;
-    usort($c, function($a,$b){
-        if ($a['days']    !== $b['days'])    return $a['days']    <=> $b['days'];
-        if ($a['matches'] !== $b['matches']) return $a['matches'] <=> $b['matches'];
-        if ($a['grade_w'] !== $b['grade_w']) return $b['grade_w'] <=> $a['grade_w'];
-        return strcmp($a['uuid'], $b['uuid']);
-    });
-    return $c[0];
-}
 
+/* -------- Main -------- */
 try {
     [$rangeStart, $rangeEnd, $weekends] = normalize_range_or_default($_GET['start_date'] ?? null, $_GET['end_date'] ?? null);
-    usort($weekends, fn($a,$b)=>strcmp($a[0],$b[0]));
+    usort($weekends, fn($a,$b)=>strcmp($a[0], $b[0]));
 
     $pdo = Database::getConnection();
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -105,53 +110,45 @@ try {
     $refById = [];
     foreach ($refRows as $r) {
         $refById[$r['uuid']] = [
-            'uuid' => $r['uuid'],
-            'grade_w' => grade_weight($r['grade']),
-            'max_matches_per_weekend' => (int)$r['max_matches_per_weekend'],
-            'max_days_per_weekend'    => (int)$r['max_days_per_weekend'],
+            'uuid'        => $r['uuid'],
+            'grade_letter'=> strtoupper((string)($r['grade'] ?? '')),
+            'rank'        => grade_to_rank($r['grade'] ?? ''),
+            'max_matches' => max(1, (int)($r['max_matches_per_weekend'] ?? 1)),
+            'max_days'    => max(1, (int)($r['max_days_per_weekend'] ?? 1)),
         ];
     }
 
-    // Matches to assign: treat NULL **or empty string** as unassigned ✅
-    $stmtSug = $pdo->prepare("
-    SELECT uuid, division, expected_grade, match_date, kickoff_time
-    FROM matches
-    WHERE deleted_at IS NULL
-      AND match_date BETWEEN ? AND ?
-      AND (referee_id IS NULL OR referee_id = '')
-");
-    $stmtSug->execute([$rangeStart, $rangeEnd]);
-    $allMatchesToAssign = $stmtSug->fetchAll(PDO::FETCH_ASSOC);
-
-    // Existing assignments for caps: treat NOT NULL **and not empty** as assigned ✅
-    $stmtExisting = $pdo->prepare("
-    SELECT referee_id, match_date
-    FROM matches
-    WHERE deleted_at IS NULL
-      AND match_date BETWEEN ? AND ?
-      AND referee_id IS NOT NULL
-      AND referee_id <> ''
-");
-    $stmtExisting->execute([$rangeStart, $rangeEnd]);
-    $allExistingAssigned = $stmtExisting->fetchAll(PDO::FETCH_ASSOC);
+    // Matches in range
+    $matches = $pdo->prepare("
+        SELECT uuid, match_date, kickoff_time, division, expected_grade, referee_id
+        FROM matches
+        WHERE deleted_at IS NULL
+          AND match_date BETWEEN ? AND ?
+        ORDER BY match_date, COALESCE(kickoff_time,'99:99:99'), uuid
+    ");
+    $matches->execute([$rangeStart, $rangeEnd]);
+    $allRows = $matches->fetchAll(PDO::FETCH_ASSOC);
 
     // Availability
-    $stmtU = $pdo->prepare("
+    $adhocStmt = $pdo->prepare("
         SELECT referee_id, start_date, end_date
         FROM referee_unavailability
         WHERE NOT (end_date < ? OR start_date > ?)
     ");
-    $stmtU->execute([$rangeStart, $rangeEnd]);
+    $adhocStmt->execute([$rangeStart, $rangeEnd]);
     $adhocByRef = [];
-    while ($row = $stmtU->fetch(PDO::FETCH_ASSOC)) $adhocByRef[$row['referee_id']][] = $row;
-
-    $stmtW = $pdo->query("
+    while ($row = $adhocStmt->fetch(PDO::FETCH_ASSOC)) {
+        if (!$row['referee_id']) continue;
+        $adhocByRef[$row['referee_id']][] = $row;
+    }
+    $weeklyQ = $pdo->query("
         SELECT referee_id, weekday, morning_available, afternoon_available, evening_available
         FROM referee_weekly_availability
     ");
     $weeklyByRef = [];
-    while ($row = $stmtW->fetch(PDO::FETCH_ASSOC)) {
-        $weeklyByRef[$row['referee_id']][(int)$row['weekday']] = [
+    while ($row = $weeklyQ->fetch(PDO::FETCH_ASSOC)) {
+        $rid = $row['referee_id']; if (!$rid) continue;
+        $weeklyByRef[$rid][(int)$row['weekday']] = [
             'morning_available'   => (bool)$row['morning_available'],
             'afternoon_available' => (bool)$row['afternoon_available'],
             'evening_available'   => (bool)$row['evening_available'],
@@ -159,100 +156,179 @@ try {
     }
 
     // Group by weekend
-    $matchesByWeekend = [];
-    foreach ($allMatchesToAssign as $m) {
-        [$fri,$sun] = friday_sunday_for($m['match_date']);
-        $matchesByWeekend["$fri|$sun"][] = $m;
-    }
-    $existingByWeekend = [];
-    foreach ($allExistingAssigned as $row) {
-        [$fri,$sun] = friday_sunday_for($row['match_date']);
-        $existingByWeekend["$fri|$sun"][] = $row;
+    $byWeekend = [];
+    foreach ($allRows as $m) {
+        [$fri,$sun] = fri_sun_for($m['match_date']);
+        $byWeekend["$fri|$sun"][] = $m;
     }
 
-    $totalConsidered = 0; $totalAssigned = 0;
+    // Stats
+    $totalToConsider = 0;
+    foreach ($weekends as [$ws,$we]) {
+        $k = "$ws|$we";
+        foreach ($byWeekend[$k] ?? [] as $m) {
+            if (empty($m['referee_id'])) $totalToConsider++;
+        }
+    }
+    $assignedNow = 0;
+    $progressSoFar = 0;
 
+    // Per-weekend loop (A→D inside)
     foreach ($weekends as [$wkStart, $wkEnd]) {
-        $key = "$wkStart|$wkEnd";
-        $matchesToAssign = array_values(array_filter($matchesByWeekend[$key] ?? [], fn($m)=>$m['match_date'] >= $wkStart && $m['match_date'] <= $wkEnd));
+        try {
+            $wkey = "$wkStart|$wkEnd";
+            $rows = array_values(array_filter($byWeekend[$wkey] ?? [], fn($r) => $r['match_date'] >= $wkStart && $r['match_date'] <= $wkEnd));
 
-        // caps from existing for this weekend
-        $weekMatchesCount = []; $weekDaysSet = [];
-        foreach ($existingByWeekend[$key] ?? [] as $row) {
-            $rid = $row['referee_id']; if (!$rid) continue;
-            $weekMatchesCount[$rid] = ($weekMatchesCount[$rid] ?? 0) + 1;
-            $weekDaysSet[$rid][$row['match_date']] = true;
-        }
+            // Seed counters & ledger from already-assigned  // FIX: build ledger here, not at file top
+            $weekMatches = [];     // rid -> count
+            $weekDaysSet = [];     // rid -> set(date=>true)
+            $weekLedger = [];     // rid -> [date => [[start,end], ...]]
 
-        foreach ($matchesToAssign as &$m) {
-            $m['req_grade']  = required_grade_for($m, $preferredGradeByDivision);
-            $m['req_weight'] = grade_weight($m['req_grade']);
-            if (!empty($m['kickoff_time']) && strlen($m['kickoff_time']) === 5) $m['kickoff_time'] .= ':00';
-        } unset($m);
-
-        usort($matchesToAssign, function($a,$b){
-            if ($a['req_weight'] !== $b['req_weight']) return $b['req_weight'] <=> $a['req_weight'];
-            if ($a['match_date'] !== $b['match_date']) return strcmp($a['match_date'], $b['match_date']);
-            $ta = $a['kickoff_time'] ?? '99:99:99'; $tb = $b['kickoff_time'] ?? '99:99:99';
-            if ($ta !== $tb) return strcmp($ta, $tb);
-            return strcmp($a['uuid'], $b['uuid']);
-        });
-
-        $batch = [];
-        foreach ($matchesToAssign as $m) {
-            $mid=$m['uuid']; $date=$m['match_date']; $time=$m['kickoff_time'] ?? '';
-            if ($time === '' || $time === null) { $batch[$mid] = null; continue; }
-
-            $reqW = $m['req_weight'];
-            $cands = [];
-            foreach ($refById as $rid=>$ref) {
-                if ($ref['grade_w'] < $reqW) continue;
-                if (!is_available_for($rid, $date, $time, $adhocByRef, $weeklyByRef)) continue;
-
-                $curM = $weekMatchesCount[$rid] ?? 0;
-                $curD = isset($weekDaysSet[$rid]) ? count($weekDaysSet[$rid]) : 0;
-                $nextM = $curM + 1;
-                $nextD = $curD + (isset($weekDaysSet[$rid][$date]) ? 0 : 1);
-                if ($nextM > $ref['max_matches_per_weekend']) continue;
-                if ($nextD > $ref['max_days_per_weekend']) continue;
-
-                $cands[] = ['uuid'=>$rid,'grade_w'=>$ref['grade_w'],'matches'=>$curM,'days'=>$curD];
+            foreach ($rows as $r) {
+                $rid = $r['referee_id'] ?? '';
+                if ($rid === '' || $rid === null) continue;
+                $date = $r['match_date'];
+                $ko = $r['kickoff_time'] ?? null;
+                $weekMatches[$rid] = ($weekMatches[$rid] ?? 0) + 1;
+                $weekDaysSet[$rid][$date] = true;
+                $iv = parse_dt($date, $ko);
+                if ($iv) $weekLedger[$rid][$date][] = $iv;
             }
-            if (!$cands) { $batch[$mid] = null; continue; }
 
-            $best = choose_best($cands);
-            if (!$best) { $batch[$mid] = null; continue; }
+            // Expected grade + KO normalization
+            foreach ($rows as &$r) {
+                $r['expected_letter'] = expected_grade_for_match_letter($r);
+                $r['expected_rank'] = expected_grade_rank($r);
+                $ko = (string)($r['kickoff_time'] ?? '');
+                if ($ko === '' || $ko === null) $r['kickoff_time'] = '13:00:00';
+                elseif (strlen($ko) === 5) $r['kickoff_time'] = $ko . ':00';
+            }
+            unset($r);
 
-            $rid = $best['uuid'];
-            $batch[$mid] = ['referee_id'=>$rid];
-            $weekMatchesCount[$rid] = ($weekMatchesCount[$rid] ?? 0) + 1;
-            $weekDaysSet[$rid][$date] = true;
+            // Sort A→D, then by date/time
+            usort($rows, function ($a, $b) {
+                if ($a['expected_rank'] !== $b['expected_rank']) return $b['expected_rank'] <=> $a['expected_rank'];
+                if ($a['match_date'] !== $b['match_date']) return strcmp($a['match_date'], $b['match_date']);
+                $ta = $a['kickoff_time'] ?? '99:99:99';
+                $tb = $b['kickoff_time'] ?? '99:99:99';
+                if ($ta !== $tb) return strcmp($ta, $tb);
+                return strcmp($a['uuid'], $b['uuid']);
+            });
+
+            $batch = []; // FIX: initialize, and emit this at end of weekend once
+
+            foreach ($rows as $m) {
+                if (!empty($m['referee_id'])) {
+                    $batch[$m['uuid']] = null;
+                    continue;
+                }
+
+                $progressSoFar++;
+                if ($totalToConsider > 0) {
+                    $pct = min(100, (int)round(100 * $progressSoFar / $totalToConsider));
+                    emit(['progress' => $pct, 'message' => "Processing {$wkStart} – {$wkEnd}"]);
+                }
+
+                $mid = $m['uuid'];
+                $date = $m['match_date'];
+                $ko = $m['kickoff_time'] ?? null;
+                $slot = parse_dt($date, $ko);
+                if (!$slot) {
+                    $batch[$mid] = null;
+                    continue;
+                }
+
+                $best = null; // ['rid'=>..., 'score'=>..., 'curDs'=>..., 'curM'=>...]
+                foreach ($refById as $rid => $meta) {
+                    // Current load (penalties only)
+                    $curM = (int)($weekMatches[$rid] ?? 0);
+                    $curDs = isset($weekDaysSet[$rid]) ? count($weekDaysSet[$rid]) : 0;
+
+                    $score = 100;
+                    $refRank = (int)$meta['rank'];
+                    $reqRank = (int)$m['expected_rank'];
+
+                    if ($refRank < $reqRank) {
+                        $score -= 40 * ($reqRank - $refRank);
+                    }
+
+                    $avail = is_available_for($rid, $date, $ko, $adhocByRef, $weeklyByRef);
+                    if (!$avail) $score -= 100;
+
+                    $hasConflict = false;
+                    if (!empty($weekLedger[$rid][$date])) {
+                        foreach ($weekLedger[$rid][$date] as $iv) {
+                            if (overlaps($slot, $iv)) {
+                                $hasConflict = true;
+                                break;
+                            }
+                        }
+                    }
+                    if ($hasConflict) $score -= 100;
+
+                    $dayMatches = !empty($weekLedger[$rid][$date]) ? count($weekLedger[$rid][$date]) : 0;
+                    $score -= 10 * $curM;
+                    $score -= 20 * $dayMatches;
+
+                    if ($best === null
+                        || $score > $best['score']
+                        || ($score === $best['score'] && ($curDs < $best['curDs']
+                                || ($curDs === $best['curDs'] && ($curM < $best['curM']
+                                        || ($curM === $best['curM'] && strcmp($rid, $best['rid']) < 0)))))) {
+                        $best = ['rid' => $rid, 'score' => $score, 'curDs' => $curDs, 'curM' => $curM];
+                    }
+                    $zeros = 0;
+                    if ($score === 0) $zeros++;
+
+                    if ($zeros > 0 && $best === null) {
+                        emit(['note' => 'all_zero', 'match_uuid' => $mid, 'zeros' => $zeros]);
+                    }
+
+                }
+
+                if ($best === null || $best['score'] === 0) {
+                    $batch[$mid] = null; // per your rule: do not assign exactly 0
+                } else {
+                    $chosen = $best['rid'];
+                    $batch[$mid] = ['referee_id' => $chosen];
+                    $assignedNow++;
+
+                    // Update counters/ledger so subsequent matches see it
+                    $weekMatches[$chosen] = ($weekMatches[$chosen] ?? 0) + 1;
+                    $weekDaysSet[$chosen][$date] = true;
+                    $weekLedger[$chosen][$date][] = $slot;
+                }
+            }
+
+            // FIX: emit once per weekend using the populated $batch
+            emit([
+                'weekend_start' => $wkStart,
+                'weekend_end' => $wkEnd,
+                'suggestions' => $batch,
+            ]);
+        } catch (Throwable $e) {
+            error_log("[suggest_assignments][weekend $wkStart-$wkEnd] ".$e->getMessage()." @ ".$e->getFile().":".$e->getLine());
+            emit([
+                'note' => 'weekend_error',
+                'weekend_start' => $wkStart,
+                'weekend_end'   => $wkEnd,
+                'message'       => 'failed this weekend',
+                'detail'        => (isset($_GET['debug']) && $_GET['debug']==='1') ? $e->getMessage() : null,
+            ]);
+            continue;
         }
-
-        $totalConsidered += count($matchesToAssign);
-        $totalAssigned   += count(array_filter($batch, fn($v)=>is_array($v) && !empty($v['referee_id'])));
-
-        // Stream with small debug counters so you can see why a weekend is empty
-        ndjson_line([
-            'weekend_start' => $wkStart,
-            'weekend_end'   => $wkEnd,
-            'debug'         => [
-                'candidates_in_window' => count($matchesToAssign),
-                'existing_assigned_in_window' => count($existingByWeekend[$key] ?? []),
-            ],
-            'suggestions'   => $batch,
-        ]);
     }
 
-    ndjson_line([
-        'done'=>true,
-        'scope'=>[
-            'range_start'=>$rangeStart, 'range_end'=>$rangeEnd,
-            'weekends'=>array_map(fn($w)=>['start'=>$w[0],'end'=>$w[1]], $weekends),
+    emit([
+        'done'  => true,
+        'scope' => [
+            'range_start' => $rangeStart,
+            'range_end'   => $rangeEnd,
+            'weekends'    => array_map(fn($w)=>['start'=>$w[0],'end'=>$w[1]], $weekends),
         ],
-        'stats'=>[
-            'matches_considered'=>$totalConsidered,
-            'assigned_now'=>$totalAssigned,
+        'stats' => [
+            'matches_considered' => $totalToConsider,
+            'assigned_now'       => $assignedNow,
         ],
     ]);
 
@@ -260,5 +336,25 @@ try {
     if (ob_get_level() > 0) @ob_end_flush();
 
 } catch (Throwable $e) {
-    ndjson_line(['error'=>'internal_error','message'=>$e->getMessage()]);
+    http_response_code(500);
+
+    // Always log full detail to server logs
+    error_log("[suggest_assignments] ".$e->getMessage()." in ".$e->getFile().":".$e->getLine()."\n".$e->getTraceAsString());
+
+    // Only expose details when explicitly requested
+    $debug = isset($_GET['debug']) && $_GET['debug'] === '1';
+    $payload = ['error' => 'internal_error', 'message' => 'Suggest failed'];
+
+    if ($debug) {
+        $payload['detail'] = [
+            'type'    => get_class($e),
+            'message' => $e->getMessage(),
+            'file'    => $e->getFile(),
+            'line'    => $e->getLine(),
+            'trace'   => array_slice(explode("\n", $e->getTraceAsString()), 0, 8),
+        ];
+    }
+
+    emit($payload);
 }
+

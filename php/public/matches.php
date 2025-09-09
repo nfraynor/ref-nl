@@ -1272,7 +1272,7 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
             if (end)    qs.set('end_date', end);
             if (search) qs.set('search', search);
 
-            const url = '/suggest_weekend_referees.php' + (qs.toString() ? `?${qs}` : '');
+            const url = '/suggest_assignments.php' + (qs.toString() ? `?${qs}` : '');
 
             try {
                 const res = await fetch(url);
@@ -1331,13 +1331,31 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
 
                 const updates = [];
                 for (const [uuid, roles] of Object.entries(suggestions || {})) {
+                    if (!roles || typeof roles !== 'object') continue; // <- skip null / non-objects
+
                     const u = { uuid: String(uuid) };
-                    if ('referee_id'      in roles) u.referee_id      = roles.referee_id      || '';
-                    if ('ar1_id'          in roles) u.ar1_id          = roles.ar1_id          || '';
-                    if ('ar2_id'          in roles) u.ar2_id          = roles.ar2_id          || '';
-                    if ('commissioner_id' in roles) u.commissioner_id = roles.commissioner_id || '';
-                    updates.push(u);
+                    let changed = false;
+
+                    if (Object.prototype.hasOwnProperty.call(roles, 'referee_id')) {
+                        u.referee_id = roles.referee_id || '';
+                        changed = true;
+                    }
+                    if (Object.prototype.hasOwnProperty.call(roles, 'ar1_id')) {
+                        u.ar1_id = roles.ar1_id || '';
+                        changed = true;
+                    }
+                    if (Object.prototype.hasOwnProperty.call(roles, 'ar2_id')) {
+                        u.ar2_id = roles.ar2_id || '';
+                        changed = true;
+                    }
+                    if (Object.prototype.hasOwnProperty.call(roles, 'commissioner_id')) {
+                        u.commissioner_id = roles.commissioner_id || '';
+                        changed = true;
+                    }
+
+                    if (changed) updates.push(u);
                 }
+
 
                 const currentIds = new Set((table.getData() || []).map(r => String(r.uuid)));
                 const inPage     = updates.filter(u => currentIds.has(String(u.uuid)));
@@ -1350,23 +1368,69 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
                 if (!inPage.length) {
                     alert('No suggested matches on this page. Try paging or widen the date filter.');
                 } else {
+                    // 1) Apply to UI quickly so users see something
                     try {
                         await table.updateData(inPage);
                     } catch (e) {
-                        console.warn('[Suggest] batch update rejected, falling back per-row:', e?.message || e);
+                        console.warn('[Suggest] batch update rejected, fallback per-row:', e?.message || e);
                         for (const u of inPage) {
                             try { await table.updateData([u]); } catch (e2) { console.warn('Row failed', u.uuid, e2?.message || e2); }
                         }
                     }
-                    applyIndicators(table);
-                    inPage.forEach(u => {
-                        const base = baselineById.get(u.uuid) || {};
-                        ['referee_id','ar1_id','ar2_id','commissioner_id'].forEach(f => {
-                            if (f in u) base[f] = u[f] || null;
-                        });
-                        baselineById.set(u.uuid, base);
-                    });
+
+                    // 2) Persist to server using your existing endpoint
+                    //    (We only expect referee_id from suggest; skip empty/nulls)
+                    const tasks = [];
+                    for (const u of inPage) {
+                        if (typeof u.referee_id === 'string') {
+                            tasks.push(saveAssignment(u.uuid, 'referee_id', u.referee_id));
+                        }
+                        // If you later add ARs/commissioner to suggestions, include them here too:
+                        // if (typeof u.ar1_id === 'string') tasks.push(saveAssignment(u.uuid, 'ar1_id', u.ar1_id));
+                        // if (typeof u.ar2_id === 'string') tasks.push(saveAssignment(u.uuid, 'ar2_id', u.ar2_id));
+                        // if (typeof u.commissioner_id === 'string') tasks.push(saveAssignment(u.uuid, 'commissioner_id', u.commissioner_id));
+                    }
+
+                    // small concurrency helper to avoid hammering
+                    async function runLimited(jobs, limit = 8) {
+                        const pool = [];
+                        const results = [];
+                        for (const j of jobs) {
+                            const p = Promise.resolve(j).then(fn => fn?.success === undefined ? fn : fn);
+                            pool.push(p);
+                            if (pool.length >= limit) {
+                                results.push(await Promise.race(pool.map(async (pp, i) => {
+                                    const r = await pp;
+                                    pool.splice(i, 1);
+                                    return r;
+                                })));
+                            }
+                        }
+                        results.push(...(await Promise.allSettled(pool)).map(x => x.value ?? x.reason));
+                        return results;
+                    }
+
+                    // Wrap save calls as thunks
+                    const jobs = tasks.map(() => null); // placeholder to maintain length
+                    for (let i = 0; i < tasks.length; i++) {
+                        const { uuid, referee_id } = inPage[i];
+                        jobs[i] = (async () => {
+                            const res = await saveAssignment(uuid, 'referee_id', referee_id);
+                            return { uuid, ok: !!res?.success, err: res?.message };
+                        })();
+                    }
+                    const results = await runLimited(jobs, 8);
+                    const failed = results.filter(r => !r?.ok);
+                    if (failed.length) {
+                        console.warn('[Suggest] save failures:', failed.slice(0,5));
+                    }
+
+                    // 3) Pull fresh rows so fit scores/flags are up-to-date, repaint, and recapture baseline
+                    await table.setData();      // re-fetch from server
+                    applyIndicators(table);     // repaint conflicts + fit dots/score backgrounds
+                    captureBaseline(table);     // sync baseline with what’s now in DB
                 }
+
 
             } catch (err) {
                 console.error('[Suggest] error:', err);
