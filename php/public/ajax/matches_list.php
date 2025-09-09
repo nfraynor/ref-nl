@@ -38,15 +38,6 @@ register_shutdown_function(function() use ($REQ_ID) {
 
 // ======== Helpers: grades, recency, fit scoring ========
 
-// Map letters -> numeric strength for comparisons
-if (!function_exists('normalize_grade_letter')) {
-    function normalize_grade_letter(?string $g): int {
-        static $map = ['A'=>4,'B'=>3,'C'=>2,'D'=>1];
-        $g = strtoupper(trim((string)$g));
-        return $map[$g] ?? 0;
-    }
-}
-
 /** Same venue iff BOTH uuids are non-empty and equal. */
 function same_venue_uuid_only(?string $u1, ?string $u2): bool {
     $u1 = trim((string)$u1);
@@ -425,12 +416,26 @@ function compute_match_fit(PDO $pdo, array $matchRow, string $refUuid, ?string $
     }
     if (debug_enabled()) $DEBUG['prox'] = $Dprox;
 
-    $refG  = normalize_grade_letter($refGrade);
-    $needL = (function_exists('expected_grade_for_match_letter') ? expected_grade_for_match_letter($matchRow) : null) ?? ($matchRow['expected_grade'] ?? 'D');
-    $needG = normalize_grade_letter($needL);
-    if ($refG > 0 && $needG > 0 && $refG < $needG) { $score -= $FIT_PENALTIES['below_grade']; $flags[]='below_grade'; }
+    // Use shared policy (handles "B2", "c+" etc. and division fallback)
+    $refG  = function_exists('grade_to_rank') ? grade_to_rank($refGrade) : 0;
+    $needL = function_exists('expected_grade_for_match_letter')
+        ? expected_grade_for_match_letter($matchRow)
+        : (($matchRow['expected_grade'] ?? 'D')); // safe fallback
+    $needG = expected_grade_rank($matchRow);
 
-    if (debug_enabled()) $DEBUG['grade'] = ['ref'=>$refGrade,'refG'=>$refG,'need'=>$needL,'needG'=>$needG];
+    if ($refG > 0 && $needG > 0 && $refG < $needG) {
+        $score -= $FIT_PENALTIES['below_grade'];
+        $flags[] = 'below_grade';
+    }
+
+    if (debug_enabled()) {
+        $DEBUG['grade'] = [
+            'ref_raw' => $refGrade,
+            'refG'    => $refG,
+            'needL'   => $needL,
+            'needG'   => $needG,
+        ];
+    }
 
     $homeUuid  = (string)($matchRow['home_team_uuid'] ?? '');
     $awayUuid  = (string)($matchRow['away_team_uuid'] ?? '');

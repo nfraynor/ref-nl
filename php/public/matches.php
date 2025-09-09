@@ -763,7 +763,8 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
     function formatRefCell(cell){
         const id    = cell.getValue();
         const label = id ? (refereeOptions[id] || "—") : "—";
-        const g     = id ? (refereeMeta[id]?.grade || "").toUpperCase() : "";
+        const raw   = id ? (refereeMeta[id]?.grade || "") : "";
+        const g     = raw.toString().trim().toUpperCase().slice(0,1); // only first letter
         const klass = ["A","B","C","D"].includes(g) ? `chip-${g}` : "chip-E";
         const grade = g ? ` <span class="badge ${klass}">${g}</span>` : "";
         const clearBtn = (ASSIGN_MODE && id) ? `<button class="assign-clear-btn" type="button" title="Unassign" aria-label="Unassign">×</button>` : "";
